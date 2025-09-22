@@ -7,6 +7,7 @@ const { errorHandler } = require("./middlewares/error");
 const authRoutes = require("./services/auth/routes");
 const session = require("express-session");
 const cookieParser = require("cookie-parser");
+const { query } = require("./db/pool");
 
 const { ensureAuthenticated } = require("./middlewares/auth");
 
@@ -45,6 +46,8 @@ app.get("/api/health", (req, res) =>
   })
 );
 
+// app.use(ensureAuthenticated);
+
 app.get("/verify", ensureAuthenticated, (req, res) => {
   const { account } = req.session;
   console.log(account);
@@ -56,6 +59,22 @@ app.get("/verify", ensureAuthenticated, (req, res) => {
       oid: account?.localAccountId,
     },
   });
+});
+
+app.get("/api/forms/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    const [form] = await query("SELECT * FROM Forms WHERE form_id = @id", {
+      id,
+    });
+    const fields = await query(
+      "SELECT * FROM FormFields WHERE form_id = @id ORDER BY sort_order ASC",
+      { id }
+    );
+    res.json({ form, fields });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const port = process.env.PORT || 3000;
