@@ -11,6 +11,9 @@ const { query } = require("./db/pool");
 
 const { ensureAuthenticated } = require("./middlewares/auth");
 
+// Import API From Services
+const formsRoutes = require("./services/forms/routes");
+
 dotenv.config();
 
 const app = express();
@@ -33,22 +36,34 @@ app.use(
   })
 );
 
-app.use("/auth", authRoutes);
+app.use("/api/auth", authRoutes);
 
 app.use(errorHandler);
 
-app.get("/api/health", (req, res) =>
-  res.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    version: "1.0.0",
-    environment: process.env.NODE_ENV,
-  })
-);
+app.get("/api/health", async (req, res) => {
+  try {
+    const [row] = await query("SELECT 1 AS ok");
+    if (row?.ok !== 1) {
+      return res.status(500).json({ status: "fail" });
+    }
+    res.json({
+      status: "ok",
+      dbStatus: "up",
+      timestamp: new Date().toISOString(),
+      version: "1.0.0",
+      environment: process.env.NODE_ENV || "development",
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: "fail",
+      error: err.message,
+    });
+  }
+});
 
 // app.use(ensureAuthenticated);
 
-app.get("/verify", ensureAuthenticated, (req, res) => {
+app.get("/verify", (req, res) => {
   const { account } = req.session;
   console.log(account);
   res.json({
@@ -61,21 +76,7 @@ app.get("/verify", ensureAuthenticated, (req, res) => {
   });
 });
 
-app.get("/api/forms/:id", async (req, res) => {
-  const id = Number(req.params.id);
-  try {
-    const [form] = await query("SELECT * FROM Forms WHERE form_id = @id", {
-      id,
-    });
-    const fields = await query(
-      "SELECT * FROM FormFields WHERE form_id = @id ORDER BY sort_order ASC",
-      { id }
-    );
-    res.json({ form, fields });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+app.use("/api/forms", formsRoutes);
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`Server running on ${port}`));
