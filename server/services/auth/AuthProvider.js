@@ -153,6 +153,25 @@ class AuthProvider {
         req.session.account = tokenResponse.account;
         req.session.isAuthenticated = true;
 
+        const claims = tokenResponse.idTokenClaims || {};
+        const entraObjectId = claims.oid || claims.sub; // Entra object id
+        const email =
+          claims.preferred_username ||
+          claims.email ||
+          tokenResponse.account?.username ||
+          null;
+        const displayName = claims.name || null;
+
+        try {
+          await ensureUser({
+            entraObjectId,
+            email,
+            displayName,
+          });
+        } catch (error) {
+          console.log(error);
+        }
+
         const state = JSON.parse(
           this.cryptoProvider.base64Decode(req.body.state)
         );
