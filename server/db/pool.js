@@ -1,6 +1,6 @@
-const sql = require("mssql");
+const { Pool } = require("pg");
 
-let poolPromise;
+let pool;
 
 function envBool(name, def = "true") {
   return String(process.env[name] ?? def).toLowerCase() === "true";
@@ -8,93 +8,94 @@ function envBool(name, def = "true") {
 
 function getEnv() {
   return {
-    server: process.env.SQL_SERVER || "localhost",
-    instance: process.env.SQL_INSTANCE || "",
-    port: Number(process.env.SQL_PORT || 1433),
-    database: process.env.SQL_DATABASE || "erp-itbd",
-    user: process.env.SQL_USER || "sa",
-    password: process.env.SQL_PASSWORD || "",
-    encrypt: envBool("SQL_ENCRYPT", "true"),
-    trustServerCertificate: envBool("SQL_TRUST_SERVER_CERT", "true"),
-    poolMax: Number(process.env.SQL_POOL_MAX || 10),
-    poolMin: Number(process.env.SQL_POOL_MIN || 0),
-    poolIdle: Number(process.env.SQL_POOL_IDLE_MS || 30000),
+    host: process.env.PG_HOST || "localhost",
+    port: Number(process.env.PG_PORT || 5432),
+    database: process.env.PG_DATABASE || "form-builder",
+    user: process.env.PG_USER || "postgres",
+    password: process.env.PG_PASSWORD || "",
+    ssl: envBool("PG_SSL", "false"),
+    poolMax: Number(process.env.PG_POOL_MAX || 10),
+    poolMin: Number(process.env.PG_POOL_MIN || 0),
+    poolIdle: Number(process.env.PG_POOL_IDLE_MS || 30000),
+    connectionTimeoutMillis: Number(process.env.PG_CONNECTION_TIMEOUT || 10000),
   };
 }
 
 function buildConnectionString(e) {
-  const serverPart = e.instance
-    ? `${e.server}\\${e.instance}`
-    : `${e.server},${e.port}`;
-
   const parts = [
-    `Server=${serverPart}`,
+    `Host=${e.host}`,
+    `Port=${e.port}`,
     `Database=${e.database}`,
-    `User Id=${e.user}`,
+    `Username=${e.user}`,
     `Password=***redacted***`,
-    `Encrypt=${e.encrypt ? "True" : "False"}`,
-    `TrustServerCertificate=${e.trustServerCertificate ? "True" : "False"}`,
+    `SSL Mode=${e.ssl ? "Require" : "Disable"}`,
   ];
   return parts.join(";") + ";";
 }
 
-function buildMssqlConfig(e) {
+function buildPgConfig(e) {
   const cfg = {
-    server: e.server,
+    host: e.host,
+    port: e.port,
     database: e.database,
     user: e.user,
     password: e.password,
-    pool: {
-      max: e.poolMax,
-      min: e.poolMin,
-      idleTimeoutMillis: e.poolIdle,
-    },
-    options: {
-      encrypt: e.encrypt,
-      trustServerCertificate: e.trustServerCertificate,
-      enableArithAbort: true,
-    },
+    max: e.poolMax,
+    min: e.poolMin,
+    idleTimeoutMillis: e.poolIdle,
+    connectionTimeoutMillis: e.connectionTimeoutMillis,
   };
 
-  if (e.instance) {
-    cfg.options.instanceName = e.instance;
-  } else {
-    cfg.port = e.port;
+  if (e.ssl) {
+    cfg.ssl = {
+      rejectUnauthorized: false, // Similar to trustServerCertificate
+    };
   }
+
   return cfg;
 }
 
 async function getPool() {
-  if (!poolPromise) {
+  if (!pool) {
     const env = getEnv();
-    const cfg = buildMssqlConfig(env);
+    const cfg = buildPgConfig(env);
     const cs = buildConnectionString(env);
     console.log(`[db] Connecting with: ${cs}`);
 
-    const pool = new sql.ConnectionPool(cfg);
-    poolPromise = pool.connect().catch((err) => {
-      poolPromise = undefined;
-      throw err;
+    pool = new Pool(cfg);
+
+    pool.on("error", (err) => {
+      console.error("[db] Unexpected pool error:", err);
     });
+
+    // Test the connection
+    try {
+      const client = await pool.connect();
+      client.release();
+    } catch (err) {
+      pool = undefined;
+      throw err;
+    }
   }
-  return poolPromise;
+  return pool;
 }
 
-async function query(text, params = {}) {
+async function query(text, params = []) {
   const pool = await getPool();
-  const req = pool.request();
-  for (const [k, v] of Object.entries(params)) req.input(k, v);
-  const result = await req.query(text);
-  return result.recordset;
+  // PostgreSQL uses $1, $2, etc. for parameterized queries
+  const result = await pool.query(text, params);
+  return result.rows;
 }
 
 async function closePool() {
   try {
-    if (poolPromise) {
-      const pool = await poolPromise;
-      await pool.close();
+    if (pool) {
+      await pool.end();
+      pool = undefined;
     }
-  } catch {}
+  } catch (err) {
+    console.error("[db] Error closing pool:", err);
+  }
 }
 
 process.on("SIGINT", async () => {
@@ -106,4 +107,4 @@ process.on("SIGTERM", async () => {
   process.exit(0);
 });
 
-module.exports = { sql, getPool, query, buildConnectionString };
+module.exports = { Pool, getPool, query, buildConnectionString };
