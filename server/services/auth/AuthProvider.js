@@ -1,6 +1,6 @@
 const msal = require("@azure/msal-node");
 const axios = require("axios");
-
+const { ensureUser } = require("./queries");
 const { msalConfig } = require("./authConfig");
 
 class AuthProvider {
@@ -129,7 +129,7 @@ class AuthProvider {
       if (!req.body || !req.body.state) {
         return next(new Error("Error: response not found"));
       }
-
+      console.log(req.session);
       const authCodeRequest = {
         ...req.session.authCodeRequest,
         code: req.body.code,

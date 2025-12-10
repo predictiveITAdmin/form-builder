@@ -2,7 +2,7 @@ const { Pool } = require("pg");
 
 let pool;
 
-function envBool(name, def = "true") {
+function envBool(name, def = "false") {
   return String(process.env[name] ?? def).toLowerCase() === "true";
 }
 
@@ -13,7 +13,7 @@ function getEnv() {
     database: process.env.PG_DATABASE || "form-builder",
     user: process.env.PG_USER || "postgres",
     password: process.env.PG_PASSWORD || "",
-    ssl: envBool("PG_SSL", "false"),
+    ssl: envBool("PG_SSL", "false"), // control via env
     poolMax: Number(process.env.PG_POOL_MAX || 10),
     poolMin: Number(process.env.PG_POOL_MIN || 0),
     poolIdle: Number(process.env.PG_POOL_IDLE_MS || 30000),
@@ -48,8 +48,11 @@ function buildPgConfig(e) {
 
   if (e.ssl) {
     cfg.ssl = {
-      rejectUnauthorized: false, // Similar to trustServerCertificate
+      rejectUnauthorized: false, // like trustServerCertificate
     };
+  } else {
+    // Explicitly disable SSL so pg doesn't try anything clever
+    cfg.ssl = false;
   }
 
   return cfg;
@@ -57,9 +60,9 @@ function buildPgConfig(e) {
 
 async function getPool() {
   if (!pool) {
-    const env = getEnv();
-    const cfg = buildPgConfig(env);
-    const cs = buildConnectionString(env);
+    let env = getEnv();
+    let cfg = buildPgConfig(env);
+    let cs = buildConnectionString(env);
     console.log(`[db] Connecting with: ${cs}`);
 
     pool = new Pool(cfg);
@@ -71,10 +74,33 @@ async function getPool() {
     // Test the connection
     try {
       const client = await pool.connect();
+      console.log(`[pg]: Connected Successfully.`);
       client.release();
     } catch (err) {
-      pool = undefined;
-      throw err;
+      // If SSL was requested but the server doesn't support it, retry without SSL
+      if (
+        env.ssl &&
+        typeof err.message === "string" &&
+        /does not support ssl/i.test(err.message)
+      ) {
+        console.warn(
+          "[db] Server does not support SSL, falling back to non-SSL."
+        );
+        env.ssl = false;
+        cfg = buildPgConfig(env);
+        cs = buildConnectionString(env);
+        console.log(`[db] Reconnecting with: ${cs}`);
+
+        // rebuild pool without SSL
+        pool = new Pool(cfg);
+
+        const client = await pool.connect();
+        console.log(`[pg]: Connected Successfully.`);
+        client.release();
+      } else {
+        pool = undefined;
+        throw err;
+      }
     }
   }
   return pool;
