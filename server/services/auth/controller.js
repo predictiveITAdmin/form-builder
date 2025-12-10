@@ -5,10 +5,7 @@ const { authConfig } = require("./authConfig");
 
 const hashPassword = (password) => {
   return new Promise((resolve, reject) => {
-    // Generate a 64-byte salt (fits in VARBINARY(128))
     const salt = crypto.randomBytes(64);
-
-    // Hash using PBKDF2: Password, Salt, Iterations, KeyLength, Digest
     crypto.pbkdf2(password, salt, 100000, 64, "sha512", (err, derivedKey) => {
       if (err) reject(err);
       resolve({ salt, hash: derivedKey });
@@ -18,7 +15,6 @@ const hashPassword = (password) => {
 
 const verifyPassword = (password, storedHash, storedSalt) => {
   return new Promise((resolve, reject) => {
-    // Use the exact same parameters as hashPassword
     crypto.pbkdf2(
       password,
       storedSalt,
