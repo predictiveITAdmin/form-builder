@@ -113,7 +113,8 @@ module.exports = {
           role: user.user_type,
           displayName: user.display_name,
         },
-        process.env.JWT_SECRET || "your_fallback_secret",
+        process.env.JWT_SECRET ||
+          "adb854535074b282f32dc1d1204e5d6634a203c964463abfb20xc",
         { expiresIn: "8h" }
       );
 
