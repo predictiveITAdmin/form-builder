@@ -8,14 +8,11 @@ const { requireAny } = require("../../middlewares/authorize");
 const router = express.Router({ mergeParams: true });
 
 // nested under /api/forms/:id
-router.post("/", optionalAzureAuth(), ctrl.create); // will enforce anon rules inside
-router.get("/", azureAuth(), requireAny("Admin", "Manager"), ctrl.list);
-router.get(
-  "/:responseId",
-  azureAuth(),
-  requireAny("Admin", "Manager"),
-  ctrl.get
-);
-router.delete("/:responseId", azureAuth(), requireAny("Admin"), ctrl.remove);
+router.post("/api/forms/:id/responses", ctrl.create);
+router.post("/api/forms/:id/responses/from-session", ctrl.createFromSession);
+router.get("/api/forms/:id/responses", ctrl.list);
+router.get("/api/forms/:id/responses/analytics", ctrl.getAnalytics);
+router.get("/api/forms/:id/responses/:responseId", ctrl.get);
+router.delete("/api/forms/:id/responses/:responseId", ctrl.remove);
 
 module.exports = router;
