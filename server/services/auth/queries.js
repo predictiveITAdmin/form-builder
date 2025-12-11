@@ -31,15 +31,15 @@ async function getUserByInviteToken(inviteToken) {
     [inviteToken]
   );
 
-  return result.rows[0];
+  return result[0];
 }
 
 async function getUserByEmail(email) {
   const result = await query(`SELECT * FROM Public.Users WHERE email = $1`, [
     email,
   ]);
-
-  return result.rows[0];
+  console.log(result);
+  return result[0];
 }
 
 async function updateUserCredentials(userId, { password_hash, password_salt }) {
@@ -51,8 +51,7 @@ async function updateUserCredentials(userId, { password_hash, password_salt }) {
         password_hash = $1,
         password_salt = $2,
         invite_token = NULL,
-        invite_token_expires_at = NULL,
-        updated_at = NOW() -- Optional: if you have an updated_at column
+        invite_token_expires_at = NULL
       WHERE user_id = $3
     `,
     [password_hash, password_salt, userId]
@@ -83,7 +82,7 @@ async function createExternalUser({
     [email, displayName, inviteToken, inviteTokenExpiresAt]
   );
 
-  return result.rows[0];
+  return result[0];
 }
 
 module.exports = {

@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const queries = require("./queries");
 const { authConfig } = require("./authConfig");
+const { sendInviteEmail } = require("./utils");
 
 const hashPassword = (password) => {
   return new Promise((resolve, reject) => {
@@ -162,6 +163,7 @@ module.exports = {
       });
 
       const inviteLink = `${process.env.FRONTEND_URL}/create-password?token=${inviteToken}`;
+      sendInviteEmail(email, inviteLink);
       return res
         .status(201)
         .json({ message: "User created and invite email sent." });
