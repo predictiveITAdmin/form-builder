@@ -34,14 +34,6 @@ async function getUserByInviteToken(inviteToken) {
   return result[0];
 }
 
-async function getUserByEmail(email) {
-  const result = await query(`SELECT * FROM Public.Users WHERE email = $1`, [
-    email,
-  ]);
-  console.log(result);
-  return result[0];
-}
-
 async function updateUserCredentials(userId, { password_hash, password_salt }) {
   const pool = await getPool();
   await pool.query(
@@ -85,10 +77,66 @@ async function createExternalUser({
   return result[0];
 }
 
+const getUserById = async (userId) => {
+  // Replace with your actual database query
+  const query = `
+    SELECT 
+      user_id,
+      email,
+      display_name,
+      user_type,
+      entra_object_id,
+      created_at,
+    FROM users
+    WHERE user_id = $1
+  `;
+
+  const result = await db.query(query, [userId]);
+  return result[0] || null;
+};
+
+const getUserByEntraObjectId = async (entraObjectId) => {
+  const query = `
+    SELECT 
+      user_id,
+      email,
+      display_name,
+      user_type,
+      entra_object_id,
+      created_at,
+      updated_at,
+      last_login_at
+    FROM users
+    WHERE entra_object_id = $1
+  `;
+
+  const result = await db.query(query, [entraObjectId]);
+  return result.rows[0] || null;
+};
+
+const getUserByEmail = async (email) => {
+  const query = `
+    SELECT 
+      user_id,
+      email,
+      display_name,
+      user_type,
+      entra_object_id,
+      created_at,
+    FROM users
+    WHERE email = $1
+  `;
+
+  const result = await db.query(query, [email]);
+  return result[0] || null;
+};
+
 module.exports = {
   ensureUser,
   getUserByInviteToken,
   getUserByEmail,
   updateUserCredentials,
   createExternalUser,
+  getUserById,
+  getUserByEntraObjectId,
 };

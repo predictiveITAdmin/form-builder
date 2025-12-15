@@ -19,7 +19,7 @@ router.get(
   authProvider.login({
     scopes: [],
     redirectUri: REDIRECT_URI,
-    successRedirect: "/",
+    successRedirect: process.env.FRONTEND_URL,
   })
 );
 

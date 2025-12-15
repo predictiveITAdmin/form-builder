@@ -173,4 +173,88 @@ module.exports = {
       return res.status(500).json({ message: "Internal Server Error" });
     }
   },
+  getMe: async (req, res) => {
+    try {
+      let user = null;
+
+      // Check if it's an Azure AD user
+      if (req.user.type === "internal") {
+        // Try to find user by Entra Object ID first
+        if (req.user.oid) {
+          user = await queries.getUserByEntraObjectId(req.user.oid);
+        }
+
+        // If not found by OID, try by email
+        if (!user && req.user.email) {
+          user = await queries.getUserByEmail(req.user.email);
+        }
+
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            message:
+              "User not found in database. Please contact administrator.",
+          });
+        }
+
+        // Return Azure AD user data
+        return res.status(200).json({
+          success: true,
+          data: {
+            id: user.user_id,
+            email: user.email,
+            displayName: user.display_name,
+            userType: user.user_type,
+            entraObjectId: user.entra_object_id,
+            createdAt: user.created_at,
+            updatedAt: user.updated_at,
+            lastLoginAt: user.last_login_at,
+            // Azure-specific fields
+            azureRoles: Array.from(req.user.roles || []),
+            azureGroups: Array.from(req.user.groups || []),
+          },
+        });
+      }
+
+      // External user (JWT)
+      if (req.user.type === "external") {
+        user = await queries.getUserById(req.user.userId);
+
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            message: "User not found",
+          });
+        }
+
+        // Return external user data
+        return res.status(200).json({
+          success: true,
+          data: {
+            id: user.user_id,
+            email: user.email,
+            displayName: user.display_name,
+            userType: user.user_type,
+            createdAt: user.created_at,
+            updatedAt: user.updated_at,
+            lastLoginAt: user.last_login_at,
+          },
+        });
+      }
+
+      // Shouldn't reach here, but just in case
+      return res.status(401).json({
+        success: false,
+        message: "Invalid user type",
+      });
+    } catch (error) {
+      console.error("Error in getMe:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  },
 };

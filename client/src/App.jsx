@@ -1,20 +1,72 @@
 import { Routes, Route } from "react-router";
-import { Button, HStack } from "@chakra-ui/react";
-import Home from "./components/Home";
-import About from "./components/About";
+import { Navigate } from "react-router-dom";
+import Home from "./pages/Home";
+import Layout from "./pages/Layout";
+import Dashboard from "./pages/Dashboard";
+import Configuration from "./pages/Configuration";
+import Forms from "./pages/Forms";
+import Responses from "./pages/Responses";
+import { loadSession } from "./features/auth/authSlice";
+import { useEffect } from "react";
+import { useDispatch } from "react-redux";
+import RequireAuth from "./components/RequireAuth";
+import LoginPage from "./pages/LoginPage";
 
+// Main App Component
 function App() {
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    dispatch(loadSession());
+  }, [dispatch]);
   return (
-    <>
-      <div>Hello from Vite + React</div>
-      <HStack>
-        <Button>Click Me</Button>
-      </HStack>
-      <Routes>
-        <Route path="/" element={<Home />}></Route>
-        <Route path="/about" element={<About />}></Route>
-      </Routes>
-    </>
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/auth/redirect" element={<Navigate to="/" replace />} />
+      <Route element={<RequireAuth />}>
+        <Route
+          path="/"
+          element={
+            <Layout>
+              <Home />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/dashboard"
+          element={
+            <Layout>
+              <Dashboard />
+            </Layout>
+          }
+        />
+        <Route
+          path="/configuration"
+          element={
+            <Layout>
+              <Configuration />
+            </Layout>
+          }
+        />
+        <Route
+          path="/forms"
+          element={
+            <Layout>
+              <Forms />
+            </Layout>
+          }
+        />
+        <Route
+          path="/responses"
+          element={
+            <Layout>
+              <Responses />
+            </Layout>
+          }
+        />
+      </Route>
+    </Routes>
   );
 }
 
