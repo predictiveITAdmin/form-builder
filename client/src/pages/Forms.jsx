@@ -1,16 +1,14 @@
-import { Box, Text } from "@chakra-ui/react";
+import { Box, Container, Flex } from "@chakra-ui/react";
+import { Outlet } from "react-router-dom";
 
-function Forms() {
+export default function FormsLayout() {
   return (
-    <Box>
-      <Text fontSize="3xl" fontWeight="bold" mb={4}>
-        Forms Page
-      </Text>
-      <Text color="gray.600">
-        Welcome to the Forms page of your application.
-      </Text>
+    <Box w="full" py={6}>
+      <Container maxW="7xl">
+        <Flex direction="column" gap={4}>
+          <Outlet />
+        </Flex>
+      </Container>
     </Box>
   );
 }
-
-export default Forms;

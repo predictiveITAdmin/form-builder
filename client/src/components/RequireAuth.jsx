@@ -4,6 +4,6 @@ import { Navigate, Outlet } from "react-router-dom";
 export default function RequireAuth() {
   const { isAuthenticated, status } = useSelector((s) => s.auth);
 
-  if (status === "loading") return null;
+  if (status === "idle" || status === "loading") return null;
   return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 }

@@ -7,7 +7,7 @@ var express = require("express");
 
 const { azureAuth } = require("../../middlewares/azureAuth");
 const { requireAny } = require("../../middlewares/authorize");
-
+const { authMiddleware } = require("../../middlewares/authMiddleware");
 const authProvider = require("./AuthProvider");
 const { REDIRECT_URI, POST_LOGOUT_REDIRECT_URI } = require("./authConfig");
 const controller = require("./controller");
@@ -41,8 +41,9 @@ router.get(
   })
 );
 
-router.post("/createUser", azureAuth(), controller.createUser);
+router.post("/createUser", controller.createUser);
 router.post("/login", controller.login);
 router.post("/createPassword", controller.createPassword);
+router.get("/me", authMiddleware, controller.getMe);
 
 module.exports = router;

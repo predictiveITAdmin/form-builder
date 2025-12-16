@@ -1,64 +1,83 @@
 const jwt = require("jsonwebtoken");
-const { azureAuth } = require("./azureAuth");
+const jwksClient = require("jwks-rsa");
+
+const tenantId = process.env.AZURE_TENANT_ID;
+const allowedAud = new Set(
+  (process.env.AZURE_ALLOWED_AUDIENCES || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+);
+
+const azureClient = jwksClient({
+  jwksUri: `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`,
+  cache: true,
+  cacheMaxEntries: 5,
+  cacheMaxAge: 10 * 60 * 1000,
+});
+
+function getAzureKey(header, cb) {
+  azureClient.getSigningKey(header.kid, (err, key) => {
+    if (err) return cb(err);
+    cb(null, key.getPublicKey());
+  });
+}
 
 const authMiddleware = (req, res, next) => {
-  const auth = req.headers.authorization || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  /* -------------------------------------------------
+     1️⃣ SESSION AUTH (Azure SSO)
+  -------------------------------------------------- */
+  if (req.session?.account) {
+    req.user = {
+      ...req.session.account,
+      authSource: "session",
+      type: "internal",
+    };
+    return next();
+  }
 
-  if (!token) {
+  /* -------------------------------------------------
+     2️⃣ AUTH HEADER (JWT or Azure Bearer)
+  -------------------------------------------------- */
+  const authHeader = req.headers.authorization || "";
+  if (!authHeader.startsWith("Bearer ")) {
     return res.status(401).json({
       success: false,
       message: "Authentication required",
     });
   }
 
+  const token = authHeader.slice(7);
+
+  /* -------------------------------------------------
+     3️⃣ LOCAL JWT (HS256)
+  -------------------------------------------------- */
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET ||
-        "adb854535074b282f32dc1d1204e5d6634a203c964463abfb20xc",
-      { ignoreExpiration: false }
-    );
-    if (decoded.userId) {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+      ignoreExpiration: false,
+    });
+
+    if (decoded?.userId) {
       req.user = {
         type: "external",
         userId: decoded.userId,
         email: decoded.email,
         role: decoded.role,
         displayName: decoded.displayName,
+        authSource: "jwt",
       };
       return next();
     }
-  } catch (jwtError) {
-    // Not a valid external JWT, try Azure AD verification
-    // This is expected for Azure tokens, so we continue
-  }
-  const jwksClient = require("jwks-rsa");
-  const tenantId = process.env.AZURE_TENANT_ID;
-  const allowedAud = new Set(
-    (process.env.AZURE_ALLOWED_AUDIENCES || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-  );
-
-  const client = jwksClient({
-    jwksUri: `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`,
-    cache: true,
-    cacheMaxEntries: 5,
-    cacheMaxAge: 10 * 60 * 1000,
-  });
-
-  function getKey(header, cb) {
-    client.getSigningKey(header.kid, (err, key) => {
-      if (err) return cb(err);
-      cb(null, key.getPublicKey());
-    });
+  } catch (err) {
+    // Not a local JWT → continue to Azure
   }
 
+  /* -------------------------------------------------
+     4️⃣ AZURE BEARER TOKEN (RS256)
+  -------------------------------------------------- */
   jwt.verify(
     token,
-    getKey,
+    getAzureKey,
     {
       algorithms: ["RS256"],
       issuer: `https://login.microsoftonline.com/${tenantId}/v2.0`,
@@ -67,33 +86,31 @@ const authMiddleware = (req, res, next) => {
     },
     (err, decoded) => {
       if (err) {
-        // Neither external JWT nor Azure token is valid
         return res.status(401).json({
           success: false,
           message: "Invalid or expired token",
         });
       }
+
       const email =
         decoded.email ||
         (Array.isArray(decoded.emails) ? decoded.emails[0] : null) ||
         decoded.preferred_username ||
         null;
 
-      const roles = new Set(Array.isArray(decoded.roles) ? decoded.roles : []);
-      const groups = new Set(
-        Array.isArray(decoded.groups) ? decoded.groups : []
-      );
-
       req.user = {
         type: "internal",
         oid: decoded.oid || decoded.sub,
         email,
         name: decoded.name || decoded.given_name || null,
-        roles,
-        groups,
+        roles: new Set(decoded.roles || []),
+        groups: new Set(decoded.groups || []),
+        authSource: "azure",
       };
 
       return next();
     }
   );
 };
+
+module.exports = { authMiddleware };

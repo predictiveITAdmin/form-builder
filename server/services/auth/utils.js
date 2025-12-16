@@ -1,6 +1,5 @@
-import { Client } from "@microsoft/microsoft-graph-client";
-import { ClientSecretCredential } from "@azure/identity";
-
+const { Client } = require("@microsoft/microsoft-graph-client");
+const { ClientSecretCredential } = require("@azure/identity");
 const CLIENT_ID = process.env.AZURE_CLIENT_ID;
 const CLIENT_SECRET = process.env.AZURE_CLIENT_SECRET;
 const TENANT_ID = process.env.AZURE_TENANT_ID;
@@ -39,7 +38,7 @@ const buildHTML = (inviteLink) => {
   `;
 };
 
-export const sendInviteEmail = async (toEmail, inviteLink) => {
+module.exports = sendInviteEmail = async (toEmail, inviteLink) => {
   const html = buildHTML(inviteLink);
 
   const message = {

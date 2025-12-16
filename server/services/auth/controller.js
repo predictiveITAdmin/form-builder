@@ -75,7 +75,11 @@ module.exports = {
 
   login: async (req, res) => {
     const { email, password } = req.body;
-
+    if (!email || !password || email === "" || password === "") {
+      return res.status(400).json({
+        message: "Email and Password are required.",
+      });
+    }
     try {
       const user = await queries.getUserByEmail(email);
 
@@ -176,12 +180,13 @@ module.exports = {
   getMe: async (req, res) => {
     try {
       let user = null;
-
       // Check if it's an Azure AD user
       if (req.user.type === "internal") {
         // Try to find user by Entra Object ID first
-        if (req.user.oid) {
-          user = await queries.getUserByEntraObjectId(req.user.oid);
+        if (req.user.idTokenClaims.oid) {
+          user = await queries.getUserByEntraObjectId(
+            req.user.idTokenClaims.oid
+          );
         }
 
         // If not found by OID, try by email
@@ -207,11 +212,6 @@ module.exports = {
             userType: user.user_type,
             entraObjectId: user.entra_object_id,
             createdAt: user.created_at,
-            updatedAt: user.updated_at,
-            lastLoginAt: user.last_login_at,
-            // Azure-specific fields
-            azureRoles: Array.from(req.user.roles || []),
-            azureGroups: Array.from(req.user.groups || []),
           },
         });
       }
@@ -255,6 +255,18 @@ module.exports = {
         error:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       });
+    }
+  },
+
+  logout: async (req, res) => {
+    if (req.session) {
+      req.session.destroy(() => {
+        res.clearCookie("connect.sid");
+        res.status(200).json({ success: true });
+      });
+    } else {
+      res.clearCookie("connect.sid");
+      res.status(200).json({ success: true });
     }
   },
 };

@@ -86,13 +86,15 @@ const getUserById = async (userId) => {
       display_name,
       user_type,
       entra_object_id,
-      created_at,
+      created_at
     FROM users
     WHERE user_id = $1
   `;
 
-  const result = await db.query(query, [userId]);
-  return result[0] || null;
+  const pool = await getPool();
+
+  const result = await pool.query(query, [userId]);
+  return result.rows[0] || null;
 };
 
 const getUserByEntraObjectId = async (entraObjectId) => {
@@ -103,14 +105,14 @@ const getUserByEntraObjectId = async (entraObjectId) => {
       display_name,
       user_type,
       entra_object_id,
-      created_at,
-      updated_at,
-      last_login_at
+      created_at
     FROM users
     WHERE entra_object_id = $1
   `;
 
-  const result = await db.query(query, [entraObjectId]);
+  const pool = await getPool();
+
+  const result = await pool.query(query, [entraObjectId]);
   return result.rows[0] || null;
 };
 
@@ -123,12 +125,17 @@ const getUserByEmail = async (email) => {
       user_type,
       entra_object_id,
       created_at,
+      password_hash,
+      password_salt
     FROM users
     WHERE email = $1
   `;
 
-  const result = await db.query(query, [email]);
-  return result[0] || null;
+  const pool = await getPool();
+
+  const result = await pool.query(query, [email]);
+
+  return result.rows[0] || null;
 };
 
 module.exports = {

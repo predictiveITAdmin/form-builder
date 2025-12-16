@@ -1,5 +1,7 @@
 import { Link, NavLink, useNavigate, useLocation } from "react-router";
 import { Box, Button, Flex, Text, VStack, HStack } from "@chakra-ui/react";
+import { useDispatch, useSelector } from "react-redux";
+import { logoutUser } from "../features/auth/authSlice";
 import {
   FaArrowLeft,
   FaArrowRight,
@@ -15,12 +17,15 @@ import { IoIosLogOut } from "react-icons/io";
 
 function Layout({ children }) {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const location = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
 
-  const handleLogout = () => {
+  const handleLogout = async (e) => {
+    e.preventDefault();
     console.log("Logging out...");
-    navigate("/");
+    await dispatch(logoutUser());
+    window.location.replace("/login");
   };
 
   const menuItems = [
