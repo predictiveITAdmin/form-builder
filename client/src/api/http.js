@@ -6,11 +6,9 @@ export const http = axios.create({
 });
 
 http.interceptors.request.use((config) => {
-  if (!document.cookie.includes("connect.sid")) {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });

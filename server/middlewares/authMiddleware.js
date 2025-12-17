@@ -28,6 +28,7 @@ const authMiddleware = (req, res, next) => {
      1️⃣ SESSION AUTH (Azure SSO)
   -------------------------------------------------- */
   if (req.session?.account) {
+    console.log("entered");
     req.user = {
       ...req.session.account,
       authSource: "session",
@@ -69,6 +70,7 @@ const authMiddleware = (req, res, next) => {
       return next();
     }
   } catch (err) {
+    console.log(err);
     // Not a local JWT → continue to Azure
   }
 

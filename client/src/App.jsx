@@ -2,15 +2,18 @@ import { Routes, Route } from "react-router";
 import { Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import Layout from "./pages/Layout";
+import Forms from "./components/forms/Forms";
 import Dashboard from "./pages/Dashboard";
 import Configuration from "./pages/Configuration";
-import Forms from "./pages/Forms";
+import FormsLayout from "./pages/FormsLayout";
 import Responses from "./pages/Responses";
 import { loadSession } from "./features/auth/authSlice";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 import RequireAuth from "./components/RequireAuth";
 import LoginPage from "./pages/LoginPage";
+import NewForm from "./components/forms/NewForm";
+import FormDetail from "./components/forms/FormDetail";
 
 // Main App Component
 function App() {
@@ -50,13 +53,17 @@ function App() {
           }
         />
         <Route
-          path="/forms"
+          path="forms"
           element={
             <Layout>
-              <Forms />
+              <FormsLayout />
             </Layout>
           }
-        />
+        >
+          <Route index element={<Forms />} />
+          <Route path="new" element={<NewForm />} />
+          <Route path=":id" element={<FormDetail />} />
+        </Route>
         <Route
           path="/responses"
           element={

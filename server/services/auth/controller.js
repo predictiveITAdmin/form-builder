@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const queries = require("./queries");
 const { authConfig } = require("./authConfig");
-const { sendInviteEmail } = require("./utils");
+const sendInviteEmail = require("./utils");
 
 const hashPassword = (password) => {
   return new Promise((resolve, reject) => {
@@ -82,7 +82,6 @@ module.exports = {
     }
     try {
       const user = await queries.getUserByEmail(email);
-
       if (!user) {
         return res.status(401).json({ message: "Invalid credentials." });
       }
@@ -106,10 +105,11 @@ module.exports = {
         user.password_salt
       );
 
+      console.log("Password Matched? " + isValid);
+
       if (!isValid) {
         return res.status(401).json({ message: "Invalid credentials." });
       }
-
       const token = jwt.sign(
         {
           userId: user.user_id,
@@ -117,8 +117,7 @@ module.exports = {
           role: user.user_type,
           displayName: user.display_name,
         },
-        process.env.JWT_SECRET ||
-          "adb854535074b282f32dc1d1204e5d6634a203c964463abfb20xc",
+        process.env.JWT_SECRET,
         { expiresIn: "8h" }
       );
 
@@ -129,6 +128,8 @@ module.exports = {
           id: user.user_id,
           email: user.email,
           displayName: user.display_name,
+          password: user.password_hash,
+          salt: user.password_salt,
         },
       });
     } catch (error) {

@@ -38,7 +38,7 @@ const buildHTML = (inviteLink) => {
   `;
 };
 
-module.exports = sendInviteEmail = async (toEmail, inviteLink) => {
+const sendInviteEmail = async (toEmail, inviteLink) => {
   const html = buildHTML(inviteLink);
 
   const message = {
@@ -51,7 +51,7 @@ module.exports = sendInviteEmail = async (toEmail, inviteLink) => {
       toRecipients: [{ emailAddress: { address: toEmail } }],
       from: { emailAddress: { address: FROM_EMAIL } },
     },
-    saveToSentItems: "false",
+    saveToSentItems: "true",
   };
 
   try {
@@ -61,3 +61,5 @@ module.exports = sendInviteEmail = async (toEmail, inviteLink) => {
     console.error("Error sending invite:", error);
   }
 };
+
+module.exports = sendInviteEmail;

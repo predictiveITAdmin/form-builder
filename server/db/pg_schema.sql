@@ -224,7 +224,7 @@ CREATE TABLE SessionStepData (
 CREATE INDEX IX_SessionStepData_Session ON SessionStepData(session_id, step_number);
 CREATE INDEX IX_SessionStepData_Field ON SessionStepData(form_field_id);
 
--- Table to store selected options for multi-select fields in draft
+
 CREATE TABLE SessionStepOptions (
     session_step_option_id SERIAL PRIMARY KEY,
     session_step_data_id   INTEGER NOT NULL,
