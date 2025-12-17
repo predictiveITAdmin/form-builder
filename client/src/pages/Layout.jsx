@@ -122,7 +122,7 @@ function Layout({ children }) {
         </Box>
 
         {/* Page Content */}
-        <Box flex={1} bg="gray.50" p={6} overflowY="auto">
+        <Box flex={1} bg="gray.50" p={6} overflowY="scroll" maxHeight={"80vh"}>
           {children}
         </Box>
       </Flex>
