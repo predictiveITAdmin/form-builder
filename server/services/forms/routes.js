@@ -1,51 +1,58 @@
 const express = require("express");
 const ctrl = require("./controller");
-const { azureAuth } = require("../../middlewares/azureAuth");
 const { requireAny } = require("../../middlewares/authorize");
-
+const { authMiddleware } = require("../../middlewares/authMiddleware");
 const responseRouter = require("../response/routes");
 
 const router = express.Router();
 
-router.get("/published", azureAuth(), ctrl.listPublished);
-router.get(
-  "/",
-  azureAuth(),
-  requireAny("Admin", "Manager", "FormBuilder"),
-  ctrl.listAll
-);
+router.get("/published", authMiddleware, ctrl.listPublished);
+router.get("/", authMiddleware, ctrl.listAll);
 
-router.get("/:id", azureAuth(), ctrl.get);
+// Create form
+router.post("/", authMiddleware, ctrl.create);
+// router.get("/published", authMiddleware, ctrl.listPublished);
+// router.get(
+//   "/",
+//   authMiddleware,
+//   requireAny("Admin", "Manager", "FormBuilder"),
+//   ctrl.listAll
+// );
 
-router.post("/", azureAuth(), requireAny("Admin", "FormBuilder"), ctrl.create);
-router.patch(
-  "/:id",
-  azureAuth(),
-  requireAny("Admin", "FormBuilder"),
-  ctrl.update
-);
-router.delete("/:id", azureAuth(), requireAny("Admin"), ctrl.remove);
+// router.post(
+//   "/",
+//   authMiddleware,
+//   requireAny("Admin", "FormBuilder"),
+//   ctrl.create
+// );
+// router.patch(
+//   "/:id",
+//   authMiddleware,
+//   requireAny("Admin", "FormBuilder"),
+//   ctrl.update
+// );
+// router.delete("/:id", authMiddleware, requireAny("Admin"), ctrl.remove);
 
-// Fields
-router.get("/:id/fields", azureAuth(), ctrl.listFields);
-router.post(
-  "/:id/fields",
-  azureAuth(),
-  requireAny("Admin", "FormBuilder"),
-  ctrl.createField
-);
-router.patch(
-  "/:id/fields/:fieldId",
-  azureAuth(),
-  requireAny("Admin", "FormBuilder"),
-  ctrl.updateField
-);
-router.delete(
-  "/:id/fields/:fieldId",
-  azureAuth(),
-  requireAny("Admin", "FormBuilder"),
-  ctrl.removeField
-);
+// // Fields
+// router.get("/:id/fields", authMiddleware, ctrl.listFields);
+// router.post(
+//   "/:id/fields",
+//   authMiddleware,
+//   requireAny("Admin", "FormBuilder"),
+//   ctrl.createField
+// );
+// router.patch(
+//   "/:id/fields/:fieldId",
+//   authMiddleware,
+//   requireAny("Admin", "FormBuilder"),
+//   ctrl.updateField
+// );
+// router.delete(
+//   "/:id/fields/:fieldId",
+//   authMiddleware,
+//   requireAny("Admin", "FormBuilder"),
+//   ctrl.removeField
+// );
 
 router.use("/:id/responses", responseRouter);
 

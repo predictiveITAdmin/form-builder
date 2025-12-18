@@ -1,59 +1,52 @@
-import React from "react";
-import { Flex, VStack } from "@chakra-ui/react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  Heading,
-  Button,
-  Badge,
-  IconButton,
+  Flex,
+  VStack,
   HStack,
   Input,
   Text,
+  Badge,
+  IconButton,
+  Button,
 } from "@chakra-ui/react";
-import { useState } from "react";
 import DataTable from "../DataTable";
-import { FaRegEye, FaSearch } from "react-icons/fa";
-import { FaRegEdit } from "react-icons/fa";
-import { FaTrashAlt } from "react-icons/fa";
+import { FaRegEye, FaSearch, FaRegEdit, FaTrashAlt } from "react-icons/fa";
 import { FaPlus } from "react-icons/fa6";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
+
+import { useDispatch, useSelector } from "react-redux";
+import {
+  fetchForms,
+  selectForms,
+  selectFormsStatus,
+  selectFormsError,
+} from "../../features/forms/formsSlice";
 
 const Forms = () => {
+  const dispatch = useDispatch();
+
+  const forms = useSelector(selectForms);
+  const status = useSelector(selectFormsStatus);
+  const error = useSelector(selectFormsError);
+
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Mock data
-  const [forms] = useState([
-    {
-      form_id: 1,
-      title: "Customer Feedback Form",
-      description: "Collect customer feedback and suggestions",
-      status: "Active",
-      owner_user_id: 101,
-      created_at: "2024-12-01T10:30:00Z",
-      field_count: 8,
-    },
-    {
-      form_id: 2,
-      title: "Employee Onboarding",
-      description: "New employee information collection",
-      status: "Draft",
-      owner_user_id: 102,
-      created_at: "2024-12-10T14:20:00Z",
-      field_count: 12,
-    },
-    {
-      form_id: 3,
-      title: "Bug Report Form",
-      description: "Report software bugs and issues",
-      status: "Active",
-      owner_user_id: 101,
-      created_at: "2024-11-15T09:15:00Z",
-      field_count: 6,
-    },
-  ]);
+  useEffect(() => {
+    // Only fetch if we haven't already (prevents refetch loops)
+    if (status === "idle") {
+      dispatch(fetchForms());
+    }
+  }, [dispatch, status]);
 
-  const filteredForms = forms.filter((form) =>
-    form.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredForms = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return forms;
+    return (forms || []).filter((form) =>
+      String(form.title || "")
+        .toLowerCase()
+        .includes(term)
+    );
+  }, [forms, searchTerm]);
 
   const columns = [
     { key: "title", label: "Title", sortable: true },
@@ -68,16 +61,34 @@ const Forms = () => {
       ),
     },
     {
-      key: "field_count",
-      label: "Fields",
-      sortable: true,
-      render: (value) => <Text fontWeight="medium">{value}</Text>,
-    },
-    {
       key: "created_at",
       label: "Created",
       sortable: true,
-      render: (value) => new Date(value).toLocaleDateString(),
+      render: (value) => (value ? new Date(value).toLocaleDateString() : "-"),
+    },
+    {
+      key: "description",
+      label: "Description",
+      sortable: true,
+      render: (value) => {
+        if (!value) return "-";
+        const maxLength = 96;
+        return value.length > maxLength
+          ? `${value.substring(0, maxLength)}...`
+          : value;
+      },
+    },
+    {
+      key: "rpa_webhook_url",
+      label: "Webhook URL",
+      sortable: true,
+      render: (value) => (value ? value : "-"),
+    },
+    {
+      key: "owner_name",
+      label: "Owner",
+      sortable: true,
+      render: (value) => (value ? value : "-"),
     },
     {
       key: "actions",
@@ -90,57 +101,67 @@ const Forms = () => {
             aria-label="View"
             variant="ghost"
             colorScheme="blue"
+            // TODO: hook up view route
+            onClick={() => console.log("view", row.form_id)}
           >
             <FaRegEye size={16} />
           </IconButton>
+
           <IconButton
             size="sm"
-            icon={<FaRegEdit size={16} />}
             aria-label="Edit"
             variant="ghost"
             colorScheme="purple"
+            // TODO: hook up edit route
+            onClick={() => console.log("edit", row.form_id)}
           >
-            <FaRegEdit size={16} />{" "}
+            <FaRegEdit size={16} />
           </IconButton>
+
           <IconButton
             size="sm"
             aria-label="Delete"
             variant="ghost"
             colorScheme="red"
+            // TODO: hook up delete action
+            onClick={() => console.log("delete", row.form_id)}
           >
-            <FaTrashAlt size={16} color="red" />
+            <FaTrashAlt size={16} />
           </IconButton>
         </HStack>
       ),
     },
   ];
-  return (
-    <>
-      <VStack spacing={6} align="stretch">
-        <HStack>
-          <Flex justify="space-between" align="center" gap={2} width={"full"}>
-            <Flex justify="space-around" align="center" gap={4}>
-              <Input
-                placeholder="Search forms by title..."
-                value={searchTerm}
-                width={96}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </Flex>
-            <Link to={"/forms/new"}>
-              <Button leftIcon={<FaPlus size={20} />} colorScheme="blue">
-                <HStack>
-                  <FaPlus />
-                  New Form
-                </HStack>
-              </Button>
-            </Link>
-          </Flex>
-        </HStack>
 
-        <DataTable columns={columns} data={filteredForms} />
-      </VStack>
-    </>
+  return (
+    <VStack spacing={6} align="stretch">
+      <HStack>
+        <Flex justify="space-between" align="center" gap={2} width="full">
+          <Flex justify="space-around" align="center" gap={4}>
+            <Input
+              placeholder="Search forms by title..."
+              value={searchTerm}
+              width={96}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </Flex>
+
+          <Link to="/forms/new">
+            <Button leftIcon={<FaPlus size={20} />} colorScheme="blue">
+              <HStack>
+                <FaPlus />
+                New Form
+              </HStack>
+            </Button>
+          </Link>
+        </Flex>
+      </HStack>
+
+      {status === "loading" && <Text>Loading forms...</Text>}
+      {status === "failed" && <Text color="red.500">{error}</Text>}
+
+      <DataTable columns={columns} data={filteredForms} />
+    </VStack>
   );
 };
 

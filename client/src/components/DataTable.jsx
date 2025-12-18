@@ -62,7 +62,7 @@ const DataTable = ({ columns, data, onSort }) => {
           {sortedData.map((row, idx) => (
             <Table.Row key={idx} transition="background 0.2s">
               {columns.map((column) => (
-                <Table.Cell key={column.key}>
+                <Table.Cell key={column.key} maxWidth={48} maxHeight={4}>
                   {column.render
                     ? column.render(row[column.key], row)
                     : row[column.key]}

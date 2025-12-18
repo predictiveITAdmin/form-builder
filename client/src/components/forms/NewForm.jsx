@@ -39,8 +39,18 @@ import {
   FaPlus,
   FaTimes,
 } from "react-icons/fa";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  createForm,
+  selectCreateFormStatus,
+  selectCreateFormError,
+} from "../../features/forms/formsSlice";
+import slugify from "@/utils/slug";
+import { useNavigate } from "react-router";
 
 const NewForm = () => {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -160,6 +170,32 @@ const NewForm = () => {
   const selectedField = currentFields.find((f) => f.id === selectedFieldId);
 
   // Parse config for select/radio options
+
+  const safeParseConfig = (field) => {
+    try {
+      return JSON.parse(field.config_json || "{}");
+    } catch {
+      return {};
+    }
+  };
+
+  const updateFieldConfig = (fieldId, patch) => {
+    const field = currentFields.find((f) => f.id === fieldId);
+    const currentConfig = field ? safeParseConfig(field) : {};
+    const nextConfig = { ...currentConfig, ...patch };
+    updateField(fieldId, { config_json: JSON.stringify(nextConfig) });
+  };
+
+  const getDynamicUrl = (field) => {
+    const cfg = safeParseConfig(field);
+    return cfg?.dynamicOptions?.url || "";
+  };
+
+  const isDynamicEnabled = (field) => {
+    const cfg = safeParseConfig(field);
+    return !!cfg?.dynamicOptions?.enabled;
+  };
+
   const getFieldOptions = (field) => {
     try {
       const config = JSON.parse(field.config_json);
@@ -170,16 +206,129 @@ const NewForm = () => {
   };
 
   const updateFieldOptions = (fieldId, options) => {
-    const config = { options };
-    updateField(fieldId, { config_json: JSON.stringify(config) });
+    const field = currentFields.find((f) => f.id === fieldId);
+    const currentConfig = field ? safeParseConfig(field) : {};
+
+    const nextConfig = {
+      ...currentConfig,
+      options, // update options only
+    };
+
+    updateField(fieldId, { config_json: JSON.stringify(nextConfig) });
   };
 
-  const handleSubmit = () => {
-    console.log("Form Data:", formData);
-    console.log("Steps:", steps);
+  const safeJsonParse = (val) => {
+    if (!val) return {};
+    if (typeof val === "object") return val;
+    try {
+      return JSON.parse(val);
+    } catch {
+      return {};
+    }
+  };
+
+  // Converts config_json.options into a normalized options array
+  // Supports:
+  // - ["Option 1", "Option 2"]
+  // - [{ label, value, is_default, sort_order }]
+  const configToFieldOptions = (config_json) => {
+    const cfg = safeJsonParse(config_json);
+    const raw = Array.isArray(cfg.options) ? cfg.options : [];
+
+    return raw
+      .map((opt, idx) => {
+        // string option
+        if (typeof opt === "string") {
+          return {
+            label: opt,
+            value: opt,
+            is_default: false,
+            sort_order: idx,
+          };
+        }
+
+        // object option
+        if (opt && typeof opt === "object") {
+          return {
+            label: String(opt.label ?? opt.value ?? `Option ${idx + 1}`),
+            value: String(opt.value ?? opt.label ?? `Option ${idx + 1}`),
+            is_default: !!opt.is_default,
+            sort_order: opt.sort_order ?? idx,
+          };
+        }
+
+        return null;
+      })
+      .filter(Boolean);
+  };
+
+  const buildCleanConfigJsonForPayload = (field) => {
+    const cfg = safeJsonParse(field.config_json);
+
+    const dynamicEnabled = !!cfg?.dynamicOptions?.enabled;
+    if (!dynamicEnabled) {
+      return JSON.stringify(cfg); // keep as-is
+    }
+
+    // Dynamic enabled: strip static options
+    const { options, ...rest } = cfg; // remove options key
+    return JSON.stringify(rest);
+  };
+
+  const handleSubmit = async () => {
+    const payload = {
+      ...formData,
+      form_key: slugify(formData.title),
+      steps: steps.map((step) => ({
+        step_number: step.step_number,
+        step_title: step.step_title,
+        step_description: step.step_description ?? "",
+        sort_order: step.sort_order ?? 0,
+        is_active: step.is_active !== undefined ? !!step.is_active : true,
+        fields: (step.fields || []).map((f) => {
+          const cfg = safeJsonParse(f.config_json);
+          const dynamicEnabled = !!cfg?.dynamicOptions?.enabled;
+
+          // If dynamic enabled: don't send static options (anywhere)
+          const options =
+            !dynamicEnabled &&
+            (f.field_type === "select" || f.field_type === "radio")
+              ? configToFieldOptions(f.config_json)
+              : [];
+
+          const cleanConfigJson = dynamicEnabled
+            ? buildCleanConfigJsonForPayload(f)
+            : f.config_json;
+
+          return {
+            key_name: f.key_name,
+            label: f.label,
+            help_text: f.help_text ?? "",
+            field_type: f.field_type,
+            required: !!f.required,
+            sort_order: f.sort_order ?? 0,
+            active: f.active !== undefined ? !!f.active : true,
+
+            // Cleaned config_json (options removed if dynamic is enabled)
+            config_json: cleanConfigJson,
+
+            // Options array also cleared if dynamic enabled
+            options,
+          };
+        }),
+      })),
+    };
+
+    const { form_id } = await dispatch(createForm(payload)).unwrap();
+
+    console.log("Payload:", JSON.stringify(payload));
+
     alert("Form created successfully!");
+    navigate(`/forms/${form_id}`);
+    // IMPORTANT: unwrap returns { form_id }, not { formid }
+    // Also: returning <Link/> inside an event handler does nothing.
+    // Use navigate instead (shown below).
   };
-
   return (
     <Box minH="100vh" bg="gray.50" p={6}>
       <Flex justify="space-between" align="center" mb={6}>
@@ -637,57 +786,141 @@ const NewForm = () => {
                     selectedField.field_type === "radio") && (
                     <Field.Root>
                       <Field.Label>Options</Field.Label>
-                      <Stack gap={2}>
-                        {getFieldOptions(selectedField).map((option, idx) => (
-                          <Flex key={idx} gap={2}>
-                            <Input
-                              value={option}
-                              size="sm"
-                              onChange={(e) => {
-                                const newOptions = [
-                                  ...getFieldOptions(selectedField),
-                                ];
-                                newOptions[idx] = e.target.value;
-                                updateFieldOptions(
-                                  selectedField.id,
-                                  newOptions
-                                );
-                              }}
-                            />
-                            <IconButton
-                              size="sm"
-                              variant="ghost"
-                              colorScheme="red"
-                              onClick={() => {
-                                const newOptions = getFieldOptions(
-                                  selectedField
-                                ).filter((_, i) => i !== idx);
-                                updateFieldOptions(
-                                  selectedField.id,
-                                  newOptions
-                                );
-                              }}
-                            >
-                              <FaTimes size={12} />
-                            </IconButton>
-                          </Flex>
-                        ))}
-                        <Button
-                          size="sm"
-                          leftIcon={<FaPlus />}
-                          variant="outline"
-                          onClick={() => {
-                            const newOptions = [
-                              ...getFieldOptions(selectedField),
-                              `Option ${
-                                getFieldOptions(selectedField).length + 1
-                              }`,
-                            ];
-                            updateFieldOptions(selectedField.id, newOptions);
-                          }}
+
+                      <Stack gap={3}>
+                        {/* Dynamic Options Section */}
+                        <Box
+                          p={3}
+                          borderWidth="1px"
+                          borderColor="gray.200"
+                          borderRadius="md"
                         >
-                          Add Option
-                        </Button>
+                          <Text fontSize="sm" fontWeight="bold" mb={2}>
+                            Dynamic Options
+                          </Text>
+
+                          <Switch.Root
+                            variant="solid"
+                            checked={isDynamicEnabled(selectedField)}
+                            onCheckedChange={(e) => {
+                              updateFieldConfig(selectedField.id, {
+                                dynamicOptions: {
+                                  ...(safeParseConfig(selectedField)
+                                    .dynamicOptions || {}),
+                                  enabled: e.checked,
+                                  url: getDynamicUrl(selectedField), // preserve
+                                },
+                              });
+                            }}
+                          >
+                            <Switch.HiddenInput />
+                            <Switch.Control />
+                            <Switch.Label>Enable dynamic options</Switch.Label>
+                          </Switch.Root>
+
+                          <Field.Root mt={3}>
+                            <Field.Label fontSize="sm">
+                              Dynamic Options URL
+                            </Field.Label>
+                            <Input
+                              size="sm"
+                              placeholder="https://your-rpa-webhook/options"
+                              value={getDynamicUrl(selectedField)}
+                              onChange={(e) => {
+                                const nextUrl = e.target.value;
+
+                                updateFieldConfig(selectedField.id, {
+                                  dynamicOptions: {
+                                    ...(safeParseConfig(selectedField)
+                                      .dynamicOptions || {}),
+                                    enabled: true, // if they type a URL, assume they want it enabled
+                                    url: nextUrl,
+                                  },
+                                });
+                              }}
+                              disabled={
+                                !isDynamicEnabled(selectedField) &&
+                                !getDynamicUrl(selectedField)
+                              }
+                            />
+                            <Text fontSize="xs" color="gray.600" mt={1}>
+                              Backend will fetch the options when submitting the
+                              response
+                            </Text>
+                          </Field.Root>
+                        </Box>
+                        {/* Static Options Section */}
+                        {!isDynamicEnabled(selectedField) && (
+                          <Box
+                            p={3}
+                            borderWidth="1px"
+                            borderColor="gray.200"
+                            borderRadius="md"
+                          >
+                            <Text fontSize="sm" fontWeight="bold" mb={2}>
+                              Static Options
+                            </Text>
+
+                            <Stack gap={2}>
+                              {getFieldOptions(selectedField).map(
+                                (option, idx) => (
+                                  <Flex key={idx} gap={2}>
+                                    <Input
+                                      value={option}
+                                      size="sm"
+                                      onChange={(e) => {
+                                        const newOptions = [
+                                          ...getFieldOptions(selectedField),
+                                        ];
+                                        newOptions[idx] = e.target.value;
+                                        updateFieldOptions(
+                                          selectedField.id,
+                                          newOptions
+                                        );
+                                      }}
+                                    />
+                                    <IconButton
+                                      size="sm"
+                                      variant="ghost"
+                                      colorScheme="red"
+                                      onClick={() => {
+                                        const newOptions = getFieldOptions(
+                                          selectedField
+                                        ).filter((_, i) => i !== idx);
+                                        updateFieldOptions(
+                                          selectedField.id,
+                                          newOptions
+                                        );
+                                      }}
+                                    >
+                                      <FaTimes size={12} />
+                                    </IconButton>
+                                  </Flex>
+                                )
+                              )}
+
+                              <Button
+                                size="sm"
+                                leftIcon={<FaPlus />}
+                                variant="outline"
+                                onClick={() => {
+                                  const newOptions = [
+                                    ...getFieldOptions(selectedField),
+                                    `Option ${
+                                      getFieldOptions(selectedField).length + 1
+                                    }`,
+                                  ];
+                                  updateFieldOptions(
+                                    selectedField.id,
+                                    newOptions
+                                  );
+                                }}
+                              >
+                                Add Option
+                              </Button>
+                            </Stack>
+                          </Box>
+                        )}
                       </Stack>
                     </Field.Root>
                   )}

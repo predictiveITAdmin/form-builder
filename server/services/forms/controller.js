@@ -1,279 +1,154 @@
-const repo = require("./queries");
+const svc = require("./queries"); // same folder as controller.js
 
-function toHttp(err) {
-  if (/Form is published and cannot be edited/i.test(err.message)) {
-    return {
-      code: 400,
-      body: { error: "Form is published and cannot be edited" },
-    };
+/**
+ * GET /forms
+ * Admin/Manager/FormBuilder
+ */
+async function listAll(req, res) {
+  try {
+    const forms = await svc.listForms();
+    return res.json({ forms });
+  } catch (err) {
+    return res.status(500).json({
+      error: "Failed to list forms",
+      details: String(err?.message || err),
+    });
   }
-  if (/Form not found/i.test(err.message)) {
-    return { code: 404, body: { error: "Form not found" } };
-  }
-  return { code: 500, body: { error: err.message } };
 }
 
-exports.listPublished = async (req, res, next) => {
+/**
+ * GET /forms/published
+ * End users
+ */
+async function listPublished(req, res) {
   try {
-    res.json(await repo.listPublishedForms());
-  } catch (e) {
-    next(e);
-  }
-};
-
-exports.listAll = async (req, res, next) => {
-  try {
-    res.json(await repo.listForms());
-  } catch (e) {
-    next(e);
-  }
-};
-
-exports.get = async (req, res, next) => {
-  try {
-    const formId = Number(req.params.id);
-    const includeOptions = req.query.includeOptions === "1";
-    const data = await repo.getFormWithFields(formId, { includeOptions });
-    if (!data) return res.status(404).json({ error: "Form not found" });
-    res.json(data);
-  } catch (e) {
-    next(e);
-  }
-};
-
-exports.create = async (req, res) => {
-  try {
-    const formId = Number(req.params.id);
-    const values = req.body?.values || {};
-    const { response_id } = await repo.submitResponse({
-      formId,
-      values,
-      azureUser: req.azureUser || null,
-      clientIp: req.ip,
-      userAgent: req.headers["user-agent"],
+    const forms = await svc.listPublishedForms();
+    return res.json({ forms });
+  } catch (err) {
+    return res.status(500).json({
+      error: "Failed to list published forms",
+      details: String(err?.message || err),
     });
-    res.status(201).json({ status: true, response_id });
-  } catch (e) {
-    const code = /Authentication required/i.test(e.message) ? 401 : 500;
-    res.status(code).json({ error: e.message });
   }
-};
+}
 
-exports.update = async (req, res) => {
+/**
+ * POST /forms
+ * Admin/FormBuilder
+ *
+ * Body (payload):
+ * {
+ *  title, description, status, is_anonymous,
+ *  rpa_webhook_url, rpa_secret, rpa_secret_method, rpa_timeout_ms, rpa_retry_count,
+ *  form_key,
+ *  steps: [...]
+ * }
+ */
+async function create(req, res) {
   try {
-    await repo.editForm(Number(req.params.id), req.body || {});
-    res.json({ status: true });
-  } catch (e) {
-    const http = toHttp(e);
-    res.status(http.code).json(http.body);
-  }
-};
+    const payload = req.body;
 
-exports.remove = async (req, res) => {
-  try {
-    await repo.deleteForm(Number(req.params.id));
-    res.status(204).end();
-  } catch (e) {
-    const http = toHttp(e);
-    res.status(http.code).json(http.body);
-  }
-};
+    // Minimal validation (don’t overthink it yet)
+    const problems = validateCreatePayload(payload);
+    if (problems.length) {
+      return res.status(400).json({
+        error: "Invalid payload",
+        problems,
+      });
+    }
 
-exports.listFields = async (req, res, next) => {
-  try {
-    res.json(await repo.listFields(Number(req.params.id)));
-  } catch (e) {
-    next(e);
-  }
-};
+    // owner_user_id comes from auth (server-side source of truth)
+    const ownerUserId =
+      req.user?.user_id ?? req.user?.id ?? req.user?.userId ?? null;
 
-exports.createField = async (req, res) => {
-  try {
-    const { field_id } = await repo.createField(
-      Number(req.params.id),
-      req.body || {}
-    );
-    res.status(201).json({ status: true, field_id });
-  } catch (e) {
-    const http = toHttp(e);
-    res.status(http.code).json(http.body);
-  }
-};
-
-exports.updateField = async (req, res) => {
-  try {
-    await repo.editField(
-      Number(req.params.id),
-      Number(req.params.fieldId),
-      req.body || {}
-    );
-    res.json({ status: true });
-  } catch (e) {
-    const http = toHttp(e);
-    res.status(http.code).json(http.body);
-  }
-};
-
-exports.removeField = async (req, res) => {
-  try {
-    const { softDeleted } = await repo.deleteField(
-      Number(req.params.id),
-      Number(req.params.fieldId)
-    );
-    res.json({ status: true, softDeleted });
-  } catch (e) {
-    const http = toHttp(e);
-    res.status(http.code).json(http.body);
-  }
-};
-
-exports.getActiveSessions = async (req, res, next) => {
-  try {
-    const formId = req.params.formId;
-    const userId = req.params.userId;
-    const sessionToken = req.params.sessionToken;
-
-    const data = await repo.getActiveSession(formId, { sessionToken, userId });
-    res.json({
-      status: true,
-      data,
+    const result = await svc.createForm(payload, {
+      owner_user_id: ownerUserId,
     });
-  } catch (error) {
-    const http = toHttp(error);
-    res.json(http.body).status(http.code);
-  }
-};
 
-exports.getSessionDraftData = async (req, res, next) => {
-  try {
-    const sessionId = req.params.sessionId;
+    return res.status(201).json(result);
+  } catch (err) {
+    // Duplicate key_name per form will throw due to UQ constraint
+    if (isPgUniqueViolation(err)) {
+      return res.status(409).json({
+        error: "Duplicate field key_name within the form",
+        details: err.detail || String(err?.message || err),
+      });
+    }
 
-    const draftData = await repo.getSessionDraftData(sessionId);
-    res.json({
-      status: true,
-      draftData,
+    return res.status(500).json({
+      error: "Failed to create form",
+      details: String(err?.message || err),
     });
-  } catch (error) {
-    const http = toHttp(error);
-    res.json(http.body).status(http.code);
   }
-};
+}
 
-exports.createOrUpdateSession = async (req, res, next) => {
-  try {
-    const formId = req.params.formId;
-    const sessionId = req.params.sessionId;
-    const userId = req.params.userId;
+/** ---------- Helpers ---------- */
 
-    const { currentStep, totalSteps, clientIp, userAgent, expiresAt } =
-      req.body;
+function validateCreatePayload(payload) {
+  const issues = [];
 
-    const created = await repo.createOrUpdateSession(
-      formId,
-      sessionId,
-      userId,
-      currentStep,
-      totalSteps,
-      clientIp,
-      userAgent,
-      expiresAt
-    );
+  if (!payload || typeof payload !== "object") {
+    issues.push("Body must be a JSON object");
+    return issues;
+  }
 
-    res.json({
-      status: true,
-      created,
+  if (!payload.title || typeof payload.title !== "string") {
+    issues.push("title is required and must be a string");
+  }
+
+  if (payload.status && typeof payload.status !== "string") {
+    issues.push("status must be a string");
+  }
+
+  if (payload.steps !== undefined && !Array.isArray(payload.steps)) {
+    issues.push("steps must be an array");
+  }
+
+  // Very light step/field validation
+  if (Array.isArray(payload.steps)) {
+    payload.steps.forEach((s, si) => {
+      if (typeof s.step_number !== "number") {
+        issues.push(`steps[${si}].step_number must be a number`);
+      }
+      if (!s.step_title || typeof s.step_title !== "string") {
+        issues.push(`steps[${si}].step_title is required`);
+      }
+
+      if (s.fields !== undefined && !Array.isArray(s.fields)) {
+        issues.push(`steps[${si}].fields must be an array`);
+      }
+
+      if (Array.isArray(s.fields)) {
+        s.fields.forEach((f, fi) => {
+          if (!f.key_name || typeof f.key_name !== "string") {
+            issues.push(`steps[${si}].fields[${fi}].key_name is required`);
+          }
+          if (!f.label || typeof f.label !== "string") {
+            issues.push(`steps[${si}].fields[${fi}].label is required`);
+          }
+          if (!f.field_type || typeof f.field_type !== "string") {
+            issues.push(`steps[${si}].fields[${fi}].field_type is required`);
+          }
+
+          // options should be array if present
+          if (f.options !== undefined && !Array.isArray(f.options)) {
+            issues.push(`steps[${si}].fields[${fi}].options must be an array`);
+          }
+        });
+      }
     });
-  } catch (error) {
-    const http = toHttp(error);
-    res.json(http.body).status(http.code);
   }
-};
 
-exports.saveStepData = async (req, res, next) => {
-  try {
-    const sessionId = req.params.sessionId;
+  return issues;
+}
 
-    const { stepNumber, fieldValues } = req.body;
+function isPgUniqueViolation(err) {
+  // Postgres unique_violation
+  return err && (err.code === "23505" || err.constraint);
+}
 
-    const saved = await repo.saveStepData(sessionId, stepNumber, fieldValues);
-
-    res.json({
-      status: true,
-      saved,
-    });
-  } catch (error) {
-    const http = toHttp(error);
-    res.json(http.body).status(http.code);
-  }
-};
-
-exports.updateStepProgress = async (req, res, next) => {
-  try {
-    const sessionId = req.params.sessionId;
-    const { stepNumber, isCompleted, isValidated, validationErrors } = req.body;
-
-    const updatedStep = await repo.updateStepProgress(
-      sessionId,
-      stepNumber,
-      isCompleted,
-      isValidated,
-      validationErrors
-    );
-
-    res.json({
-      success: true,
-      updatedStep,
-    });
-  } catch (error) {
-    const http = toHttp(error);
-    res.json(http.body).status(http.code);
-  }
-};
-
-exports.completeSession = async (req, res, next) => {
-  try {
-    const sessionId = req.params.sessionId;
-
-    const completedSession = await repo.completeSession(sessionId);
-
-    res.json({
-      success: true,
-      completedSession,
-    });
-  } catch (error) {
-    const http = await toHttp(error);
-    res.json(http.body).status(http.code);
-  }
-};
-
-exports.deleteSession = async (req, res, next) => {
-  try {
-    const sessionId = req.params.sessionId;
-
-    const deletedSession = await repo.deleteSession(sessionId);
-    res.json({
-      success: true,
-      deletedSession,
-    });
-  } catch (error) {
-    const http = toHttp(error);
-    res.json(http.body).status(http.code);
-  }
-};
-
-const getUserSessions = async (req, res, next) => {
-  try {
-    const userId = req.params.userId;
-    const includeCompleted = req.params.completed;
-
-    const result = await repo.getUserSessions(userId, { includeCompleted });
-
-    res.json({
-      success: true,
-      getUserSessions,
-    });
-  } catch (error) {
-    const http = toHttp(error);
-    res.json(http.body).status(http.code);
-  }
+module.exports = {
+  listAll,
+  listPublished,
+  create,
 };

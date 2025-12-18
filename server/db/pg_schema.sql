@@ -47,10 +47,18 @@ CREATE TABLE FormFields (
     active      BOOLEAN NOT NULL DEFAULT TRUE,
     created_at  TIMESTAMP(3) NOT NULL DEFAULT (NOW() AT TIME ZONE 'UTC'),
     updated_at  TIMESTAMP(3) NOT NULL DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    step_id     INTEGER NULL,
     CONSTRAINT FK_FormFields_Forms
         FOREIGN KEY (form_id) REFERENCES Forms(form_id),
     CONSTRAINT UQ_FormFields_Form_Key UNIQUE (form_id, key_name)
 );
+
+ALTER TABLE FormFields
+ADD CONSTRAINT FK_FormFields_FormSteps
+FOREIGN KEY (step_id) REFERENCES FormSteps(step_id)
+ON DELETE CASCADE;
+
+CREATE INDEX ix_formfields_step_id ON FormFields(step_id);
 
 CREATE INDEX IX_FormFields_Form_Sort ON FormFields(form_id, sort_order);
 
@@ -66,6 +74,8 @@ CREATE TABLE FieldOptions (
     CONSTRAINT FK_FieldOptions_FormFields
         FOREIGN KEY (form_field_id) REFERENCES FormFields(field_id)
 );
+
+
 
 CREATE UNIQUE INDEX UQ_FieldOptions_Field_Value
     ON FieldOptions(form_field_id, value);
