@@ -35,19 +35,19 @@ CREATE TABLE Forms (
 CREATE INDEX IX_Forms_status ON Forms(status);
 
 CREATE TABLE FormFields (
-    field_id    SERIAL PRIMARY KEY,
-    form_id     INTEGER NOT NULL,
-    key_name    VARCHAR(100) NOT NULL,
-    label       VARCHAR(300) NOT NULL,
-    help_text   VARCHAR(1000) NULL,
-    field_type  VARCHAR(40) NOT NULL,
-    required    BOOLEAN NOT NULL DEFAULT FALSE,
-    sort_order  INTEGER NOT NULL DEFAULT 0,
-    config_json TEXT NULL,
-    active      BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at  TIMESTAMP(3) NOT NULL DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at  TIMESTAMP(3) NOT NULL DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    step_id     INTEGER NULL,
+    field_id        SERIAL PRIMARY KEY,
+    form_id         INTEGER NOT NULL,
+    key_name        VARCHAR(100) NOT NULL,
+    label           VARCHAR(300) NOT NULL,
+    help_text       VARCHAR(1000) NULL,
+    field_type      VARCHAR(40) NOT NULL,
+    required        BOOLEAN NOT NULL DEFAULT FALSE,
+    sort_order      INTEGER NOT NULL DEFAULT 0,
+    config_json     TEXT NULL,
+    active          BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at      TIMESTAMP(3) NOT NULL DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at      TIMESTAMP(3) NOT NULL DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    form_step_id    INTEGER NULL,
     CONSTRAINT FK_FormFields_Forms
         FOREIGN KEY (form_id) REFERENCES Forms(form_id),
     CONSTRAINT UQ_FormFields_Form_Key UNIQUE (form_id, key_name)

@@ -11,6 +11,9 @@ router.get("/", authMiddleware, ctrl.listAll);
 
 // Create form
 router.post("/", authMiddleware, ctrl.create);
+
+router.get("/:formKey", authMiddleware, ctrl.getFormForRender);
+
 // router.get("/published", authMiddleware, ctrl.listPublished);
 // router.get(
 //   "/",

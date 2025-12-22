@@ -12,7 +12,7 @@ import {
 import DataTable from "../DataTable";
 import { FaRegEye, FaSearch, FaRegEdit, FaTrashAlt } from "react-icons/fa";
 import { FaPlus } from "react-icons/fa6";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -24,7 +24,7 @@ import {
 
 const Forms = () => {
   const dispatch = useDispatch();
-
+  const navigate = useNavigate();
   const forms = useSelector(selectForms);
   const status = useSelector(selectFormsStatus);
   const error = useSelector(selectFormsError);
@@ -102,7 +102,7 @@ const Forms = () => {
             variant="ghost"
             colorScheme="blue"
             // TODO: hook up view route
-            onClick={() => console.log("view", row.form_id)}
+            onClick={() => navigate(`/forms/${row.form_id}`)}
           >
             <FaRegEye size={16} />
           </IconButton>

@@ -212,8 +212,91 @@ function buildBulkInsertFieldOptions(fieldId, options) {
   return { sql, params };
 }
 
+async function getFormGraphByKey(form_key) {
+  return query(
+    `
+    SELECT
+      jsonb_build_object(
+        'form_id', f.form_id,
+        'title', f.title,
+        'description', f.description,
+        'status', f.status,
+        'owner_user_id', f.owner_user_id,
+        'owner_name', u.display_name,
+        'is_anonymous', f.is_anonymous,
+        'form_key', f.form_key,
+        'created_at', f.created_at,
+        'updated_at', f.updated_at,
+        'rpa_webhook_url', f.rpa_webhook_url,
+        'rpa_timeout_ms', f.rpa_timeout_ms,
+        'rpa_retry_count', f.rpa_retry_count,
+        'steps', COALESCE(steps.steps_json, '[]'::jsonb)
+      ) AS form
+    FROM Forms f
+    LEFT JOIN Users u ON u.user_id = f.owner_user_id
+    LEFT JOIN LATERAL (
+      SELECT jsonb_agg(
+        jsonb_build_object(
+          'step_id', s.step_id,
+          'step_number', s.step_number,
+          'step_title', s.step_title,
+          'step_description', s.step_description,
+          'sort_order', s.sort_order,
+          'is_active', s.is_active,
+          'fields', COALESCE(fields.fields_json, '[]'::jsonb)
+        )
+        ORDER BY s.sort_order, s.step_number
+      ) AS steps_json
+      FROM FormSteps s
+      LEFT JOIN LATERAL (
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'field_id', ff.field_id,
+            'key_name', ff.key_name,
+            'label', ff.label,
+            'help_text', ff.help_text,
+            'field_type', ff.field_type,
+            'required', ff.required,
+            'sort_order', ff.sort_order,
+            'active', ff.active,
+            'config_json', ff.config_json,
+            'options', COALESCE(opts.options_json, '[]'::jsonb)
+          )
+          ORDER BY ff.sort_order, ff.field_id
+        ) AS fields_json
+        FROM FormFields ff
+        LEFT JOIN LATERAL (
+          SELECT jsonb_agg(
+            jsonb_build_object(
+              'option_id', fo.option_id,
+              'value', fo.value,
+              'label', fo.label,
+              'is_default', fo.is_default,
+              'sort_order', fo.sort_order,
+              'source', fo.source,
+              'updated_at', fo.updated_at
+            )
+            ORDER BY fo.sort_order, fo.option_id
+          ) AS options_json
+          FROM FieldOptions fo
+          WHERE fo.form_field_id = ff.field_id
+        ) opts ON TRUE
+        WHERE ff.form_step_id = s.step_id
+          AND ff.active = TRUE
+      ) fields ON TRUE
+      WHERE s.form_id = f.form_id
+        AND s.is_active = TRUE
+    ) steps ON TRUE
+    WHERE f.form_key = $1
+    LIMIT 1
+    `,
+    [form_key]
+  );
+}
+
 module.exports = {
   listForms,
   listPublishedForms,
   createForm,
+  getFormGraphByKey,
 };

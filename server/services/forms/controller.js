@@ -147,8 +147,32 @@ function isPgUniqueViolation(err) {
   return err && (err.code === "23505" || err.constraint);
 }
 
+async function getFormForRender(req, res, next) {
+  try {
+    const { formKey } = req.params;
+
+    if (!formKey || typeof formKey !== "string") {
+      return res.status(400).json({ error: "Missing formKey" });
+    }
+
+    const result = await svc.getFormGraphByKey(formKey);
+    console.log(result);
+    if (!result.length || !result[0].form) {
+      return res.status(404).json({ error: "Form not found" });
+    }
+
+    const form = result[0].form;
+
+    return res.json(form);
+  } catch (err) {
+    console.log(err);
+    return next(err);
+  }
+}
+
 module.exports = {
   listAll,
   listPublished,
   create,
+  getFormForRender,
 };
