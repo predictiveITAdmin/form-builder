@@ -22,12 +22,24 @@ import {
 import { useNavigate, useParams } from "react-router";
 import { SlRefresh } from "react-icons/sl";
 import { useSelector, useDispatch } from "react-redux";
+import { notify } from "../ui/notifyStore";
 import {
+  getUserSessionData,
+  saveDraft,
   selectCurrentForm,
   selectCurrentFormError,
   selectCurrentFormStatus,
+  selectDraftSaveError,
+  selectDraftSaveStatus,
+  selectSessionData,
+  selectSessionDataError,
+  selectSessionDataStatus,
 } from "@/features/forms/formsSlice";
 import { getForm } from "@/features/forms/formsSlice";
+import { selectUser } from "@/features/auth/authSlice";
+import { GiConsoleController } from "react-icons/gi";
+import AppLoader from "../ui/AppLoader";
+import AppError from "../ui/AppError";
 
 const FormDetail = () => {
   const [isComplete, setisComplete] = useState(false);
@@ -37,27 +49,114 @@ const FormDetail = () => {
 
   const formData = useSelector(selectCurrentForm);
   const status = useSelector(selectCurrentFormStatus);
+  const user = useSelector(selectUser);
+  const draftStatus = useSelector(selectDraftSaveStatus);
+  const draftError = useSelector(selectDraftSaveError);
   const error = useSelector(selectCurrentFormError);
+  const sessionData = useSelector(selectSessionData);
+  const sessionStatus = useSelector(selectSessionDataStatus);
+  const sessionError = useSelector(selectSessionDataError);
+
+  const normalizeSessionValues = (sessionData, formData) => {
+    if (!sessionData || !formData) return {};
+
+    const normalized = {};
+
+    const allFields = formData.steps
+      .flatMap((s) => s.fields)
+      .filter((f) => f.active);
+
+    for (const field of allFields) {
+      const raw = sessionData[field.key_name];
+
+      if (raw == null) continue;
+
+      switch (field.field_type) {
+        case "multiselect":
+          try {
+            normalized[field.key_name] = Array.isArray(raw)
+              ? raw
+              : JSON.parse(raw);
+          } catch {
+            normalized[field.key_name] = [];
+          }
+          break;
+
+        case "select":
+          normalized[field.key_name] = Array.isArray(raw)
+            ? raw
+            : raw
+            ? [raw]
+            : [];
+          break;
+
+        case "checkbox":
+          normalized[field.key_name] = Boolean(raw);
+          break;
+
+        case "date":
+          normalized[field.key_name] = raw; // YYYY-MM-DD is fine
+          break;
+
+        default:
+          normalized[field.key_name] = raw;
+      }
+    }
+
+    return normalized;
+  };
+
   useEffect(() => {
     if (formKey) {
       dispatch(getForm(formKey));
-      console.log(formData);
     }
   }, [formKey, dispatch]);
 
+  useEffect(() => {
+    const sessionToken = formData?.session?.session_token;
+    console.log(sessionToken);
+    if (sessionToken) {
+      dispatch(getUserSessionData({ formKey, sessionToken: sessionToken }));
+      notify({
+        type: "info",
+        title: "Continue where you left.",
+        message: "You already have a saved session.",
+      });
+    }
+  }, [formData, dispatch]);
+
+  useEffect(() => {
+    if (formKey && sessionData) {
+      const normalized = normalizeSessionValues(sessionData, formData);
+      console.log(normalized);
+      setFormValues(normalized);
+    }
+  }, [formKey, sessionData, formData]);
+
   const [currentStep, setCurrentStep] = useState(0);
   const [formValues, setFormValues] = useState({});
+  const [isRotating, setIsRotating] = useState(false);
 
-  if (status === "loading") {
-    return <div>Loading</div>;
+  const handleRefresh = () => {
+    setIsRotating(true);
+
+    setTimeout(() => {
+      setIsRotating(false);
+    }, 1005);
+  };
+
+  if (status === "loading" || sessionStatus === "loading") {
+    return <AppLoader />;
   }
 
-  if (status === "failed") {
-    return <Text color="red.500">{error}</Text>;
+  if (status === "failed" || sessionStatus === "failed") {
+    const resolvedError =
+      draftError ?? error ?? sessionError ?? "Something Went Wrong";
+    return <AppError message={resolvedError} />;
   }
 
   if (!formData) {
-    return <Text>No form found</Text>;
+    return <AppError message={"No Form Found"} />;
   }
 
   const handleInputChange = (keyName, value) => {
@@ -71,15 +170,16 @@ const FormDetail = () => {
     d instanceof Date ? d.toISOString() : new Date(d).toISOString();
 
   const getSessionId = () => {
-    const key = "fh_session_id";
-    let id = sessionStorage.getItem(key);
-    if (!id) {
-      id = crypto.randomUUID();
-      sessionStorage.setItem(key, id);
-    }
-    return id;
-  };
+    const formId = formData?.form_id;
+    const sessionToken = formData?.session?.session_token;
 
+    if (!formId || !sessionToken) return null;
+
+    const key = `fh_session_${formId}`;
+    sessionStorage.setItem(key, sessionToken);
+
+    return sessionToken;
+  };
   // Decide which typed column gets populated
   const mapFieldValueToTypedCols = (fieldType, raw) => {
     // Normalize empty values
@@ -170,12 +270,12 @@ const FormDetail = () => {
 
   const buildResponsePayload = () => {
     // You’ll replace this later with your real auth user id
-    const userId = "unknown-user";
+    const userId = user?.id || 1;
 
     // Form must expose form_id for DB inserts; if you only have form_key today,
     // put it into meta_json too.
     const formId = formData.form_id ?? null;
-
+    const totalSteps = formData.steps.length;
     const sessionId = getSessionId();
 
     // Flatten all fields across all steps (so payload includes whole form, not just current step)
@@ -196,6 +296,7 @@ const FormDetail = () => {
       response: {
         form_id: formId,
         user_id: userId,
+        total_steps: totalSteps,
         submitted_at: new Date().toISOString(),
         client_ip: null, // backend will fill (never trust frontend for IP)
         user_agent: navigator.userAgent,
@@ -212,15 +313,45 @@ const FormDetail = () => {
     };
   };
 
-  const handleSaveDraft = () => {
-    const payload = buildResponsePayload();
+  const handleSaveDraft = async () => {
+    try {
+      const payload = buildResponsePayload();
+      console.log("Draft payload:", payload);
 
-    // Optional: also stash locally for your draft workflow later
-    // localStorage.setItem(`draft_${formData.form_key}`, JSON.stringify(payload));
+      const result = await dispatch(saveDraft(payload)).unwrap();
 
-    console.log("Draft payload (responses + responsevalues):", payload);
+      notify({
+        type: "success",
+        title: "Draft saved",
+        message:
+          "Your progress has been saved. You can safely come back later.",
+      });
+
+      console.log("Save draft result:", result);
+    } catch (err) {
+      console.error("Save draft failed:", err);
+
+      notify({
+        type: "error",
+        title: "Could not save draft",
+        message:
+          typeof err === "string"
+            ? err
+            : "The draft could not be saved. Please try again.",
+      });
+    }
   };
 
+  const RequiredLabel = ({ label, required }) => (
+    <Field.Label>
+      {label}
+      {required && (
+        <Text color={"red.500"} fontSize={18} fontWeight={"900"}>
+          *
+        </Text>
+      )}
+    </Field.Label>
+  );
   const renderField = (field) => {
     const commonProps = {
       value: formValues[field.key_name] || "",
@@ -232,7 +363,7 @@ const FormDetail = () => {
       case "text":
         return (
           <Field.Root key={field.field_id} required={field.required}>
-            <Field.Label>{field.label}</Field.Label>
+            <RequiredLabel label={field.label} required={field.required} />
             <Input {...commonProps} />
             {field.help_text && (
               <Field.HelperText>{field.help_text}</Field.HelperText>
@@ -242,7 +373,7 @@ const FormDetail = () => {
       case "email":
         return (
           <Field.Root key={field.field_id} required={field.required}>
-            <Field.Label>{field.label}</Field.Label>
+            <RequiredLabel label={field.label} required={field.required} />
             <Input {...commonProps} type="email" />
             {field.help_text && (
               <Field.HelperText>{field.help_text}</Field.HelperText>
@@ -253,7 +384,7 @@ const FormDetail = () => {
       case "date":
         return (
           <Field.Root key={field.field_id} required={field.required}>
-            <Field.Label>{field.label}</Field.Label>
+            <RequiredLabel label={field.label} required={field.required} />
             <Input {...commonProps} type="date" />
             {field.help_text && (
               <Field.HelperText>{field.help_text}</Field.HelperText>
@@ -264,7 +395,7 @@ const FormDetail = () => {
       case "textarea":
         return (
           <Field.Root key={field.field_id} required={field.required}>
-            <Field.Label>{field.label}</Field.Label>
+            <RequiredLabel label={field.label} required={field.required} />
             <Textarea {...commonProps} rows={4} />
             {field.help_text && (
               <Field.HelperText>{field.help_text}</Field.HelperText>
@@ -277,7 +408,7 @@ const FormDetail = () => {
           <Field.Root key={field.field_id}>
             <Checkbox.Root
               key={field.field_id}
-              defaultChecked
+              checked={!!formValues[field.key_name]}
               variant={"outline"}
               onChange={(e) =>
                 handleInputChange(field.key_name, e.target.checked)
@@ -286,6 +417,11 @@ const FormDetail = () => {
               <Checkbox.HiddenInput />
               <Checkbox.Control />
               <Checkbox.Label>{field.label}</Checkbox.Label>
+              {field.required && (
+                <Text color={"red.500"} fontSize={18} fontWeight={"900"}>
+                  *
+                </Text>
+              )}
             </Checkbox.Root>
             {field.help_text && (
               <Field.HelperText>{field.help_text}</Field.HelperText>
@@ -297,8 +433,20 @@ const FormDetail = () => {
         return (
           <Field.Root key={field.field_id} required={field.required}>
             <Field.Label>{field.label}</Field.Label>
+            {field.required && (
+              <Text color={"red.500"} fontSize={18} fontWeight={"900"}>
+                *
+              </Text>
+            )}
             <Stack direction="column" gap={2} key={field.field_id}>
-              <RadioGroup.Root key={field.field_id} required={field.required}>
+              <RadioGroup.Root
+                key={field.field_id}
+                required={field.required}
+                value={formValues[field.key_name] || ""}
+                onValueChange={(e) =>
+                  handleInputChange(field.key_name, e.value)
+                }
+              >
                 <HStack gap="6">
                   {field.options.map((item) => (
                     <RadioGroup.Item key={item.value} value={item.value}>
@@ -329,6 +477,11 @@ const FormDetail = () => {
             onValueChange={(e) => handleInputChange(field.key_name, e.value)}
           >
             <Select.Label>{field.label}</Select.Label>
+            {field.required && (
+              <Text color={"red.500"} fontSize={18} fontWeight={"900"}>
+                *
+              </Text>
+            )}
             <Select.Control>
               <Select.Trigger>
                 <Select.ValueText placeholder="Select Option" />
@@ -363,11 +516,16 @@ const FormDetail = () => {
             collection={multiCollection}
             key={field.field_id}
             required={field.required}
-            value={formValues[field.key_name]}
+            value={formValues[field.key_name] || []}
             onValueChange={(e) => handleInputChange(field.key_name, e.value)}
             multiple
           >
             <Select.Label>{field.label}</Select.Label>
+            {field.required && (
+              <Text color={"red.500"} fontSize={18} fontWeight={"900"}>
+                *
+              </Text>
+            )}
             <Select.Control>
               <Select.Trigger>
                 <Select.ValueText placeholder="Select Option" />
@@ -533,8 +691,16 @@ const FormDetail = () => {
                   variant={"outline"}
                   color={"blue.600"}
                   borderColor={"blue.500"}
+                  onClick={handleRefresh}
+                  disabled={isRotating}
                 >
-                  <SlRefresh />
+                  <SlRefresh
+                    style={{
+                      animation: isRotating
+                        ? "spin 1s linear infinite"
+                        : "none",
+                    }}
+                  />
                   <Text>Refresh Dynamic Options</Text>
                 </Button>
               </Card.Body>
@@ -553,8 +719,9 @@ const FormDetail = () => {
                     size="sm"
                     borderRadius="md"
                     onClick={handleSaveDraft}
+                    disabled={draftStatus === "loading"}
                   >
-                    Save as Draft
+                    {draftStatus === "loading" ? "Saving" : "Save as Draft"}
                   </Button>
 
                   <Button

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -21,6 +21,8 @@ import {
   Collapsible,
   Select,
   Portal,
+  CloseButton,
+  Dialog,
 } from "@chakra-ui/react";
 import {
   FaFont,
@@ -49,6 +51,7 @@ import {
 import slugify from "@/utils/slug";
 import { useNavigate } from "react-router";
 import { GoMultiSelect } from "react-icons/go";
+import { notify } from "../ui/notifyStore";
 
 const NewForm = () => {
   const navigate = useNavigate();
@@ -97,6 +100,7 @@ const NewForm = () => {
     { type: "tel", label: "Phone", icon: <FaPhone /> },
   ];
 
+  console.log(formData);
   const error = useSelector(selectCreateFormError);
 
   const addStep = () => {
@@ -176,6 +180,12 @@ const NewForm = () => {
   const currentFields = steps[currentStepIndex]?.fields || [];
   const selectedField = currentFields.find((f) => f.id === selectedFieldId);
 
+  const currentTitle = steps[currentStepIndex]?.step_title ?? "";
+  const [title, setTitle] = useState(currentTitle);
+
+  useEffect(() => {
+    setTitle(currentTitle);
+  }, [currentTitle]);
   // Parse config for select/radio options
 
   const safeParseConfig = (field) => {
@@ -332,7 +342,11 @@ const NewForm = () => {
 
     console.log("Payload:", JSON.stringify(payload));
 
-    alert("Form created successfully!");
+    notify({
+      type: "success",
+      title: "Form created",
+      message: "Your form was created successfully.",
+    });
     navigate(`/forms`);
     // IMPORTANT: unwrap returns { form_id }, not { formid }
     // Also: returning <Link/> inside an event handler does nothing.
@@ -340,7 +354,7 @@ const NewForm = () => {
   };
 
   if (error) {
-    return <div>{error}</div>;
+    notify({ type: "error", title: "Error", message: error });
   }
   return (
     <Box minH="100vh" p={6}>
@@ -467,7 +481,7 @@ const NewForm = () => {
                       <Field.Root>
                         <Field.Label>Send Secret as:</Field.Label>
                         <RadioGroup.Root
-                          defaultValue="header"
+                          defaultValue="authorization"
                           onChange={(e) =>
                             setFormData({
                               ...formData,
@@ -476,22 +490,35 @@ const NewForm = () => {
                           }
                         >
                           <Stack direction="row" gap={6}>
-                            <RadioGroup.Item value="header">
+                            <RadioGroup.Item value="authorization">
                               <RadioGroup.ItemHiddenInput />
                               <RadioGroup.ItemIndicator />
                               <RadioGroup.ItemText>
                                 Authorization Header
                               </RadioGroup.ItemText>
                             </RadioGroup.Item>
-                            <RadioGroup.Item value="param">
+                            <RadioGroup.Item value="custom">
                               <RadioGroup.ItemHiddenInput />
                               <RadioGroup.ItemIndicator />
                               <RadioGroup.ItemText>
-                                Token Parameter
+                                Custom Header
                               </RadioGroup.ItemText>
                             </RadioGroup.Item>
                           </Stack>
                         </RadioGroup.Root>
+                        <Input
+                          placeholder="Enter Custom Header. Example: x-rpa-secret"
+                          disabled={
+                            !(formData.rpa_secret_method !== "authorization")
+                          }
+                          width={"45%"}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              rpa_secret_method: e.target.value,
+                            }))
+                          }
+                        />
                       </Field.Root>
                     </GridItem>
                   </Grid>
@@ -596,21 +623,53 @@ const NewForm = () => {
                     {currentFields.length} field(s) added
                   </Text>
                 </Box>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    const newTitle = prompt(
-                      "Step Title:",
-                      steps[currentStepIndex].step_title
-                    );
-                    if (newTitle) {
-                      updateStep(currentStepIndex, { step_title: newTitle });
-                    }
-                  }}
-                >
-                  Edit Step
-                </Button>
+                <Dialog.Root>
+                  <Dialog.Trigger asChild>
+                    <Button size="sm" variant="ghost">
+                      Edit Step
+                    </Button>
+                  </Dialog.Trigger>
+
+                  <Portal>
+                    <Dialog.Backdrop />
+                    <Dialog.Positioner>
+                      <Dialog.Content>
+                        <Dialog.Header>
+                          <Dialog.Title>Edit Step Title</Dialog.Title>
+                        </Dialog.Header>
+
+                        <Dialog.Body>
+                          <Input
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            placeholder="Step title"
+                            autoFocus
+                          />
+                        </Dialog.Body>
+
+                        <Dialog.Footer>
+                          <Dialog.ActionTrigger asChild>
+                            <Button
+                              onClick={() => {
+                                const trimmed = title.trim();
+                                if (!trimmed) return;
+                                updateStep(currentStepIndex, {
+                                  step_title: trimmed,
+                                });
+                              }}
+                            >
+                              Save
+                            </Button>
+                          </Dialog.ActionTrigger>
+                        </Dialog.Footer>
+
+                        <Dialog.CloseTrigger asChild>
+                          <CloseButton size="sm" />
+                        </Dialog.CloseTrigger>
+                      </Dialog.Content>
+                    </Dialog.Positioner>
+                  </Portal>
+                </Dialog.Root>
               </Flex>
             </Card.Header>
             <Card.Body overflowY="auto">

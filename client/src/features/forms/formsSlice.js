@@ -43,6 +43,22 @@ export const getForm = createAsyncThunk(
   }
 );
 
+export const getUserSessionData = createAsyncThunk(
+  "forms/getUserSessionData",
+  async ({ formKey, sessionToken }, { rejectWithValue }) => {
+    try {
+      const res = await http.get(`/api/forms/${formKey}/${sessionToken}`);
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          "Failed to load form"
+      );
+    }
+  }
+);
+
 /**
  * End-user list
  * GET /api/forms/published
@@ -59,6 +75,25 @@ export const fetchPublishedForms = createAsyncThunk(
         err?.response?.data?.message ||
           err?.response?.data?.error ||
           "Failed to load published forms"
+      );
+    }
+  }
+);
+
+export const saveDraft = createAsyncThunk(
+  "forms/saveDraft",
+  async ({ response, response_values }, { rejectWithValue }) => {
+    try {
+      const res = await http.post(`/api/forms/draft`, {
+        response,
+        response_values,
+      });
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          "Failed to save draft"
       );
     }
   }
@@ -95,21 +130,27 @@ export const createForm = createAsyncThunk(
 // ------------------------------------------
 
 const initialState = {
-  status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
+  status: "idle",
   error: null,
 
-  // Lists
-  forms: [], // admin list
-  publishedForms: [], // end-user list
+  forms: [],
+  publishedForms: [],
 
-  // Create
-  createStatus: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
+  createStatus: "idle",
   createError: null,
   createdFormId: null,
 
   currentForm: null,
-  currentFormStatus: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
+  currentFormStatus: "idle",
   currentFormError: null,
+
+  draftSaveStatus: "idle",
+  draftSaveError: null,
+  lastDraftSave: null,
+
+  sessionData: null,
+  sessionDataStatus: "idle",
+  sessionDataError: null,
 };
 
 const formSlice = createSlice({
@@ -124,6 +165,11 @@ const formSlice = createSlice({
       state.createStatus = "idle";
       state.createError = null;
       state.createdFormId = null;
+    },
+    resetDraftSaveState(state) {
+      state.draftSaveStatus = "idle";
+      state.draftSaveError = null;
+      state.lastDraftSave = null;
     },
   },
   extraReducers: (builder) => {
@@ -206,10 +252,48 @@ const formSlice = createSlice({
         state.currentFormError = action.payload || "Failed to load form";
         state.currentForm = null;
       });
+
+    // -------------------------------
+    // Save Draft
+    // -------------------------------
+    builder
+      .addCase(saveDraft.pending, (state) => {
+        state.draftSaveStatus = "loading";
+        state.draftSaveError = null;
+      })
+      .addCase(saveDraft.fulfilled, (state, action) => {
+        state.draftSaveStatus = "succeeded";
+        state.draftSaveError = null;
+        state.lastDraftSave = action.payload; // contains response_id/session/etc
+      })
+      .addCase(saveDraft.rejected, (state, action) => {
+        state.draftSaveStatus = "failed";
+        state.draftSaveError = action.error.message || "Failed to save draft";
+      });
+
+    // -----------------------
+    // Load Session Data
+    // -----------------------
+    builder
+      .addCase(getUserSessionData.pending, (state) => {
+        state.sessionDataStatus = "loading";
+        state.sessionDataError = null;
+      })
+      .addCase(getUserSessionData.fulfilled, (state, action) => {
+        state.sessionDataStatus = "succeeded";
+        state.sessionDataError = null;
+        state.sessionData = action.payload; // contains response_id/session/etc
+      })
+      .addCase(getUserSessionData.rejected, (state, action) => {
+        state.sessionDataStatus = "failed";
+        state.sessionDataError =
+          action.error.message || "Failed to Retrieve Session";
+      });
   },
 });
 
-export const { clearFormError, resetCreateState } = formSlice.actions;
+export const { clearFormError, resetCreateState, resetDraftSaveState } =
+  formSlice.actions;
 export default formSlice.reducer;
 
 // ------------------------------------------
@@ -229,3 +313,11 @@ export const selectCreatedFormId = (state) => state.forms.createdFormId;
 export const selectCurrentForm = (state) => state.forms.currentForm;
 export const selectCurrentFormStatus = (state) => state.forms.currentFormStatus;
 export const selectCurrentFormError = (state) => state.forms.currentFormError;
+
+export const selectDraftSaveStatus = (state) => state.forms.draftSaveStatus;
+export const selectDraftSaveError = (state) => state.forms.draftSaveError;
+export const selectLastDraftSave = (state) => state.forms.lastDraftSave;
+
+export const selectSessionDataStatus = (state) => state.forms.sessionDataStatus;
+export const selectSessionDataError = (state) => state.forms.sessionDataError;
+export const selectSessionData = (state) => state.forms.sessionData;

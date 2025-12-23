@@ -1,5 +1,13 @@
 import { Link, NavLink, useNavigate, useLocation } from "react-router";
-import { Box, Button, Flex, Text, VStack, HStack } from "@chakra-ui/react";
+import {
+  Box,
+  Button,
+  Flex,
+  Text,
+  VStack,
+  HStack,
+  Spacer,
+} from "@chakra-ui/react";
 import { useDispatch, useSelector } from "react-redux";
 import { logoutUser } from "../features/auth/authSlice";
 import {
@@ -14,13 +22,15 @@ import { CiSettings } from "react-icons/ci";
 import { useState } from "react";
 import logo from "../assets/logo-predictiveIT.svg";
 import { IoIosLogOut } from "react-icons/io";
+import { selectUser } from "../features/auth/authSlice";
+import AppToast from "@/components/ui/AppToast";
 
 function Layout({ children }) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const location = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
-
+  const user = useSelector(selectUser);
   const handleLogout = async (e) => {
     e.preventDefault();
     console.log("Logging out...");
@@ -38,6 +48,7 @@ function Layout({ children }) {
 
   return (
     <Flex direction="column" minH="100vh">
+      <AppToast placement="top-center" />
       {/* Top Bar */}
       <Box bg="white" color="Black" px={6} py={4} boxShadow="md">
         <Flex justify="space-between" align="center">
@@ -66,15 +77,37 @@ function Layout({ children }) {
               Automation Portal
             </Text>
           </HStack>
-          <Button
-            size="md"
-            onClick={handleLogout}
-            variant={"outline"}
-            borderColor={"red.500"}
-            color={"red.500"}
+          <HStack
+            spacing={4}
+            paddingX={4}
+            paddingY={2}
+            borderRadius="md"
+            border="1px solid"
+            borderColor="gray.200"
+            alignItems="center"
           >
-            <IoIosLogOut />
-          </Button>
+            <VStack align="flex-start" alignItems={"center"} spacing={0}>
+              <Text fontSize="sm" color="gray.500">
+                Signed in as
+              </Text>
+              <Text fontSize="md" fontWeight="medium">
+                {user.displayName}
+              </Text>
+            </VStack>
+
+            <Spacer />
+
+            <Button
+              size="sm"
+              onClick={handleLogout}
+              variant="outline"
+              borderColor="red.500"
+              color="red.600"
+            >
+              <IoIosLogOut />
+              Logout
+            </Button>
+          </HStack>
         </Flex>
       </Box>
 
@@ -136,7 +169,7 @@ function Layout({ children }) {
       </Flex>
 
       {/* Footer */}
-      <Box bg="gray.700" color="white" py={4} px={6} textAlign="center">
+      <Box bg="gray.700" color="white" py={2} px={6} textAlign="center">
         <Text fontSize="sm">
           © 2025 Automation Portal. All rights reserved.
         </Text>

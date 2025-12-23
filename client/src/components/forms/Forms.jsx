@@ -21,6 +21,8 @@ import {
   selectFormsStatus,
   selectFormsError,
 } from "../../features/forms/formsSlice";
+import AppLoader from "../ui/AppLoader";
+import AppError from "../ui/AppError";
 
 const Forms = () => {
   const dispatch = useDispatch();
@@ -125,6 +127,14 @@ const Forms = () => {
       ),
     },
   ];
+
+  if (status === "loading") {
+    return <AppLoader />;
+  }
+
+  if (error) {
+    return <AppError message={error} />;
+  }
 
   return (
     <VStack spacing={6} align="stretch">
