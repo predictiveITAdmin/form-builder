@@ -33,10 +33,8 @@ const Forms = () => {
 
   useEffect(() => {
     // Only fetch if we haven't already (prevents refetch loops)
-    if (status === "idle") {
-      dispatch(fetchForms());
-    }
-  }, [dispatch, status]);
+    dispatch(fetchForms());
+  }, [dispatch]);
 
   const filteredForms = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -78,12 +76,7 @@ const Forms = () => {
           : value;
       },
     },
-    {
-      key: "rpa_webhook_url",
-      label: "Webhook URL",
-      sortable: true,
-      render: (value) => (value ? value : "-"),
-    },
+
     {
       key: "owner_name",
       label: "Owner",
@@ -95,14 +88,14 @@ const Forms = () => {
       label: "Actions",
       sortable: false,
       render: (_, row) => (
-        <HStack spacing={2} width={12}>
+        <HStack spacing={0} width={12}>
           <IconButton
             size="sm"
             aria-label="View"
             variant="ghost"
-            colorScheme="blue"
+            color={"green.600"}
             // TODO: hook up view route
-            onClick={() => navigate(`/forms/${row.form_id}`)}
+            onClick={() => navigate(`/forms/${row.form_key}`)}
           >
             <FaRegEye size={16} />
           </IconButton>
@@ -111,9 +104,9 @@ const Forms = () => {
             size="sm"
             aria-label="Edit"
             variant="ghost"
-            colorScheme="purple"
+            color={"#FFBF00"}
             // TODO: hook up edit route
-            onClick={() => console.log("edit", row.form_id)}
+            onClick={() => console.log("edit", row.form_key)}
           >
             <FaRegEdit size={16} />
           </IconButton>
@@ -122,9 +115,9 @@ const Forms = () => {
             size="sm"
             aria-label="Delete"
             variant="ghost"
-            colorScheme="red"
+            color="#BA2222"
             // TODO: hook up delete action
-            onClick={() => console.log("delete", row.form_id)}
+            onClick={() => console.log("delete", row.form_key)}
           >
             <FaTrashAlt size={16} />
           </IconButton>
@@ -147,7 +140,11 @@ const Forms = () => {
           </Flex>
 
           <Link to="/forms/new">
-            <Button leftIcon={<FaPlus size={20} />} colorScheme="blue">
+            <Button
+              leftIcon={<FaPlus size={20} />}
+              color={"#fff"}
+              bgColor={"#2590ce"}
+            >
               <HStack>
                 <FaPlus />
                 New Form

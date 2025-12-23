@@ -66,7 +66,13 @@ function Layout({ children }) {
               Automation Portal
             </Text>
           </HStack>
-          <Button size="md" onClick={handleLogout}>
+          <Button
+            size="md"
+            onClick={handleLogout}
+            variant={"outline"}
+            borderColor={"red.500"}
+            color={"red.500"}
+          >
             <IoIosLogOut />
           </Button>
         </Flex>
@@ -86,6 +92,8 @@ function Layout({ children }) {
             <Button
               size="sm"
               w="3em"
+              ml={"4px"}
+              backgroundColor={"#2596be"}
               onClick={() => setSidebarOpen(!isSidebarOpen)}
             >
               {isSidebarOpen ? <FaArrowLeft /> : <FaArrowRight />}
@@ -99,9 +107,9 @@ function Layout({ children }) {
                   <Box
                     px={4}
                     py={3}
-                    bg={isActive ? "blue.500" : "transparent"}
+                    bg={isActive ? "#2596be" : "transparent"}
                     color={isActive ? "white" : "gray.700"}
-                    _hover={{ bg: isActive ? "blue.600" : "gray.200" }}
+                    _hover={{ bg: isActive ? "#2596be" : "gray.200" }}
                     cursor="pointer"
                     fontWeight={isActive ? "semibold" : "normal"}
                     transition="all 0.2s"
@@ -122,13 +130,13 @@ function Layout({ children }) {
         </Box>
 
         {/* Page Content */}
-        <Box flex={1} bg="gray.50" p={6} overflowY="scroll" maxHeight={"80vh"}>
+        <Box flex={1} bg="#FAFFFF" p={6} overflowY="scroll" maxHeight={"80vh"}>
           {children}
         </Box>
       </Flex>
 
       {/* Footer */}
-      <Box bg="gray.800" color="white" py={4} px={6} textAlign="center">
+      <Box bg="gray.700" color="white" py={4} px={6} textAlign="center">
         <Text fontSize="sm">
           © 2025 Automation Portal. All rights reserved.
         </Text>

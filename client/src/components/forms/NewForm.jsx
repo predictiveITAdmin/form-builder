@@ -19,6 +19,8 @@ import {
   Switch,
   IconButton,
   Collapsible,
+  Select,
+  Portal,
 } from "@chakra-ui/react";
 import {
   FaFont,
@@ -33,7 +35,6 @@ import {
   FaLink,
   FaPhone,
   FaTrash,
-  FaGripVertical,
   FaChevronDown,
   FaChevronUp,
   FaPlus,
@@ -47,6 +48,7 @@ import {
 } from "../../features/forms/formsSlice";
 import slugify from "@/utils/slug";
 import { useNavigate } from "react-router";
+import { GoMultiSelect } from "react-icons/go";
 
 const NewForm = () => {
   const navigate = useNavigate();
@@ -86,6 +88,7 @@ const NewForm = () => {
     { type: "email", label: "Email", icon: <FaEnvelope /> },
     { type: "number", label: "Number", icon: <FaHashtag /> },
     { type: "date", label: "Date", icon: <FaCalendarAlt /> },
+    { type: "multiselect", label: "Multi Select", icon: <GoMultiSelect /> },
     { type: "select", label: "Dropdown", icon: <FaListUl /> },
     { type: "checkbox", label: "Checkbox", icon: <FaCheckSquare /> },
     { type: "radio", label: "Radio Button", icon: <FaCircle /> },
@@ -93,6 +96,8 @@ const NewForm = () => {
     { type: "url", label: "URL", icon: <FaLink /> },
     { type: "tel", label: "Phone", icon: <FaPhone /> },
   ];
+
+  const error = useSelector(selectCreateFormError);
 
   const addStep = () => {
     const newStep = {
@@ -137,7 +142,9 @@ const NewForm = () => {
       required: false,
       sort_order: steps[currentStepIndex].fields.length,
       config_json:
-        fieldType === "select" || fieldType === "radio"
+        fieldType === "select" ||
+        fieldType === "radio" ||
+        fieldType === "multiselect"
           ? JSON.stringify({ options: ["Option 1", "Option 2", "Option 3"] })
           : "{}",
       active: true,
@@ -292,7 +299,9 @@ const NewForm = () => {
           // If dynamic enabled: don't send static options (anywhere)
           const options =
             !dynamicEnabled &&
-            (f.field_type === "select" || f.field_type === "radio")
+            (f.field_type === "select" ||
+              f.field_type === "radio" ||
+              f.field_type === "multiselect")
               ? configToFieldOptions(f.config_json)
               : [];
 
@@ -324,18 +333,24 @@ const NewForm = () => {
     console.log("Payload:", JSON.stringify(payload));
 
     alert("Form created successfully!");
-    navigate(`/forms/${form_id}`);
+    navigate(`/forms`);
     // IMPORTANT: unwrap returns { form_id }, not { formid }
     // Also: returning <Link/> inside an event handler does nothing.
     // Use navigate instead (shown below).
   };
+
+  if (error) {
+    return <div>{error}</div>;
+  }
   return (
-    <Box minH="100vh" bg="gray.50" p={6}>
+    <Box minH="100vh" p={6}>
       <Flex justify="space-between" align="center" mb={6}>
         <Heading size="lg">Form Builder</Heading>
         <Stack direction="row" gap={3}>
-          <Button variant="outline">Cancel</Button>
-          <Button colorScheme="blue" onClick={handleSubmit}>
+          <Button variant="outline" onClick={() => navigate("/forms")}>
+            Cancel
+          </Button>
+          <Button color="white" bgColor={"#2596be"} onClick={handleSubmit}>
             Save Form
           </Button>
         </Stack>
@@ -392,7 +407,6 @@ const NewForm = () => {
                       >
                         <option value="Published">Published</option>
                         <option value="Draft">Draft</option>
-                        <option value="Active">Active</option>
                         <option value="Archived">Archived</option>
                       </NativeSelect.Field>
                       <NativeSelect.Indicator />
@@ -497,7 +511,8 @@ const NewForm = () => {
                 key={step.step_id}
                 size="sm"
                 variant={currentStepIndex === index ? "solid" : "outline"}
-                colorScheme={currentStepIndex === index ? "blue" : "gray"}
+                color={currentStepIndex === index ? "white" : "green.600"}
+                bgColor={currentStepIndex === index ? "#94ca5c" : "white"}
                 onClick={() => {
                   setCurrentStepIndex(index);
                   setSelectedFieldId(null);
@@ -526,7 +541,8 @@ const NewForm = () => {
               size="sm"
               leftIcon={<FaPlus />}
               variant="outline"
-              colorScheme="green"
+              color={"white"}
+              bgColor={"#2596be"}
               onClick={addStep}
             >
               <FaPlus />
@@ -630,9 +646,6 @@ const NewForm = () => {
                     >
                       <Card.Body>
                         <Flex align="start" gap={3}>
-                          <Box color="gray.400" mt={1}>
-                            <FaGripVertical size={20} />
-                          </Box>
                           <Box flex={1}>
                             <Flex justify="space-between" mb={2}>
                               <Box>
@@ -644,24 +657,66 @@ const NewForm = () => {
                                 )}
                               </Box>
                               <Stack direction="row" gap={2}>
-                                <Badge colorScheme="purple">
-                                  {field.field_type}
-                                </Badge>
+                                <Badge color="purple">{field.field_type}</Badge>
                                 {field.required && (
-                                  <Badge colorScheme="red">Required</Badge>
+                                  <Badge color="red">Required</Badge>
                                 )}
                               </Stack>
                             </Flex>
 
                             {/* Field Preview */}
                             {field.field_type === "select" ? (
-                              <NativeSelect.Root size="sm" disabled>
-                                <NativeSelect.Field>
-                                  {getFieldOptions(field).map((opt, idx) => (
-                                    <option key={idx}>{opt}</option>
-                                  ))}
-                                </NativeSelect.Field>
-                              </NativeSelect.Root>
+                              <Select.Root disabled>
+                                <Select.Control>
+                                  <Select.Trigger>
+                                    <Select.ValueText placeholder="Dropdown" />
+                                  </Select.Trigger>
+                                  <Select.IndicatorGroup>
+                                    <Select.Indicator />
+                                  </Select.IndicatorGroup>
+                                </Select.Control>
+                                <Portal>
+                                  <Select.Positioner>
+                                    <Select.Content>
+                                      {getFieldOptions(field).map(
+                                        (opt, idx) => (
+                                          <Select.Item item={opt} key={idx}>
+                                            {opt}
+                                            <Select.ItemIndicator />
+                                          </Select.Item>
+                                        )
+                                      )}
+                                    </Select.Content>
+                                  </Select.Positioner>
+                                </Portal>
+                              </Select.Root>
+                            ) : field.field_type === "multiselect" ? (
+                              <>
+                                <Select.Root disabled>
+                                  <Select.Control>
+                                    <Select.Trigger>
+                                      <Select.ValueText placeholder="Multi Select" />
+                                    </Select.Trigger>
+                                    <Select.IndicatorGroup>
+                                      <Select.Indicator />
+                                    </Select.IndicatorGroup>
+                                  </Select.Control>
+                                  <Portal>
+                                    <Select.Positioner>
+                                      <Select.Content>
+                                        {getFieldOptions(field).map(
+                                          (opt, idx) => (
+                                            <Select.Item item={opt} key={idx}>
+                                              {opt}
+                                              <Select.ItemIndicator />
+                                            </Select.Item>
+                                          )
+                                        )}
+                                      </Select.Content>
+                                    </Select.Positioner>
+                                  </Portal>
+                                </Select.Root>
+                              </>
                             ) : field.field_type === "textarea" ? (
                               <Textarea
                                 placeholder="Sample textarea"
@@ -693,7 +748,7 @@ const NewForm = () => {
                           <IconButton
                             size="sm"
                             variant="ghost"
-                            colorScheme="red"
+                            color="red"
                             onClick={(e) => {
                               e.stopPropagation();
                               removeField(field.id);
@@ -783,6 +838,7 @@ const NewForm = () => {
 
                   {/* Options Configuration for Select/Radio */}
                   {(selectedField.field_type === "select" ||
+                    selectedField.field_type === "multiselect" ||
                     selectedField.field_type === "radio") && (
                     <Field.Root>
                       <Field.Label>Options</Field.Label>
@@ -942,8 +998,9 @@ const NewForm = () => {
                   </Field.Root>
 
                   <Button
-                    colorScheme="red"
+                    color={"#BA2222"}
                     variant="outline"
+                    borderColor={"#BA2222"}
                     size="sm"
                     onClick={() => removeField(selectedField.id)}
                   >

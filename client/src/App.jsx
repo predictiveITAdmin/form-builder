@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import Layout from "./pages/Layout";
 import Forms from "./components/forms/Forms";
+import Test from "./pages/Test";
 import Dashboard from "./pages/Dashboard";
 import Configuration from "./pages/Configuration";
 import FormsLayout from "./pages/FormsLayout";
@@ -25,6 +26,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/test" element={<Test />} />
       <Route path="/auth/redirect" element={<Navigate to="/" replace />} />
       <Route element={<RequireAuth />}>
         <Route
@@ -62,7 +64,7 @@ function App() {
         >
           <Route index element={<Forms />} />
           <Route path="new" element={<NewForm />} />
-          <Route path=":id" element={<FormDetail />} />
+          <Route path=":formKey" element={<FormDetail />} />
         </Route>
         <Route
           path="/responses"

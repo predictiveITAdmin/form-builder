@@ -1,5 +1,5 @@
 const svc = require("./queries"); // same folder as controller.js
-
+const axios = require("axios");
 /**
  * GET /forms
  * Admin/Manager/FormBuilder
@@ -170,9 +170,62 @@ async function getFormForRender(req, res, next) {
   }
 }
 
+async function triggerOptionsProcessing(req, res, next) {
+  try {
+    const { formKey, fieldId } = req.params;
+    if (!formKey || !fieldId) {
+      return res
+        .status(400)
+        .json({ message: "Bad Request. Form Key or Field Id is required." });
+    }
+
+    const fieldURL = await svc.getDynamicUrl(fieldId);
+
+    // Trigger the RPA process (fire and forget)
+    await axios.post(fieldURL, {
+      formKey: formKey,
+      fieldId: fieldId,
+      callbackUrl: `${process.env.APP_BASE_URL}/api/webhooks/options-callback`, // Your webhook endpoint
+    });
+
+    return res.status(202).json({
+      message: "Processing queued successfully",
+      formKey,
+      fieldId,
+    });
+  } catch (e) {
+    console.log(e);
+    return next(e);
+  }
+}
+
+async function handleOptionsCallback(req, res, next) {
+  try {
+    const { formKey, fieldId, options } = req.body;
+
+    if (!formKey || !fieldId || !options) {
+      return res
+        .status(400)
+        .json({ message: "Bad Request. Missing required fields." });
+    }
+
+    // Insert options into database
+    await svc.saveOptionsToDb(fieldId, options);
+
+    return res.status(200).json({
+      message: "Options received and saved successfully",
+      count: options.length,
+    });
+  } catch (e) {
+    console.error("Error processing options callback:", e);
+    return next(e);
+  }
+}
 module.exports = {
   listAll,
   listPublished,
   create,
   getFormForRender,
+  triggerOptionsProcessing,
+  handleOptionsCallback,
 };

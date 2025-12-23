@@ -5,9 +5,6 @@ import { Outlet } from "react-router-dom";
 export default function FormsLayout() {
   return (
     <>
-      <Heading mb={4} fontSize={24}>
-        Forms
-      </Heading>
       <Outlet />
     </>
   );

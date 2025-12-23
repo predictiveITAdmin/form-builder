@@ -25,6 +25,98 @@ async function listForms() {
   );
 }
 
+async function getDynamicUrl(fieldId) {
+  const result = await query(
+    `
+    SELECT config_json
+    FROM FormFields
+    WHERE field_id = $1
+    `,
+    [fieldId]
+  );
+  if (!result.length) {
+    throw new Error(`Field with ID ${fieldId} not found`);
+  }
+  const configJson = result[0].config_json;
+  let config;
+  try {
+    config =
+      typeof configJson === "string" ? JSON.parse(configJson) : configJson;
+  } catch (err) {
+    throw new Error(`Invalid config_json for field ${fieldId}`);
+  }
+
+  // Check if dynamic options are enabled and URL exists
+  if (config?.dynamicOptions?.enabled && config?.dynamicOptions?.url) {
+    return config.dynamicOptions.url;
+  }
+
+  throw new Error(
+    `Dynamic options not enabled or URL not found for field ${fieldId}`
+  );
+}
+
+async function saveOptionsToDb(fieldId, options) {
+  const pool = await getPool();
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // 1) Delete all existing options for this field
+    await client.query(
+      `
+      DELETE FROM FieldOptions
+      WHERE form_field_id = $1
+      `,
+      [fieldId]
+    );
+
+    // 2) Insert new options
+    if (Array.isArray(options) && options.length > 0) {
+      const valuesWithSource = [];
+      const placeholders = [];
+
+      options.forEach((option, index) => {
+        const offset = index * 6;
+        placeholders.push(
+          `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${
+            offset + 5
+          }, $${offset + 6})`
+        );
+        valuesWithSource.push(
+          fieldId,
+          option.value,
+          option.label,
+          option.is_default ?? false,
+          option.sort_order ?? index,
+          "dynamic"
+        );
+      });
+
+      const sql = `
+        INSERT INTO FieldOptions
+          (form_field_id, value, label, is_default, sort_order, source)
+        VALUES ${placeholders.join(", ")}
+      `;
+
+      await client.query(sql, valuesWithSource);
+    }
+
+    await client.query("COMMIT");
+
+    return {
+      fieldId,
+      optionsInserted: options.length,
+      message: "Options saved successfully",
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
 /**
  * End-user list - published only
  */
@@ -299,4 +391,6 @@ module.exports = {
   listPublishedForms,
   createForm,
   getFormGraphByKey,
+  getDynamicUrl,
+  saveOptionsToDb,
 };

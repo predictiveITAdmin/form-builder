@@ -69,7 +69,7 @@ CREATE TABLE FieldOptions (
     label         VARCHAR(400) NOT NULL,
     is_default    BOOLEAN NOT NULL DEFAULT FALSE,
     sort_order    INTEGER NOT NULL DEFAULT 0,
-    source        VARCHAR(12) NOT NULL,  -- 'static' | 'rpa'
+    source        VARCHAR(12) NOT NULL, 
     updated_at    TIMESTAMP(3) NOT NULL DEFAULT (NOW() AT TIME ZONE 'UTC'),
     CONSTRAINT FK_FieldOptions_FormFields
         FOREIGN KEY (form_field_id) REFERENCES FormFields(field_id)

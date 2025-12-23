@@ -26,6 +26,23 @@ export const fetchForms = createAsyncThunk(
   }
 );
 
+export const getForm = createAsyncThunk(
+  "forms/getFormDetail",
+  async (formKey, { rejectWithValue }) => {
+    try {
+      const res = await http.get(`/api/forms/${formKey}`);
+      // backend should return the full form object
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          "Failed to load form"
+      );
+    }
+  }
+);
+
 /**
  * End-user list
  * GET /api/forms/published
@@ -89,6 +106,10 @@ const initialState = {
   createStatus: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
   createError: null,
   createdFormId: null,
+
+  currentForm: null,
+  currentFormStatus: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
+  currentFormError: null,
 };
 
 const formSlice = createSlice({
@@ -164,6 +185,27 @@ const formSlice = createSlice({
         state.createStatus = "failed";
         state.createError = action.payload || "Failed to create form";
       });
+
+    // -------------------------------
+    // Get Form Details
+    // -------------------------------
+
+    builder
+      .addCase(getForm.pending, (state) => {
+        state.currentFormStatus = "loading";
+        state.currentFormError = null;
+        state.currentForm = null;
+      })
+      .addCase(getForm.fulfilled, (state, action) => {
+        state.currentFormStatus = "succeeded";
+        state.currentForm = action.payload;
+        state.currentFormError = null;
+      })
+      .addCase(getForm.rejected, (state, action) => {
+        state.currentFormStatus = "failed";
+        state.currentFormError = action.payload || "Failed to load form";
+        state.currentForm = null;
+      });
   },
 });
 
@@ -183,3 +225,7 @@ export const selectFormsError = (state) => state.forms.error;
 export const selectCreateFormStatus = (state) => state.forms.createStatus;
 export const selectCreateFormError = (state) => state.forms.createError;
 export const selectCreatedFormId = (state) => state.forms.createdFormId;
+
+export const selectCurrentForm = (state) => state.forms.currentForm;
+export const selectCurrentFormStatus = (state) => state.forms.currentFormStatus;
+export const selectCurrentFormError = (state) => state.forms.currentFormError;

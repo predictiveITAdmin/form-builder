@@ -13,6 +13,17 @@ router.get("/", authMiddleware, ctrl.listAll);
 router.post("/", authMiddleware, ctrl.create);
 
 router.get("/:formKey", authMiddleware, ctrl.getFormForRender);
+// routes.js
+router.post(
+  "/:formKey/fields/:fieldId/options",
+  authMiddleware,
+  ctrl.triggerOptionsProcessing
+);
+router.post(
+  "/webhooks/options-callback",
+  authMiddleware,
+  ctrl.handleOptionsCallback
+);
 
 // router.get("/published", authMiddleware, ctrl.listPublished);
 // router.get(
