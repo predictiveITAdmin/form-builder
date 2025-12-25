@@ -27,9 +27,8 @@ export const notify = ({
   type = "info",
   title = "",
   message = "",
-  duration = 15000, // 👈 15 seconds default
+  duration = 3000,
 } = {}) => {
-  // Clear any existing timer so new toasts reset the clock
   if (timeoutId) {
     clearTimeout(timeoutId);
     timeoutId = null;

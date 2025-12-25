@@ -8,9 +8,6 @@ const authRoutes = require("./services/auth/routes");
 const session = require("express-session");
 const cookieParser = require("cookie-parser");
 const { query } = require("./db/pool");
-
-const { ensureAuthenticated } = require("./middlewares/auth");
-
 // Import API From Services
 const formsRoutes = require("./services/forms/routes");
 

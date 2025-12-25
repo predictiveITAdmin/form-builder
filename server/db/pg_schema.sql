@@ -13,6 +13,153 @@ CREATE TABLE Users (
         CHECK (user_type IN ('Internal', 'External'))
 );
 
+ALTER TABLE public.users 
+ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- Add index on is_active for filtering active users
+CREATE INDEX idx_users_is_active ON public.users(is_active);
+
+-- Add index on email for faster lookups
+CREATE UNIQUE INDEX idx_users_email ON public.users(email) WHERE email IS NOT NULL;
+
+-- Add index on entra_object_id for SSO lookups
+CREATE UNIQUE INDEX idx_users_entra_object_id ON public.users(entra_object_id) WHERE entra_object_id IS NOT NULL;
+
+-- Add composite index for common queries
+CREATE INDEX idx_users_active_created ON public.users(is_active, created_at DESC);
+
+
+CREATE TABLE public.permissions (
+    permission_id SERIAL PRIMARY KEY,
+    permission_name VARCHAR(100) NOT NULL,
+    permission_code VARCHAR(100) NOT NULL,
+    description TEXT,
+    resource VARCHAR(100), -- e.g., 'users', 'reports', 'settings'
+    action VARCHAR(50), -- e.g., 'create', 'read', 'update', 'delete'
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Unique constraint on permission code
+CREATE UNIQUE INDEX idx_permissions_code ON public.permissions(permission_code);
+
+-- Index on resource and action for permission lookups
+CREATE INDEX idx_permissions_resource_action ON public.permissions(resource, action);
+
+CREATE TABLE public.roles (
+    role_id SERIAL PRIMARY KEY,
+    role_name VARCHAR(100) NOT NULL,
+    role_code VARCHAR(100) NOT NULL,
+    description TEXT,
+    is_system_role BOOLEAN NOT NULL DEFAULT FALSE, -- Prevents deletion of core roles
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Unique constraint on role code
+CREATE UNIQUE INDEX idx_roles_code ON public.roles(role_code);
+
+-- Index on role name for searches
+CREATE INDEX idx_roles_name ON public.roles(role_name);
+
+-- Index on active roles
+CREATE INDEX idx_roles_active ON public.roles(is_active);
+
+CREATE TABLE public.role_permissions (
+    role_permission_id SERIAL PRIMARY KEY,
+    role_id INTEGER NOT NULL,
+    permission_id INTEGER NOT NULL,
+    granted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    granted_by INTEGER, -- user_id who granted this permission
+    CONSTRAINT fk_role_permissions_role 
+        FOREIGN KEY (role_id) 
+        REFERENCES public.roles(role_id) 
+        ON DELETE CASCADE,
+    CONSTRAINT fk_role_permissions_permission 
+        FOREIGN KEY (permission_id) 
+        REFERENCES public.permissions(permission_id) 
+        ON DELETE CASCADE,
+    CONSTRAINT fk_role_permissions_granted_by 
+        FOREIGN KEY (granted_by) 
+        REFERENCES public.users(user_id) 
+        ON DELETE SET NULL
+);
+
+-- Unique constraint to prevent duplicate role-permission assignments
+CREATE UNIQUE INDEX idx_role_permissions_unique ON public.role_permissions(role_id, permission_id);
+
+-- Index for reverse lookup (permissions to roles)
+CREATE INDEX idx_role_permissions_permission ON public.role_permissions(permission_id);
+
+-- Index for audit trail
+CREATE INDEX idx_role_permissions_granted_by ON public.role_permissions(granted_by);
+
+-- Comments for documentation
+COMMENT ON TABLE public.role_permissions IS 'Junction table linking roles to permissions';
+
+
+-- ============================================
+-- 5. CREATE USER_ROLES JUNCTION TABLE
+-- ============================================
+
+CREATE TABLE public.user_roles (
+    user_role_id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    role_id INTEGER NOT NULL,
+    assigned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    assigned_by INTEGER, -- user_id who assigned this role
+    expires_at TIMESTAMP, -- Optional: for temporary role assignments
+    CONSTRAINT fk_user_roles_user 
+        FOREIGN KEY (user_id) 
+        REFERENCES public.users(user_id) 
+        ON DELETE CASCADE,
+    CONSTRAINT fk_user_roles_role 
+        FOREIGN KEY (role_id) 
+        REFERENCES public.roles(role_id) 
+        ON DELETE CASCADE,
+    CONSTRAINT fk_user_roles_assigned_by 
+        FOREIGN KEY (assigned_by) 
+        REFERENCES public.users(user_id) 
+        ON DELETE SET NULL
+);
+
+-- Unique constraint to prevent duplicate user-role assignments
+CREATE UNIQUE INDEX idx_user_roles_unique ON public.user_roles(user_id, role_id);
+
+-- Index for role-based queries
+CREATE INDEX idx_user_roles_role ON public.user_roles(role_id);
+
+-- Index for expiration checks
+CREATE INDEX idx_user_roles_expires ON public.user_roles(expires_at) WHERE expires_at IS NOT NULL;
+
+-- Index for audit trail
+CREATE INDEX idx_user_roles_assigned_by ON public.user_roles(assigned_by);
+
+-- Composite index for active role lookups
+CREATE INDEX idx_user_roles_user_active ON public.user_roles(user_id, assigned_at DESC);
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger for permissions table
+CREATE TRIGGER trg_permissions_updated_at
+    BEFORE UPDATE ON public.permissions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger for roles table
+CREATE TRIGGER trg_roles_updated_at
+    BEFORE UPDATE ON public.roles
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+
 CREATE TABLE Forms (
     form_id         SERIAL PRIMARY KEY,
     title           VARCHAR(300) NOT NULL,
@@ -31,6 +178,35 @@ CREATE TABLE Forms (
         FOREIGN KEY (owner_user_id) REFERENCES Users(user_id),
     CONSTRAINT UQ_Forms_form_key UNIQUE (form_key)
 );
+
+CREATE TABLE public.form_access (
+	form_access_id SERIAL PRIMARY KEY,
+	form_id INTEGER NOT NULL,
+	user_id INTEGER NOT NULL,
+	granted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	granted_by INTEGER,
+	CONSTRAINT fk_form_access_form 
+        FOREIGN KEY (form_id) 
+        REFERENCES public.forms(form_id) 
+        ON DELETE CASCADE,
+    CONSTRAINT fk_form_access_user 
+        FOREIGN KEY (user_id) 
+        REFERENCES public.users(user_id) 
+        ON DELETE CASCADE,
+    CONSTRAINT fk_form_access_granted_by 
+        FOREIGN KEY (granted_by) 
+        REFERENCES public.users(user_id) 
+        ON DELETE SET NULL
+);
+
+CREATE UNIQUE INDEX idx_form_access_unique ON public.form_access(form_id, user_id);
+
+-- Index for user lookups (get all forms for a user)
+CREATE INDEX idx_form_access_user ON public.form_access(user_id);
+
+-- Index for form lookups (get all users for a form)
+CREATE INDEX idx_form_access_form ON public.form_access(form_id);
+
 
 CREATE INDEX IX_Forms_status ON Forms(status);
 

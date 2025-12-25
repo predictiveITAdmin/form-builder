@@ -18,11 +18,13 @@ import {
   Select,
   Portal,
   createListCollection,
+  FileUpload,
 } from "@chakra-ui/react";
 import { useNavigate, useParams } from "react-router";
 import { SlRefresh } from "react-icons/sl";
 import { useSelector, useDispatch } from "react-redux";
 import { notify } from "../ui/notifyStore";
+import { HiUpload } from "react-icons/hi";
 import {
   getUserSessionData,
   saveDraft,
@@ -37,7 +39,7 @@ import {
 } from "@/features/forms/formsSlice";
 import { getForm } from "@/features/forms/formsSlice";
 import { selectUser } from "@/features/auth/authSlice";
-import { GiConsoleController } from "react-icons/gi";
+import { validateWholeForm } from "@/utils/validation";
 import AppLoader from "../ui/AppLoader";
 import AppError from "../ui/AppError";
 
@@ -56,6 +58,10 @@ const FormDetail = () => {
   const sessionData = useSelector(selectSessionData);
   const sessionStatus = useSelector(selectSessionDataStatus);
   const sessionError = useSelector(selectSessionDataError);
+  const [uploading, setUploading] = useState({});
+
+  const isFieldInvalid = (field) =>
+    touchedFields[field.key_name] && fieldErrors[field.key_name];
 
   const normalizeSessionValues = (sessionData, formData) => {
     if (!sessionData || !formData) return {};
@@ -136,6 +142,22 @@ const FormDetail = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [formValues, setFormValues] = useState({});
   const [isRotating, setIsRotating] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [touchedFields, setTouchedFields] = useState({});
+
+  const validationResult = useMemo(() => {
+    return validateWholeForm(formData, formValues);
+  }, [formData, formValues]);
+
+  const { isValid: isFormValid, errors } = validationResult;
+
+  const { isValid: formIsValid } = useMemo(() => {
+    return validateWholeForm(formData, formValues);
+  }, [formData, formValues]);
+
+  useEffect(() => {
+    setisComplete(formIsValid);
+  }, [formIsValid]);
 
   const handleRefresh = () => {
     setIsRotating(true);
@@ -143,6 +165,36 @@ const FormDetail = () => {
     setTimeout(() => {
       setIsRotating(false);
     }, 1005);
+  };
+
+  const handleFileUpload = async (field, file) => {
+    if (!file) return;
+
+    try {
+      setUploading((prev) => ({ ...prev, [field.key_name]: true }));
+
+      // ✅ replace this with your actual upload call
+      // Example expected response: { url: "https://..." }
+      const url = "randomURLforafile.com";
+
+      // store URL as TEXT in formValues
+      handleInputChange(field.key_name, url);
+
+      notify({
+        type: "success",
+        title: "File uploaded",
+        message: "Your file is ready.",
+      });
+    } catch (err) {
+      notify({
+        type: "error",
+        title: "Upload failed",
+        message:
+          typeof err === "string" ? err : "Could not upload file. Try again.",
+      });
+    } finally {
+      setUploading((prev) => ({ ...prev, [field.key_name]: false }));
+    }
   };
 
   if (status === "loading" || sessionStatus === "loading") {
@@ -160,9 +212,20 @@ const FormDetail = () => {
   }
 
   const handleInputChange = (keyName, value) => {
+    console.log(value);
     setFormValues((prev) => ({
       ...prev,
       [keyName]: value,
+    }));
+
+    setTouchedFields((prev) => ({
+      ...prev,
+      [keyName]: true,
+    }));
+
+    setFieldErrors((prev) => ({
+      ...prev,
+      [keyName]: "",
     }));
   };
 
@@ -326,11 +389,7 @@ const FormDetail = () => {
         message:
           "Your progress has been saved. You can safely come back later.",
       });
-
-      console.log("Save draft result:", result);
     } catch (err) {
-      console.error("Save draft failed:", err);
-
       notify({
         type: "error",
         title: "Could not save draft",
@@ -340,6 +399,33 @@ const FormDetail = () => {
             : "The draft could not be saved. Please try again.",
       });
     }
+  };
+
+  const handleFinalSubmit = () => {
+    const { isValid, errors } = validateWholeForm(formData, formValues);
+
+    if (!isValid) {
+      // mark all invalid fields as touched
+      const touched = {};
+      Object.keys(errors).forEach((key) => {
+        touched[key] = true;
+      });
+
+      setTouchedFields((prev) => ({ ...prev, ...touched }));
+      setFieldErrors(errors);
+
+      notify({
+        type: "error",
+        title: "Form incomplete",
+        message: "Please fix the highlighted fields before submitting.",
+      });
+
+      return;
+    }
+
+    console.log("Submitting final response...");
+    const payload = buildResponsePayload();
+    console.log(payload);
   };
 
   const RequiredLabel = ({ label, required }) => (
@@ -353,39 +439,28 @@ const FormDetail = () => {
     </Field.Label>
   );
   const renderField = (field) => {
+    const value = formValues[field.key_name];
+
     const commonProps = {
-      value: formValues[field.key_name] || "",
+      value: value ?? "",
       onChange: (e) => handleInputChange(field.key_name, e.target.value),
       required: field.required,
+      name: field.key_name, // helpful for scroll-to-error later if you want
     };
 
     switch (field.field_type) {
       case "text":
         return (
-          <Field.Root key={field.field_id} required={field.required}>
+          <Field.Root
+            key={field.field_id}
+            required={field.required}
+            invalid={isFieldInvalid(field)}
+          >
             <RequiredLabel label={field.label} required={field.required} />
             <Input {...commonProps} />
-            {field.help_text && (
-              <Field.HelperText>{field.help_text}</Field.HelperText>
+            {isFieldInvalid(field) && (
+              <Field.ErrorText>{fieldErrors[field.key_name]}</Field.ErrorText>
             )}
-          </Field.Root>
-        );
-      case "email":
-        return (
-          <Field.Root key={field.field_id} required={field.required}>
-            <RequiredLabel label={field.label} required={field.required} />
-            <Input {...commonProps} type="email" />
-            {field.help_text && (
-              <Field.HelperText>{field.help_text}</Field.HelperText>
-            )}
-          </Field.Root>
-        );
-
-      case "date":
-        return (
-          <Field.Root key={field.field_id} required={field.required}>
-            <RequiredLabel label={field.label} required={field.required} />
-            <Input {...commonProps} type="date" />
             {field.help_text && (
               <Field.HelperText>{field.help_text}</Field.HelperText>
             )}
@@ -394,9 +469,117 @@ const FormDetail = () => {
 
       case "textarea":
         return (
-          <Field.Root key={field.field_id} required={field.required}>
+          <Field.Root
+            key={field.field_id}
+            required={field.required}
+            invalid={isFieldInvalid(field)}
+          >
             <RequiredLabel label={field.label} required={field.required} />
             <Textarea {...commonProps} rows={4} />
+            {isFieldInvalid(field) && (
+              <Field.ErrorText>{fieldErrors[field.key_name]}</Field.ErrorText>
+            )}
+            {field.help_text && (
+              <Field.HelperText>{field.help_text}</Field.HelperText>
+            )}
+          </Field.Root>
+        );
+
+      case "email":
+        return (
+          <Field.Root
+            key={field.field_id}
+            required={field.required}
+            invalid={isFieldInvalid(field)}
+          >
+            <RequiredLabel label={field.label} required={field.required} />
+            <Input {...commonProps} type="email" />
+            {isFieldInvalid(field) && (
+              <Field.ErrorText>{fieldErrors[field.key_name]}</Field.ErrorText>
+            )}
+            {field.help_text && (
+              <Field.HelperText>{field.help_text}</Field.HelperText>
+            )}
+          </Field.Root>
+        );
+
+      case "number":
+        return (
+          <Field.Root
+            key={field.field_id}
+            required={field.required}
+            invalid={isFieldInvalid(field)}
+          >
+            <RequiredLabel label={field.label} required={field.required} />
+            <Input
+              {...commonProps}
+              type="number"
+              inputMode="numeric"
+              // optional: min/max if you store them on field
+              min={field.min ?? undefined}
+              max={field.max ?? undefined}
+            />
+            {isFieldInvalid(field) && (
+              <Field.ErrorText>{fieldErrors[field.key_name]}</Field.ErrorText>
+            )}
+            {field.help_text && (
+              <Field.HelperText>{field.help_text}</Field.HelperText>
+            )}
+          </Field.Root>
+        );
+
+      case "date":
+        return (
+          <Field.Root
+            key={field.field_id}
+            required={field.required}
+            invalid={isFieldInvalid(field)}
+          >
+            <RequiredLabel label={field.label} required={field.required} />
+            <Input {...commonProps} type="date" />
+            {isFieldInvalid(field) && (
+              <Field.ErrorText>{fieldErrors[field.key_name]}</Field.ErrorText>
+            )}
+            {field.help_text && (
+              <Field.HelperText>{field.help_text}</Field.HelperText>
+            )}
+          </Field.Root>
+        );
+
+      case "url":
+        return (
+          <Field.Root
+            key={field.field_id}
+            required={field.required}
+            invalid={isFieldInvalid(field)}
+          >
+            <RequiredLabel label={field.label} required={field.required} />
+            <Input
+              {...commonProps}
+              type="url"
+              placeholder="https://example.com"
+            />
+            {isFieldInvalid(field) && (
+              <Field.ErrorText>{fieldErrors[field.key_name]}</Field.ErrorText>
+            )}
+            {field.help_text && (
+              <Field.HelperText>{field.help_text}</Field.HelperText>
+            )}
+          </Field.Root>
+        );
+
+      case "tel":
+        return (
+          <Field.Root
+            key={field.field_id}
+            required={field.required}
+            invalid={isFieldInvalid(field)}
+          >
+            <RequiredLabel label={field.label} required={field.required} />
+            <Input {...commonProps} type="tel" placeholder="+1 555 123 4567" />
+            {isFieldInvalid(field) && (
+              <Field.ErrorText>{fieldErrors[field.key_name]}</Field.ErrorText>
+            )}
             {field.help_text && (
               <Field.HelperText>{field.help_text}</Field.HelperText>
             )}
@@ -405,16 +588,15 @@ const FormDetail = () => {
 
       case "checkbox":
         return (
-          <Field.Root key={field.field_id}>
+          <Field.Root key={field.field_id} invalid={isFieldInvalid(field)}>
             <Checkbox.Root
-              key={field.field_id}
-              checked={!!formValues[field.key_name]}
+              checked={!!value}
               variant={"outline"}
               onChange={(e) =>
                 handleInputChange(field.key_name, e.target.checked)
               }
             >
-              <Checkbox.HiddenInput />
+              <Checkbox.HiddenInput name={field.key_name} />
               <Checkbox.Control />
               <Checkbox.Label>{field.label}</Checkbox.Label>
               {field.required && (
@@ -423,6 +605,10 @@ const FormDetail = () => {
                 </Text>
               )}
             </Checkbox.Root>
+
+            {isFieldInvalid(field) && (
+              <Field.ErrorText>{fieldErrors[field.key_name]}</Field.ErrorText>
+            )}
             {field.help_text && (
               <Field.HelperText>{field.help_text}</Field.HelperText>
             )}
@@ -431,26 +617,32 @@ const FormDetail = () => {
 
       case "radio":
         return (
-          <Field.Root key={field.field_id} required={field.required}>
-            <Field.Label>{field.label}</Field.Label>
-            {field.required && (
-              <Text color={"red.500"} fontSize={18} fontWeight={"900"}>
-                *
-              </Text>
-            )}
-            <Stack direction="column" gap={2} key={field.field_id}>
+          <Field.Root
+            key={field.field_id}
+            required={field.required}
+            invalid={isFieldInvalid(field)}
+          >
+            <HStack alignItems="baseline" gap={2}>
+              <Field.Label>{field.label}</Field.Label>
+              {field.required && (
+                <Text color={"red.500"} fontSize={18} fontWeight={"900"}>
+                  *
+                </Text>
+              )}
+            </HStack>
+
+            <Stack direction="column" gap={2}>
               <RadioGroup.Root
-                key={field.field_id}
                 required={field.required}
-                value={formValues[field.key_name] || ""}
+                value={value ?? ""}
                 onValueChange={(e) =>
                   handleInputChange(field.key_name, e.value)
                 }
               >
-                <HStack gap="6">
+                <HStack gap="6" wrap="wrap">
                   {field.options.map((item) => (
                     <RadioGroup.Item key={item.value} value={item.value}>
-                      <RadioGroup.ItemHiddenInput />
+                      <RadioGroup.ItemHiddenInput name={field.key_name} />
                       <RadioGroup.ItemIndicator />
                       <RadioGroup.ItemText>{item.label}</RadioGroup.ItemText>
                     </RadioGroup.Item>
@@ -458,104 +650,179 @@ const FormDetail = () => {
                 </HStack>
               </RadioGroup.Root>
             </Stack>
+
+            {isFieldInvalid(field) && (
+              <Field.ErrorText>{fieldErrors[field.key_name]}</Field.ErrorText>
+            )}
             {field.help_text && (
               <Field.HelperText>{field.help_text}</Field.HelperText>
             )}
           </Field.Root>
         );
 
-      case "select":
-        const optionCollection = createListCollection({
-          items: field.options,
-        });
+      case "select": {
+        const optionCollection = createListCollection({ items: field.options });
         return (
-          <Select.Root
-            collection={optionCollection}
+          <Field.Root
             key={field.field_id}
+            invalid={isFieldInvalid(field)}
             required={field.required}
-            value={formValues[field.key_name]}
-            onValueChange={(e) => handleInputChange(field.key_name, e.value)}
           >
-            <Select.Label>{field.label}</Select.Label>
-            {field.required && (
-              <Text color={"red.500"} fontSize={18} fontWeight={"900"}>
-                *
-              </Text>
+            <Select.Root
+              collection={optionCollection}
+              required={field.required}
+              value={value || []} // Chakra expects array
+              onValueChange={(e) => handleInputChange(field.key_name, e.value)}
+            >
+              <HStack>
+                <Select.Label width={"fit-content"}>{field.label}</Select.Label>
+                {field.required && (
+                  <Text
+                    width={"fit-content"}
+                    color={"red.500"}
+                    fontSize={18}
+                    fontWeight={"900"}
+                  >
+                    *
+                  </Text>
+                )}
+              </HStack>
+              <Select.Control>
+                <Select.Trigger>
+                  <Select.ValueText placeholder="Select Option" />
+                </Select.Trigger>
+                <Select.IndicatorGroup>
+                  <Select.Indicator />
+                </Select.IndicatorGroup>
+              </Select.Control>
+              <Portal>
+                <Select.Positioner>
+                  <Select.Content>
+                    {optionCollection.items.map((item) => (
+                      <Select.Item item={item} key={item.value}>
+                        {item.label}
+                        <Select.ItemIndicator />
+                      </Select.Item>
+                    ))}
+                  </Select.Content>
+                </Select.Positioner>
+              </Portal>
+            </Select.Root>
+
+            {isFieldInvalid(field) && (
+              <Field.ErrorText>{fieldErrors[field.key_name]}</Field.ErrorText>
             )}
-            <Select.Control>
-              <Select.Trigger>
-                <Select.ValueText placeholder="Select Option" />
-              </Select.Trigger>
-              <Select.IndicatorGroup>
-                <Select.Indicator />
-              </Select.IndicatorGroup>
-            </Select.Control>
-            <Portal>
-              <Select.Positioner>
-                <Select.Content>
-                  {optionCollection.items.map((item) => (
-                    <Select.Item item={item} key={item.value}>
-                      {item.label}
-                      <Select.ItemIndicator />
-                    </Select.Item>
-                  ))}
-                </Select.Content>
-              </Select.Positioner>
-            </Portal>
             {field.help_text && (
-              <Select.HelperText>{field.help_text}</Select.HelperText>
+              <Field.HelperText>{field.help_text}</Field.HelperText>
             )}
-          </Select.Root>
+          </Field.Root>
         );
-      case "multiselect":
-        const multiCollection = createListCollection({
-          items: field.options,
-        });
+      }
+
+      case "multiselect": {
+        const multiCollection = createListCollection({ items: field.options });
         return (
-          <Select.Root
-            collection={multiCollection}
+          <Field.Root
+            key={field.field_id}
+            invalid={isFieldInvalid(field)}
+            required={field.required}
+          >
+            <Select.Root
+              collection={multiCollection}
+              required={field.required}
+              value={value || []}
+              onValueChange={(e) => handleInputChange(field.key_name, e.value)}
+              multiple
+            >
+              <HStack>
+                <Select.Label width={"fit-content"}>{field.label}</Select.Label>
+                {field.required && (
+                  <Text
+                    width={"fit-content"}
+                    color={"red.500"}
+                    fontSize={18}
+                    fontWeight={"900"}
+                  >
+                    *
+                  </Text>
+                )}
+              </HStack>
+              <Select.Control>
+                <Select.Trigger>
+                  <Select.ValueText placeholder="Select Option" />
+                </Select.Trigger>
+                <Select.IndicatorGroup>
+                  <Select.Indicator />
+                </Select.IndicatorGroup>
+              </Select.Control>
+
+              <Portal>
+                <Select.Positioner>
+                  <Select.Content>
+                    {multiCollection.items.map((item) => (
+                      <Select.Item item={item} key={item.value}>
+                        {item.label}
+                        <Select.ItemIndicator />
+                      </Select.Item>
+                    ))}
+                  </Select.Content>
+                </Select.Positioner>
+              </Portal>
+            </Select.Root>
+
+            {isFieldInvalid(field) && (
+              <Field.ErrorText>{fieldErrors[field.key_name]}</Field.ErrorText>
+            )}
+            {field.help_text && (
+              <Field.HelperText>{field.help_text}</Field.HelperText>
+            )}
+          </Field.Root>
+        );
+      }
+
+      case "file":
+        return (
+          <Field.Root
             key={field.field_id}
             required={field.required}
-            value={formValues[field.key_name] || []}
-            onValueChange={(e) => handleInputChange(field.key_name, e.value)}
-            multiple
+            invalid={isFieldInvalid(field)}
           >
-            <Select.Label>{field.label}</Select.Label>
-            {field.required && (
-              <Text color={"red.500"} fontSize={18} fontWeight={"900"}>
-                *
-              </Text>
+            <RequiredLabel label={field.label} required={field.required} />
+
+            <Stack gap={2}>
+              <FileUpload.Root
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  console.log(file);
+                  handleFileUpload(field, file);
+                }}
+                name={field.key_name}
+              >
+                <FileUpload.HiddenInput />
+                <FileUpload.Trigger asChild>
+                  <Button variant="outline" size="sm">
+                    <HiUpload /> Upload file
+                  </Button>
+                </FileUpload.Trigger>
+
+                <FileUpload.List showSize clearable />
+              </FileUpload.Root>
+            </Stack>
+
+            {isFieldInvalid(field) && (
+              <Field.ErrorText>{fieldErrors[field.key_name]}</Field.ErrorText>
             )}
-            <Select.Control>
-              <Select.Trigger>
-                <Select.ValueText placeholder="Select Option" />
-              </Select.Trigger>
-              <Select.IndicatorGroup>
-                <Select.Indicator />
-              </Select.IndicatorGroup>
-            </Select.Control>
-            <Portal>
-              <Select.Positioner>
-                <Select.Content>
-                  {multiCollection.items.map((item) => (
-                    <Select.Item item={item} key={item.value}>
-                      {item.label}
-                      <Select.ItemIndicator />
-                    </Select.Item>
-                  ))}
-                </Select.Content>
-              </Select.Positioner>
-            </Portal>
             {field.help_text && (
-              <Select.HelperText>{field.help_text}</Select.HelperText>
+              <Field.HelperText>{field.help_text}</Field.HelperText>
             )}
-          </Select.Root>
+          </Field.Root>
         );
 
       default:
         return null;
     }
   };
+
   if (!formData) return <div> Form Not Found </div>;
 
   const currentStepData = formData.steps[currentStep];
@@ -610,7 +877,7 @@ const FormDetail = () => {
             <Card.Body>
               <Stack gap={6}>
                 {currentStepData.fields.length > 0 ? (
-                  [...currentStepData.fields] // clone so we don’t mutate Redux state
+                  [...currentStepData.fields]
                     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
                     .filter((field) => field.active)
                     .map((field) => renderField(field))
@@ -730,7 +997,7 @@ const FormDetail = () => {
                     borderRadius="md"
                     fontWeight="semibold"
                     bgColor={"#2596be"}
-                    disabled={!isComplete}
+                    onClick={handleFinalSubmit}
                   >
                     Submit Final Response
                   </Button>
