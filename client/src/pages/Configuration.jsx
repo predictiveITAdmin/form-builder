@@ -5,10 +5,6 @@ import { FaUsersGear, FaUserLock, FaWpforms } from "react-icons/fa6";
 function Configuration() {
   return (
     <Box>
-      <Text color="gray.600" fontSize={18} mb={4}>
-        Configure your application here
-      </Text>
-
       <Tabs.Root defaultValue="users">
         <Tabs.List>
           <Tabs.Trigger value="users">

@@ -25,6 +25,58 @@ async function ensureUser({ entraObjectId, email, displayName }) {
   return insertResult.rows[0].user_id;
 }
 
+async function getUser(userId) {
+  return query(
+    `SELECT
+  u.user_id,
+  u.email,
+  u.display_name,
+  u.user_type,
+  u.is_active,
+  u.created_at,
+  COALESCE(
+    json_agg(
+      json_build_object(
+        'role_name', r.role_name,
+		'role_code', r.role_code,
+        'description', r.description
+      )
+    ) FILTER (WHERE r.role_id IS NOT NULL),
+    '[]'
+  ) AS roles
+FROM Users u
+LEFT JOIN user_roles ur ON ur.user_id = u.user_id
+LEFT JOIN roles r ON r.role_id = ur.role_id
+WHERE u.user_id = $1
+GROUP BY u.user_id;`,
+    [userId]
+  );
+}
+
+async function getAllUsers() {
+  return query(`SELECT
+  u.user_id,
+  u.email,
+  u.display_name,
+  u.user_type,
+  u.is_active,
+  u.created_at,
+  COALESCE(
+    json_agg(
+      json_build_object(
+        'role_name', r.role_name,
+		'role_code', r.role_code,
+        'description', r.description
+      )
+    ) FILTER (WHERE r.role_id IS NOT NULL),
+    '[]'
+  ) AS roles
+FROM Users u
+LEFT JOIN user_roles ur ON ur.user_id = u.user_id
+LEFT JOIN roles r ON r.role_id = ur.role_id
+GROUP BY u.user_id;`);
+}
+
 async function getUserByInviteToken(inviteToken) {
   const result = await query(
     `SELECT * FROM Public.Users WHERE invite_token = $1`,
@@ -507,6 +559,9 @@ module.exports = {
   createExternalUser,
   getUserById,
   getUserByEntraObjectId,
+
+  getAllUsers,
+  getUser,
 
   addRole,
   editRole,

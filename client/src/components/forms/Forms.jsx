@@ -8,13 +8,17 @@ import {
   Badge,
   IconButton,
   Button,
+  ButtonGroup,
+  Pagination,
+  InputGroup,
 } from "@chakra-ui/react";
 import DataTable from "../DataTable";
 import { FaRegEye, FaSearch, FaRegEdit, FaTrashAlt } from "react-icons/fa";
 import { FaPlus } from "react-icons/fa6";
 import { Link, useNavigate } from "react-router-dom";
-
+import { usePagination } from "@/utils/pagination";
 import { useDispatch, useSelector } from "react-redux";
+import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
 import {
   fetchForms,
   selectForms,
@@ -127,6 +131,10 @@ const Forms = () => {
       ),
     },
   ];
+  const { page, setPage, pageSize, totalItems, pageData } = usePagination(
+    filteredForms,
+    5
+  );
 
   if (status === "loading") {
     return <AppLoader />;
@@ -141,12 +149,14 @@ const Forms = () => {
       <HStack>
         <Flex justify="space-between" align="center" gap={2} width="full">
           <Flex justify="space-around" align="center" gap={4}>
-            <Input
-              placeholder="Search forms by title..."
-              value={searchTerm}
-              width={96}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <InputGroup startElement={<FaSearch />}>
+              <Input
+                placeholder="Search forms by title..."
+                value={searchTerm}
+                width={96}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </InputGroup>
           </Flex>
 
           <Link to="/forms/new">
@@ -167,7 +177,44 @@ const Forms = () => {
       {status === "loading" && <Text>Loading forms...</Text>}
       {status === "failed" && <Text color="red.500">{error}</Text>}
 
-      <DataTable columns={columns} data={filteredForms} />
+      <DataTable columns={columns} data={pageData ?? []} />
+      <Pagination.Root
+        count={totalItems}
+        pageSize={pageSize}
+        page={page}
+        onPageChange={(e) => setPage(e.page)}
+      >
+        <ButtonGroup
+          variant="ghost"
+          size="sm"
+          justifyContent="flex-end"
+          w="full"
+          mt={3}
+        >
+          <Pagination.PrevTrigger asChild>
+            <IconButton aria-label="Previous page">
+              <HiChevronLeft />
+            </IconButton>
+          </Pagination.PrevTrigger>
+
+          <Pagination.Items
+            render={(p) => (
+              <IconButton
+                aria-label={`Page ${p.value}`}
+                variant={p.value === page ? "outline" : "ghost"}
+              >
+                {p.value}
+              </IconButton>
+            )}
+          />
+
+          <Pagination.NextTrigger asChild>
+            <IconButton aria-label="Next page">
+              <HiChevronRight />
+            </IconButton>
+          </Pagination.NextTrigger>
+        </ButtonGroup>
+      </Pagination.Root>
     </VStack>
   );
 };

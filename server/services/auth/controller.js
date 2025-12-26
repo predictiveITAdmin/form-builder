@@ -280,6 +280,28 @@ module.exports = {
     }
   },
 
+  getUser: async (req, res) => {
+    const userId = req.params.user_id;
+    if (!userId) {
+      return badRequest(res, "userId is a required Parameter");
+    }
+    try {
+      const user = await queries.getUser(userId);
+      return res.status(200).json(user[0]);
+    } catch (err) {
+      return serverError(res, err);
+    }
+  },
+
+  getAllUsers: async (req, res) => {
+    const users = await queries.getAllUsers();
+    try {
+      return res.status(200).json(users);
+    } catch (err) {
+      return serverError(res, err);
+    }
+  },
+
   createRole: async (req, res) => {
     try {
       const { role_name, role_code, description, is_system_role, is_active } =
@@ -346,7 +368,8 @@ module.exports = {
       const includeInactive =
         String(req.query.includeInactive).toLowerCase() === "true";
       const result = await queries.allRoles({ includeInactive });
-      return res.json(result.rows);
+      console.log(result);
+      return res.json(result);
     } catch (err) {
       return serverError(res, err);
     }

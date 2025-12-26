@@ -1,13 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
+import { FaRegEdit, FaTrashAlt } from "react-icons/fa";
 import {
-  Box,
   Button,
   HStack,
   Input,
   Select,
   Stack,
   Tag,
-  TagLabel,
+  IconButton,
+  ButtonGroup,
+  Pagination,
   Text,
   createListCollection,
   Portal,
@@ -15,141 +18,69 @@ import {
 } from "@chakra-ui/react";
 import DataTable from "../DataTable";
 import AppLoader from "../ui/AppLoader";
+import {
+  selectAllUser,
+  selectUsersStatus,
+  selectUsersError,
+  getAllUsers,
+} from "@/features/auth/roleSlice";
+import { useDispatch, useSelector } from "react-redux";
+import AppError from "../ui/AppError";
+import { usePagination } from "@/utils/pagination";
+import NewUser from "./NewUser";
 
-// --- helpers ---
-const normalize = (v) => (v ?? "").toString().trim().toLowerCase();
+const norm = (v) => (v ?? "").toString().trim().toLowerCase();
 
-function buildRolesByUserId(userRolesArray) {
-  // Supports both:
-  // A) [{ user_id, roles:[...] }]
-  // B) [{ user_id, role_id, role_name, ... }] flat rows
-  const map = new Map();
+const matchSearch = (user, term) => {
+  if (!term) return true;
 
-  for (const item of userRolesArray || []) {
-    if (Array.isArray(item.roles)) {
-      // shape A
-      const userId = item.user_id;
-      const names = item.roles.map((r) => r.role_name).filter(Boolean);
-      map.set(userId, names);
-    } else {
-      // shape B
-      const userId = item.user_id;
-      const roleName = item.role_name;
-      if (!map.has(userId)) map.set(userId, []);
-      if (roleName) map.get(userId).push(roleName);
-    }
-  }
+  const haystack = [
+    user?.display_name,
+    user?.email,
+    ...(Array.isArray(user?.roles) ? user.roles.map((r) => r?.role_name) : []),
+  ]
+    .map(norm)
+    .join(" ");
 
-  // de-dupe role names just in case your backend gets creative
-  for (const [k, arr] of map.entries()) {
-    map.set(k, Array.from(new Set(arr)));
-  }
-
-  return map;
-}
+  return haystack.includes(term);
+};
 
 const UserList = () => {
-  const [users, setUsers] = useState([]);
-  const [userRoles, setUserRoles] = useState([]);
+  const users = useSelector(selectAllUser);
+  const error = useSelector(selectUsersError);
+  const status = useSelector(selectUsersStatus);
 
-  const [loading, setLoading] = useState(true);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
-  // Filters
-  const [search, setSearch] = useState("");
-  const [userType, setUserType] = useState("all"); // all | internal | external
-  const [isActive, setIsActive] = useState("all"); // all | active | inactive
+  const dispatch = useDispatch();
 
   useEffect(() => {
-    let alive = true;
+    if (status === "idle") dispatch(getAllUsers());
+  }, [dispatch, status]);
 
-    async function load() {
-      try {
-        setLoading(true);
-
-        // Replace with your actual fetch/axios calls
-        const [usersRes, rolesRes] = await Promise.all([
-          fetch("/api/users"),
-          fetch("/api/users/roles"),
-        ]);
-
-        const usersJson = await usersRes.json();
-        const rolesJson = await rolesRes.json();
-
-        if (!alive) return;
-
-        setUsers(usersJson ?? []);
-        setUserRoles(rolesJson ?? []);
-      } catch (e) {
-        console.error("Failed to load users/roles", e);
-        if (!alive) return;
-        setUsers([]);
-        setUserRoles([]);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    }
-
-    load();
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  // Merge roles into users for DataTable
-  const mergedUsers = useMemo(() => {
-    const rolesByUserId = buildRolesByUserId(userRoles);
-
-    return (users || []).map((u) => {
-      const roleNames = rolesByUserId.get(u.user_id) || [];
-      return {
-        ...u,
-        roles: roleNames, // add a "roles" field for display
-        rolesText: roleNames.join(", "), // convenient for sorting/search
-      };
-    });
-  }, [users, userRoles]);
-
-  // Apply filters
-  const filteredUsers = useMemo(() => {
-    const q = normalize(search);
-
-    return mergedUsers.filter((u) => {
-      // userType filter
-      if (userType !== "all") {
-        if (normalize(u.user_type) !== userType) return false;
-      }
-
-      // isActive filter
-      if (isActive !== "all") {
-        const active = Boolean(u.is_active);
-        if (isActive === "active" && !active) return false;
-        if (isActive === "inactive" && active) return false;
-      }
-
-      // search filter (email, display name, roles)
-      if (q) {
-        const haystack = [u.email, u.display_name, u.user_type, u.rolesText]
-          .map(normalize)
-          .join(" ");
-
-        if (!haystack.includes(q)) return false;
-      }
-
-      return true;
-    });
-  }, [mergedUsers, search, userType, isActive]);
+  const [search, setSearch] = useState("");
+  const [userType, setUserType] = useState(["all"]);
+  const [isActive, setIsActive] = useState(["all"]);
 
   const columns = useMemo(
     () => [
       { key: "display_name", label: "Name" },
-      { key: "email", label: "Email" },
+      {
+        key: "email",
+        label: "Email",
+        render: (val) => (
+          <Text maxWidth={"100%"} truncate title={val}>
+            {val.trim()}
+          </Text>
+        ),
+      },
       {
         key: "user_type",
         label: "User Type",
         render: (val) => (
-          <Tag size="sm" variant="subtle">
-            <TagLabel>{val}</TagLabel>
-          </Tag>
+          <Tag.Root size="sm" variant="subtle">
+            <Tag.Label>{val}</Tag.Label>
+          </Tag.Root>
         ),
       },
       {
@@ -157,23 +88,64 @@ const UserList = () => {
         label: "Active",
         sortable: true,
         render: (val) => (
-          <Tag size="sm" colorScheme={val ? "green" : "red"}>
-            <TagLabel>{val ? "Active" : "Inactive"}</TagLabel>
-          </Tag>
+          <Tag.Root size="sm" variant={"surface"} color={val ? "green" : "red"}>
+            <Tag.Label>{val ? "Active" : "Inactive"}</Tag.Label>
+          </Tag.Root>
         ),
       },
       {
         key: "roles",
         label: "Roles",
-        sortable: false,
-        render: (_val, row) => (
-          <Text noOfLines={1}>{row.rolesText || "-"}</Text>
-        ),
+        sortable: false, // sorting arrays is how chaos begins
+        render: (roles) => {
+          if (!roles || roles.length === 0) {
+            return <Text opacity={0.6}>No role Assigned</Text>;
+          }
+
+          return (
+            <Stack spacing={1}>
+              {roles.map((role, idx) => (
+                <Tag.Root width={"fit-content"} key={idx} fontSize="sm">
+                  <Tag.Label>{role.role_name}</Tag.Label>
+                </Tag.Root>
+              ))}
+            </Stack>
+          );
+        },
       },
       {
         key: "created_at",
         label: "Created",
-        render: (val) => (val ? new Date(val).toLocaleString() : "-"),
+        render: (val) => (val ? new Date(val).toLocaleDateString() : "-"),
+      },
+      {
+        key: "actions",
+        label: "Actions",
+        render: (_, row) => (
+          <HStack spacing={0} width={12}>
+            <IconButton
+              size="sm"
+              aria-label="Edit"
+              variant="ghost"
+              color={"#FFBF00"}
+              // TODO: hook up edit route
+              onClick={() => console.log("edit", row.form_key)}
+            >
+              <FaRegEdit size={16} />
+            </IconButton>
+
+            <IconButton
+              size="sm"
+              aria-label="Delete"
+              variant="ghost"
+              color="#BA2222"
+              // TODO: hook up delete action
+              onClick={() => console.log("delete", row.form_key)}
+            >
+              <FaTrashAlt size={16} />
+            </IconButton>
+          </HStack>
+        ),
       },
     ],
     []
@@ -188,14 +160,53 @@ const UserList = () => {
   });
   const userStatus = createListCollection({
     items: [
-      { label: "Active", value: "Active" },
-      { label: "Inactive", value: "Inactive" },
+      { label: "All", value: "all" },
+      { label: "Active", value: "active" },
+      { label: "Inactive", value: "inactive" },
     ],
   });
 
+  const filteredUsers = useMemo(() => {
+    const list = Array.isArray(users) ? users : [];
+
+    const term = norm(search);
+    const selectedType = userType?.[0] ?? "all";
+    const selectedStatus = isActive?.[0] ?? "all";
+
+    return list.filter((u) => {
+      // search: name OR email (and role names too)
+      if (!matchSearch(u, term)) return false;
+
+      // userType filter
+      if (selectedType !== "all" && norm(u.user_type) !== selectedType)
+        return false;
+
+      // active filter
+      if (selectedStatus !== "all") {
+        const activeBool = !!u.is_active;
+        if (selectedStatus === "active" && !activeBool) return false;
+        if (selectedStatus === "inactive" && activeBool) return false;
+      }
+
+      return true;
+    });
+  }, [users, search, userType, isActive]);
+
+  const { page, setPage, pageSize, totalItems, pageData } = usePagination(
+    filteredUsers,
+    5
+  );
+
+  if (status === "loading") {
+    return <AppLoader />;
+  }
+
+  if (status === "error") {
+    return <AppError title="Something went wrong" message={error} />;
+  }
   return (
     <Stack gap={4}>
-      <HStack gap={3} wrap="wrap">
+      <HStack gap={3} wrap="wrap" justifyContent={"space-between"}>
         <Field.Root maxW="360px">
           <Field.Label>Search</Field.Label>
           <Input
@@ -211,7 +222,7 @@ const UserList = () => {
           size="sm"
           width="320px"
           value={userType}
-          onChange={(e) => setUserType(e.target.value)}
+          onValueChange={(e) => setUserType(e.value)}
         >
           <Select.HiddenSelect />
           <Select.Label>Select User Type</Select.Label>
@@ -242,8 +253,10 @@ const UserList = () => {
           size="sm"
           width="320px"
           value={isActive}
-          defaultValue={"Active"}
-          onChange={(e) => setIsActive(e.target.value)}
+          onValueChange={(e) => {
+            setIsActive(e.value);
+            console.log(e.value);
+          }}
         >
           <Select.HiddenSelect />
           <Select.Label>Select Status</Select.Label>
@@ -269,22 +282,49 @@ const UserList = () => {
           </Portal>
         </Select.Root>
 
-        <Button
-          colorScheme="blue"
-          onClick={() => console.log("invite user")}
-          ml={12}
-        >
+        <Button bgColor="#2596be" onClick={() => setInviteOpen(true)}>
           Invite User
         </Button>
       </HStack>
+      <DataTable columns={columns} data={pageData ?? []} />
+      <Pagination.Root
+        count={totalItems}
+        pageSize={pageSize}
+        page={page}
+        onPageChange={(e) => setPage(e.page)}
+      >
+        <ButtonGroup
+          variant="ghost"
+          size="sm"
+          justifyContent="flex-end"
+          w="full"
+          mt={3}
+        >
+          <Pagination.PrevTrigger asChild>
+            <IconButton aria-label="Previous page">
+              <HiChevronLeft />
+            </IconButton>
+          </Pagination.PrevTrigger>
 
-      <Box>
-        {loading ? (
-          <AppLoader />
-        ) : (
-          <DataTable columns={columns} data={filteredUsers} />
-        )}
-      </Box>
+          <Pagination.Items
+            render={(p) => (
+              <IconButton
+                aria-label={`Page ${p.value}`}
+                variant={p.value === page ? "outline" : "ghost"}
+              >
+                {p.value}
+              </IconButton>
+            )}
+          />
+
+          <Pagination.NextTrigger asChild>
+            <IconButton aria-label="Next page">
+              <HiChevronRight />
+            </IconButton>
+          </Pagination.NextTrigger>
+        </ButtonGroup>
+      </Pagination.Root>
+      <NewUser isOpen={inviteOpen} onClose={() => setInviteOpen(false)} />
     </Stack>
   );
 };
