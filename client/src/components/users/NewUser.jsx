@@ -1,12 +1,4 @@
-import {
-  Button,
-  CloseButton,
-  Dialog,
-  Portal,
-  Stack,
-  Input,
-  Field,
-} from "@chakra-ui/react";
+import { Button, Dialog, Portal, Stack, Input, Field } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 
 const NewUser = ({ isOpen, onClose }) => {
@@ -102,9 +94,9 @@ const NewUser = ({ isOpen, onClose }) => {
               <Button onClick={handleInvite}>Send Invite</Button>
             </Dialog.Footer>
 
-            <Dialog.CloseTrigger asChild>
+            {/* <Dialog.CloseTrigger asChild>
               <CloseButton size="sm" />
-            </Dialog.CloseTrigger>
+            </Dialog.CloseTrigger> */}
           </Dialog.Content>
         </Dialog.Positioner>
       </Portal>

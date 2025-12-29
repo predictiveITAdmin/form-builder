@@ -120,14 +120,30 @@ const FormDetail = () => {
 
   useEffect(() => {
     const sessionToken = formData?.session?.session_token;
-    console.log(sessionToken);
+    console.log(formData);
     if (sessionToken) {
       dispatch(getUserSessionData({ formKey, sessionToken: sessionToken }));
-      notify({
-        type: "info",
-        title: "Continue where you left.",
-        message: "You already have a saved session.",
-      });
+      const createdAt = formData.session.created_at;
+      const now = Date.now();
+      const oneMin = 60 * 1000;
+
+      const t = new Date(createdAt).getTime();
+
+      const inWindow = t >= now - oneMin && t <= now + oneMin;
+      if (inWindow) {
+        notify({
+          type: "success",
+          title: "New Session has been created",
+          message:
+            "We created a session for you. You can save as draft and come back to it later.",
+        });
+      } else {
+        notify({
+          type: "info",
+          title: "Continue where you left.",
+          message: "You already have a saved session.",
+        });
+      }
     }
   }, [formData, dispatch]);
 
@@ -831,27 +847,12 @@ const FormDetail = () => {
   return (
     <Box>
       <Container width="80vw">
-        <HStack justifyContent={"space-between"} width={"65%"}>
-          <Heading size="4xl" textAlign={"left"} mb={2}>
-            {formData.title}
-          </Heading>
-          <Button variant={"surface"} onClick={() => navigate("/forms")}>
-            Back
-          </Button>
-        </HStack>
         <HStack
           width={"full"}
           justifyContent={"start"}
           alignItems={"flex-start"}
-          maxHeight={"60vh"}
-          overflowY={"auto"}
         >
-          <Card.Root
-            minWidth={"65%"}
-            minHeight="60vh"
-            maxHeight={"60vh"}
-            overflowY={"scroll"}
-          >
+          <Card.Root minWidth={"65%"} minHeight="60vh">
             <Card.Header>
               <Stack gap={2}>
                 <Box
@@ -862,8 +863,7 @@ const FormDetail = () => {
                 >
                   <Heading size="lg">{currentStepData.step_title}</Heading>
                   <Badge>
-                    Step {currentStepData.step_number} of{" "}
-                    {formData.steps.length}
+                    Step {currentStep + 1} of {formData.steps.length}
                   </Badge>
                 </Box>
                 {currentStepData.step_description && (
@@ -874,7 +874,7 @@ const FormDetail = () => {
               </Stack>
             </Card.Header>
 
-            <Card.Body>
+            <Card.Body maxHeight={"50vh"} overflowY={"scroll"}>
               <Stack gap={6}>
                 {currentStepData.fields.length > 0 ? (
                   [...currentStepData.fields]
@@ -924,6 +924,10 @@ const FormDetail = () => {
             >
               <Card.Header>
                 <Stack>
+                  <Heading size="2xl" textAlign={"left"} mb={2}>
+                    {formData.title}
+                  </Heading>
+
                   <Box
                     display="flex"
                     justifyContent="space-between"
@@ -954,22 +958,25 @@ const FormDetail = () => {
                 </Stack>
               </Card.Header>
               <Card.Body>
-                <Button
-                  variant={"outline"}
-                  color={"blue.600"}
-                  borderColor={"blue.500"}
-                  onClick={handleRefresh}
-                  disabled={isRotating}
-                >
-                  <SlRefresh
-                    style={{
-                      animation: isRotating
-                        ? "spin 1s linear infinite"
-                        : "none",
-                    }}
-                  />
-                  <Text>Refresh Dynamic Options</Text>
-                </Button>
+                <HStack>
+                  <Button
+                    variant={"outline"}
+                    size={"sm"}
+                    color={"blue.600"}
+                    borderColor={"blue.500"}
+                    onClick={handleRefresh}
+                    disabled={isRotating}
+                  >
+                    <SlRefresh
+                      style={{
+                        animation: isRotating
+                          ? "spin 1s linear infinite"
+                          : "none",
+                      }}
+                    />
+                    <Text>Refresh Dynamic Options</Text>
+                  </Button>
+                </HStack>
               </Card.Body>
             </Card.Root>
             <Card.Root>
@@ -979,6 +986,13 @@ const FormDetail = () => {
 
               <Card.Body gap={2}>
                 <HStack>
+                  <Button
+                    variant={"surface"}
+                    size="sm"
+                    onClick={() => navigate("/forms")}
+                  >
+                    Back
+                  </Button>
                   <Button
                     variant="outline"
                     color={"white"}

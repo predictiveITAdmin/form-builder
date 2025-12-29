@@ -89,47 +89,6 @@ const Forms = () => {
       sortable: true,
       render: (value) => (value ? value : "-"),
     },
-    {
-      key: "actions",
-      label: "Actions",
-      sortable: false,
-      render: (_, row) => (
-        <HStack spacing={0} width={12}>
-          <IconButton
-            size="sm"
-            aria-label="View"
-            variant="ghost"
-            color={"green.600"}
-            // TODO: hook up view route
-            onClick={() => navigate(`/forms/${row.form_key}`)}
-          >
-            <FaRegEye size={16} />
-          </IconButton>
-
-          <IconButton
-            size="sm"
-            aria-label="Edit"
-            variant="ghost"
-            color={"#FFBF00"}
-            // TODO: hook up edit route
-            onClick={() => console.log("edit", row.form_key)}
-          >
-            <FaRegEdit size={16} />
-          </IconButton>
-
-          <IconButton
-            size="sm"
-            aria-label="Delete"
-            variant="ghost"
-            color="#BA2222"
-            // TODO: hook up delete action
-            onClick={() => console.log("delete", row.form_key)}
-          >
-            <FaTrashAlt size={16} />
-          </IconButton>
-        </HStack>
-      ),
-    },
   ];
   const { page, setPage, pageSize, totalItems, pageData } = usePagination(
     filteredForms,
@@ -177,7 +136,11 @@ const Forms = () => {
       {status === "loading" && <Text>Loading forms...</Text>}
       {status === "failed" && <Text color="red.500">{error}</Text>}
 
-      <DataTable columns={columns} data={pageData ?? []} />
+      <DataTable
+        columns={columns}
+        data={pageData ?? []}
+        rowClickable={{ onClick: (row) => navigate(`/forms/${row.form_key}`) }}
+      />
       <Pagination.Root
         count={totalItems}
         pageSize={pageSize}

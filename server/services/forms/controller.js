@@ -32,23 +32,10 @@ async function listPublished(req, res) {
   }
 }
 
-/**
- * POST /forms
- * Admin/FormBuilder
- *
- * Body (payload):
- * {
- *  title, description, status, is_anonymous,
- *  rpa_webhook_url, rpa_secret, rpa_secret_method, rpa_timeout_ms, rpa_retry_count,
- *  form_key,
- *  steps: [...]
- * }
- */
 async function create(req, res) {
   try {
     const payload = req.body;
 
-    // Minimal validation (don’t overthink it yet)
     const problems = validateCreatePayload(payload);
     if (problems.length) {
       return res.status(400).json({
@@ -57,7 +44,6 @@ async function create(req, res) {
       });
     }
 
-    // owner_user_id comes from auth (server-side source of truth)
     const ownerUserId =
       req.user?.user_id ?? req.user?.id ?? req.user?.userId ?? null;
 
@@ -67,7 +53,6 @@ async function create(req, res) {
 
     return res.status(201).json(result);
   } catch (err) {
-    // Duplicate key_name per form will throw due to UQ constraint
     if (isPgUniqueViolation(err)) {
       return res.status(409).json({
         error: "Duplicate field key_name within the form",
@@ -82,7 +67,37 @@ async function create(req, res) {
   }
 }
 
-/** ---------- Helpers ---------- */
+async function updateForm(req, res) {
+  try {
+    const { formKey } = req.params;
+    const payload = req.body;
+
+    const problems = validateCreatePayload(payload); // reuse for now
+    if (problems.length) {
+      return res.status(400).json({ error: "Invalid payload", problems });
+    }
+
+    const ownerUserId =
+      req.user?.user_id ?? req.user?.id ?? req.user?.userId ?? null;
+
+    const result = await svc.updateFormByKey(formKey, payload, {
+      owner_user_id: ownerUserId,
+    });
+
+    return res.status(200).json(result);
+  } catch (err) {
+    if (isPgUniqueViolation(err)) {
+      return res.status(409).json({
+        error: "Duplicate field key_name within the form",
+        details: err.detail || String(err?.message || err),
+      });
+    }
+    return res.status(500).json({
+      error: "Failed to update form",
+      details: String(err?.message || err),
+    });
+  }
+}
 
 function validateCreatePayload(payload) {
   const issues = [];
@@ -362,4 +377,5 @@ module.exports = {
   handleSaveDraft,
   allDraftSessionsByUser,
   getSessionDataByUser,
+  updateForm,
 };

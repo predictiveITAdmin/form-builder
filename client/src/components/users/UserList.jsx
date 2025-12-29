@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
 import { FaRegEdit, FaTrashAlt } from "react-icons/fa";
+import EditUser from "./EditUser";
 import {
   Button,
   HStack,
@@ -49,8 +50,11 @@ const UserList = () => {
   const users = useSelector(selectAllUser);
   const error = useSelector(selectUsersError);
   const status = useSelector(selectUsersStatus);
+  const [selectedUser, setSelectedUser] = useState({});
 
   const [inviteOpen, setInviteOpen] = useState(false);
+
+  const [editOpen, setEditOpen] = useState(false);
 
   const dispatch = useDispatch();
 
@@ -129,7 +133,7 @@ const UserList = () => {
               variant="ghost"
               color={"#FFBF00"}
               // TODO: hook up edit route
-              onClick={() => console.log("edit", row.form_key)}
+              onClick={() => handleEditClick(row)}
             >
               <FaRegEdit size={16} />
             </IconButton>
@@ -150,6 +154,17 @@ const UserList = () => {
     ],
     []
   );
+
+  const handleEditClick = (row) => {
+    console.log(row);
+    setSelectedUser(row);
+    setEditOpen(true);
+  };
+
+  const handleEditClose = () => {
+    setEditOpen(false);
+    setSelectedUser(null);
+  };
 
   const types = createListCollection({
     items: [
@@ -325,6 +340,11 @@ const UserList = () => {
         </ButtonGroup>
       </Pagination.Root>
       <NewUser isOpen={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <EditUser
+        isOpen={editOpen}
+        onClose={handleEditClose}
+        user={selectedUser}
+      />
     </Stack>
   );
 };

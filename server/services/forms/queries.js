@@ -159,6 +159,168 @@ async function createForm(payload, { owner_user_id = null } = {}) {
   }
 }
 
+async function updateFormByKey(
+  formKey,
+  payload,
+  { owner_user_id = null } = {}
+) {
+  const pool = await getPool();
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Resolve form_id
+    const formRow = await client.query(
+      `SELECT form_id FROM Forms WHERE form_key = $1 LIMIT 1`,
+      [formKey]
+    );
+    const formId = formRow.rows[0]?.form_id;
+
+    if (!formId) {
+      await client.query("ROLLBACK");
+      return { error: "Form not found" };
+    }
+
+    // 1) Update Forms (top-level)
+    await client.query(
+      `
+      UPDATE Forms
+      SET
+        title = $1,
+        description = $2,
+        status = $3,
+        owner_user_id = COALESCE($4, owner_user_id),
+        is_anonymous = $5,
+        rpa_webhook_url = $6,
+        rpa_header_key = $7,
+        rpa_secret = $8,
+        rpa_timeout_ms = $9,
+        rpa_retry_count = $10,
+        updated_at = NOW()
+      WHERE form_id = $11
+      `,
+      [
+        payload.title,
+        payload.description ?? null,
+        payload.status ?? "Draft",
+        owner_user_id,
+        !!payload.is_anonymous,
+        payload.rpa_webhook_url ?? null,
+        payload.rpa_secret_method ?? "authorization",
+        payload.rpa_secret ?? null,
+        payload.rpa_timeout_ms ?? 8000,
+        payload.rpa_retry_count ?? 0,
+        formId,
+      ]
+    );
+
+    // 2) Soft-deactivate everything (NO deletes, so FK is happy)
+    await client.query(
+      `UPDATE FormSteps SET is_active = false WHERE form_id = $1`,
+      [formId]
+    );
+    await client.query(
+      `UPDATE FormFields SET active = false WHERE form_id = $1`,
+      [formId]
+    );
+
+    // 3) Upsert steps + fields
+    const steps = Array.isArray(payload.steps) ? payload.steps : [];
+
+    for (const step of steps) {
+      // Upsert step via UNIQUE(form_id, step_number)
+      const stepRes = await client.query(
+        `
+        INSERT INTO FormSteps
+          (form_id, step_number, step_title, step_description, sort_order, is_active)
+        VALUES
+          ($1,$2,$3,$4,$5,$6)
+        ON CONFLICT (form_id, step_number)
+        DO UPDATE SET
+          step_title = EXCLUDED.step_title,
+          step_description = EXCLUDED.step_description,
+          sort_order = EXCLUDED.sort_order,
+          is_active = EXCLUDED.is_active
+        RETURNING step_id
+        `,
+        [
+          formId,
+          Number(step.step_number),
+          step.step_title,
+          step.step_description ?? null,
+          step.sort_order ?? 0,
+          step.is_active !== undefined ? !!step.is_active : true,
+        ]
+      );
+
+      const stepId = stepRes.rows[0].step_id;
+
+      const fields = Array.isArray(step.fields) ? step.fields : [];
+
+      for (const field of fields) {
+        // Upsert field via UNIQUE(form_id, key_name)
+        const fieldRes = await client.query(
+          `
+          INSERT INTO FormFields
+            (form_id, key_name, label, help_text, field_type,
+             required, sort_order, config_json, active, form_step_id)
+          VALUES
+            ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+          ON CONFLICT (form_id, key_name)
+          DO UPDATE SET
+            label = EXCLUDED.label,
+            help_text = EXCLUDED.help_text,
+            field_type = EXCLUDED.field_type,
+            required = EXCLUDED.required,
+            sort_order = EXCLUDED.sort_order,
+            config_json = EXCLUDED.config_json,
+            active = EXCLUDED.active,
+            form_step_id = EXCLUDED.form_step_id
+          RETURNING field_id
+          `,
+          [
+            formId,
+            field.key_name,
+            field.label,
+            field.help_text ?? null,
+            field.field_type,
+            field.required !== undefined ? !!field.required : false,
+            field.sort_order ?? 0,
+            field.config_json ?? "{}",
+            field.active !== undefined ? !!field.active : true,
+            stepId,
+          ]
+        );
+
+        const fieldId = fieldRes.rows[0].field_id;
+
+        // Replace options for THIS field only
+        await client.query(
+          `DELETE FROM FieldOptions WHERE form_field_id = $1`,
+          [fieldId]
+        );
+
+        if (Array.isArray(field.options) && field.options.length) {
+          const { sql, params } = buildBulkInsertFieldOptions(
+            fieldId,
+            field.options
+          );
+          await client.query(sql, params);
+        }
+      }
+    }
+
+    await client.query("COMMIT");
+    return { form_id: formId };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 async function getDynamicUrl(fieldId) {
   const result = await query(
     `
@@ -296,6 +458,7 @@ async function getFormGraphByKey(form_key) {
         'title', f.title,
         'description', f.description,
         'status', f.status,
+        'rpa_header_key', f.rpa_header_key,
         'owner_user_id', f.owner_user_id,
         'owner_name', u.display_name,
         'is_anonymous', f.is_anonymous,
@@ -615,7 +778,7 @@ async function getOrCreateOpenSession(userId, formId, sessionToken) {
         updated_at = NOW(),
         expires_at = COALESCE(public.formsessions.expires_at, EXCLUDED.expires_at)
       WHERE public.formsessions.is_completed = FALSE
-      RETURNING session_id, session_token, current_step, total_steps, expires_at, is_completed;
+      RETURNING session_id, session_token, current_step, total_steps, expires_at, is_completed, created_at;
     `;
 
     const token = sessionToken;
@@ -651,4 +814,5 @@ module.exports = {
   selectFormIdByKey,
   selectTotalSteps,
   getOrCreateOpenSession,
+  updateFormByKey,
 };

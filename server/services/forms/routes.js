@@ -11,6 +11,7 @@ router.get("/", authMiddleware, ctrl.listAll);
 router.post("/", authMiddleware, ctrl.create);
 
 router.get("/:formKey", authMiddleware, ctrl.getFormForRender);
+router.put("/:formKey", authMiddleware, ctrl.updateForm);
 
 router.get(
   "/:formKey/:sessionToken",

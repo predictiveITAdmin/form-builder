@@ -15,6 +15,7 @@ import RequireAuth from "./components/RequireAuth";
 import LoginPage from "./pages/LoginPage";
 import NewForm from "./components/forms/NewForm";
 import FormDetail from "./components/forms/FormDetail";
+import EditForm from "./components/forms/EditForm";
 
 // Main App Component
 function App() {
@@ -64,6 +65,7 @@ function App() {
         >
           <Route index element={<Forms />} />
           <Route path="new" element={<NewForm />} />
+          <Route path=":formKey/edit" element={<EditForm />} />
           <Route path=":formKey" element={<FormDetail />} />
         </Route>
         <Route

@@ -125,6 +125,25 @@ export const createForm = createAsyncThunk(
   }
 );
 
+export const updateForm = createAsyncThunk(
+  "forms/updateForm",
+  async ({ formKey, payload }, { rejectWithValue }) => {
+    try {
+      const res = await http.put(`/api/forms/${formKey}`, payload);
+      return res.data;
+    } catch (err) {
+      const data = err?.response?.data;
+      const msg =
+        data?.message ||
+        data?.error ||
+        (Array.isArray(data?.problems) ? data.problems.join(", ") : null) ||
+        "Failed to create form";
+
+      return rejectWithValue(msg);
+    }
+  }
+);
+
 // ------------------------------------------
 // Slice
 // ------------------------------------------
@@ -151,6 +170,10 @@ const initialState = {
   sessionData: null,
   sessionDataStatus: "idle",
   sessionDataError: null,
+
+  updatedFormId: null,
+  updatedFormStatus: "idle",
+  updatedFormError: null,
 };
 
 const formSlice = createSlice({
@@ -170,6 +193,12 @@ const formSlice = createSlice({
       state.draftSaveStatus = "idle";
       state.draftSaveError = null;
       state.lastDraftSave = null;
+    },
+
+    resetUpdateState(state) {
+      state.updatedFormError = null;
+      state.updatedFormStatus = "idle";
+      state.updatedFormId = null;
     },
   },
   extraReducers: (builder) => {
@@ -232,6 +261,29 @@ const formSlice = createSlice({
         state.createError = action.payload || "Failed to create form";
       });
 
+    // ----------------------------
+    // updateForm
+    // ----------------------------
+    builder
+      .addCase(updateForm.pending, (state) => {
+        state.updatedFormStatus = "loading";
+        state.updatedFormError = null;
+        state.updatedFormId = null;
+      })
+      .addCase(updateForm.fulfilled, (state, action) => {
+        state.updatedFormStatus = "succeeded";
+        state.updatedFormError = null;
+        state.updatedFormId = action.payload?.form_id ?? null;
+
+        // Optional: optimistic add to admin list
+        // If your API doesn't return the created form object, we can't fully add it here.
+        // We'll just leave lists alone and you can refetch if needed.
+      })
+      .addCase(updateForm.rejected, (state, action) => {
+        state.updatedFormStatus = "failed";
+        state.updatedFormError = action.error || "Failed to create form";
+      });
+
     // -------------------------------
     // Get Form Details
     // -------------------------------
@@ -292,8 +344,12 @@ const formSlice = createSlice({
   },
 });
 
-export const { clearFormError, resetCreateState, resetDraftSaveState } =
-  formSlice.actions;
+export const {
+  clearFormError,
+  resetCreateState,
+  resetDraftSaveState,
+  resetUpdateState,
+} = formSlice.actions;
 export default formSlice.reducer;
 
 // ------------------------------------------
@@ -309,6 +365,10 @@ export const selectFormsError = (state) => state.forms.error;
 export const selectCreateFormStatus = (state) => state.forms.createStatus;
 export const selectCreateFormError = (state) => state.forms.createError;
 export const selectCreatedFormId = (state) => state.forms.createdFormId;
+
+export const selectUpdatedFormStatus = (state) => state.forms.updatedFormStatus;
+export const selectUpdatedFormId = (state) => state.forms.updatedFormId;
+export const selectUpdatedFormError = (state) => state.forms.updatedFormError;
 
 export const selectCurrentForm = (state) => state.forms.currentForm;
 export const selectCurrentFormStatus = (state) => state.forms.currentFormStatus;

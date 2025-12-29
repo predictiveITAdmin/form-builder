@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -42,16 +42,25 @@ import {
   FaPlus,
   FaTimes,
 } from "react-icons/fa";
-import { useDispatch, useSelector } from "react-redux";
-import {
-  createForm,
-  selectCreateFormStatus,
-  selectCreateFormError,
-} from "../../features/forms/formsSlice";
-import slugify from "@/utils/slug";
-import { useNavigate } from "react-router";
 import { GoMultiSelect } from "react-icons/go";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate, useParams } from "react-router";
 import { notify } from "../ui/notifyStore";
+import { resetUpdateState } from "../../features/forms/formsSlice";
+import AppLoader from "../ui/AppLoader";
+import AppError from "../ui/AppError";
+
+import {
+  getForm,
+  updateForm,
+  selectCurrentForm,
+  selectCurrentFormError,
+  selectCurrentFormStatus,
+  selectUpdatedFormError,
+  selectUpdatedFormId,
+  selectUpdatedFormStatus,
+} from "../../features/forms/formsSlice";
+
 import {
   DndContext,
   closestCenter,
@@ -59,14 +68,12 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-
 import {
   SortableContext,
   useSortable,
   verticalListSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
-
 import { CSS } from "@dnd-kit/utilities";
 
 function SortableFieldCard({ field, children }) {
@@ -92,9 +99,22 @@ function SortableFieldCard({ field, children }) {
   );
 }
 
-const NewForm = () => {
+const EditForm = () => {
+  const { formKey } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+
+  const currentForm = useSelector(selectCurrentForm);
+  const currentFormStatus = useSelector(selectCurrentFormStatus);
+  const currentFormError = useSelector(selectCurrentFormError);
+
+  const updatedFormId = useSelector(selectUpdatedFormId);
+  const updatedFormStatus = useSelector(selectUpdatedFormStatus);
+  const updatedFormError = useSelector(selectUpdatedFormError);
+
+  // Keep the original key stable (do NOT regenerate from title in edit)
+  const [stableFormKey, setStableFormKey] = useState(formKey);
+
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -108,6 +128,7 @@ const NewForm = () => {
     form_key: "",
   });
 
+  const [title, setTitle] = useState("");
   const [steps, setSteps] = useState([
     {
       step_id: 1,
@@ -124,24 +145,257 @@ const NewForm = () => {
   const [selectedFieldId, setSelectedFieldId] = useState(null);
   const [isBasicInfoOpen, setIsBasicInfoOpen] = useState(true);
 
-  const fieldTypeOptions = [
-    { type: "text", label: "Text Input", icon: <FaFont /> },
-    { type: "textarea", label: "Text Area", icon: <FaAlignLeft /> },
-    { type: "email", label: "Email", icon: <FaEnvelope /> },
-    { type: "number", label: "Number", icon: <FaHashtag /> },
-    { type: "date", label: "Date", icon: <FaCalendarAlt /> },
-    { type: "multiselect", label: "Multi Select", icon: <GoMultiSelect /> },
-    { type: "select", label: "Dropdown", icon: <FaListUl /> },
-    { type: "checkbox", label: "Checkbox", icon: <FaCheckSquare /> },
-    { type: "radio", label: "Radio Button", icon: <FaCircle /> },
-    { type: "file", label: "File Upload", icon: <FaUpload /> },
-    { type: "url", label: "URL", icon: <FaLink /> },
-    { type: "tel", label: "Phone", icon: <FaPhone /> },
-  ];
+  const fieldTypeOptions = useMemo(
+    () => [
+      { type: "text", label: "Text Input", icon: <FaFont /> },
+      { type: "textarea", label: "Text Area", icon: <FaAlignLeft /> },
+      { type: "email", label: "Email", icon: <FaEnvelope /> },
+      { type: "number", label: "Number", icon: <FaHashtag /> },
+      { type: "date", label: "Date", icon: <FaCalendarAlt /> },
+      { type: "multiselect", label: "Multi Select", icon: <GoMultiSelect /> },
+      { type: "select", label: "Dropdown", icon: <FaListUl /> },
+      { type: "checkbox", label: "Checkbox", icon: <FaCheckSquare /> },
+      { type: "radio", label: "Radio Button", icon: <FaCircle /> },
+      { type: "file", label: "File Upload", icon: <FaUpload /> },
+      { type: "url", label: "URL", icon: <FaLink /> },
+      { type: "tel", label: "Phone", icon: <FaPhone /> },
+    ],
+    []
+  );
 
-  console.log(formData);
-  const error = useSelector(selectCreateFormError);
+  // ----------------------------
+  // Load form detail
+  // ----------------------------
+  useEffect(() => {
+    if (!formKey) return;
+    dispatch(getForm(formKey));
+  }, [dispatch, formKey]);
 
+  // ----------------------------
+  // Helpers (same as your existing EditForm/NewForm)
+  // ----------------------------
+  const safeJsonParse = (val) => {
+    if (!val) return {};
+    if (typeof val === "object") return val;
+    try {
+      return JSON.parse(val);
+    } catch {
+      return {};
+    }
+  };
+
+  const configToFieldOptions = (config_json) => {
+    const cfg = safeJsonParse(config_json);
+    const raw = Array.isArray(cfg.options) ? cfg.options : [];
+
+    return raw
+      .map((opt, idx) => {
+        if (typeof opt === "string") {
+          return { label: opt, value: opt, is_default: false, sort_order: idx };
+        }
+        if (opt && typeof opt === "object") {
+          return {
+            label: String(opt.label ?? opt.value ?? `Option ${idx + 1}`),
+            value: String(opt.value ?? opt.label ?? `Option ${idx + 1}`),
+            is_default: !!opt.is_default,
+            sort_order: opt.sort_order ?? idx,
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+  };
+
+  const buildCleanConfigJsonForPayload = (field) => {
+    const cfg = safeJsonParse(field.config_json);
+    const dynamicEnabled = !!cfg?.dynamicOptions?.enabled;
+    if (!dynamicEnabled) return JSON.stringify(cfg);
+    const { options, ...rest } = cfg;
+    return JSON.stringify(rest);
+  };
+
+  const safeParseConfig = (field) => {
+    try {
+      return JSON.parse(field.config_json || "{}");
+    } catch {
+      return {};
+    }
+  };
+
+  const currentFields = steps[currentStepIndex]?.fields || [];
+  const selectedField = currentFields.find((f) => f.id === selectedFieldId);
+
+  const updateStep = (stepIndex, updates) => {
+    const updatedSteps = [...steps];
+    updatedSteps[stepIndex] = { ...updatedSteps[stepIndex], ...updates };
+    setSteps(updatedSteps);
+  };
+
+  const updateField = (id, updates) => {
+    const updatedSteps = [...steps];
+    updatedSteps[currentStepIndex].fields = updatedSteps[
+      currentStepIndex
+    ].fields.map((f) => (f.id === id ? { ...f, ...updates } : f));
+    setSteps(updatedSteps);
+  };
+
+  const updateFieldConfig = (fieldId, patch) => {
+    const field = currentFields.find((f) => f.id === fieldId);
+    const currentConfig = field ? safeParseConfig(field) : {};
+    const nextConfig = { ...currentConfig, ...patch };
+    updateField(fieldId, { config_json: JSON.stringify(nextConfig) });
+  };
+
+  const isDynamicEnabled = (field) => {
+    const cfg = safeParseConfig(field);
+    return !!cfg?.dynamicOptions?.enabled;
+  };
+
+  const getDynamicUrl = (field) => {
+    const cfg = safeParseConfig(field);
+    return cfg?.dynamicOptions?.url || "";
+  };
+
+  const getFieldOptions = (field) => {
+    try {
+      const config = JSON.parse(field.config_json);
+      return config.options || [];
+    } catch {
+      return [];
+    }
+  };
+
+  const updateFieldOptions = (fieldId, options) => {
+    const field = currentFields.find((f) => f.id === fieldId);
+    const currentConfig = field ? safeParseConfig(field) : {};
+    const nextConfig = { ...currentConfig, options };
+    updateField(fieldId, { config_json: JSON.stringify(nextConfig) });
+  };
+
+  // ----------------------------
+  // Hydrate local state when form loads
+  // ----------------------------
+  useEffect(() => {
+    if (currentFormStatus !== "succeeded" || !currentForm) return;
+
+    setStableFormKey(currentForm.form_key ?? formKey);
+
+    setFormData({
+      title: currentForm.title ?? "",
+      description: currentForm.description ?? "",
+      status: currentForm.status ?? "Draft",
+      is_anonymous: !!currentForm.is_anonymous,
+      rpa_webhook_url: currentForm.rpa_webhook_url ?? "",
+      rpa_secret: currentForm.rpa_secret ?? "",
+      rpa_secret_method:
+        currentForm.rpa_header_key ??
+        currentForm.rpa_secret_method ??
+        "authorization",
+      rpa_timeout_ms: currentForm.rpa_timeout_ms ?? 8000,
+      rpa_retry_count: currentForm.rpa_retry_count ?? 0,
+      form_key: currentForm.form_key ?? formKey,
+    });
+
+    const mappedSteps = (currentForm.steps ?? []).map((s, stepIndex) => ({
+      step_id: s.step_id ?? `step_${stepIndex + 1}`,
+      step_number: Number(s.step_number ?? stepIndex + 1),
+      step_title: s.step_title ?? `Step ${stepIndex + 1}`,
+      step_description: s.step_description ?? "",
+      sort_order: s.sort_order ?? stepIndex,
+      is_active: s.is_active !== undefined ? !!s.is_active : true,
+      fields: (s.fields ?? []).map((f, fieldIndex) => {
+        let cfg = {};
+        try {
+          cfg =
+            typeof f.config_json === "string"
+              ? JSON.parse(f.config_json)
+              : f.config_json ?? {};
+        } catch {
+          cfg = {};
+        }
+
+        const dynamicEnabled = !!cfg?.dynamicOptions?.enabled;
+
+        // Inject DB options into config_json.options so builder UI works
+        if (!dynamicEnabled && Array.isArray(f.options)) {
+          cfg.options = f.options
+            .slice()
+            .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+            .map((o) => o.label ?? o.value);
+        }
+
+        return {
+          id: f.field_id ?? `${s.step_number}_${fieldIndex}_${Date.now()}`,
+          key_name: f.key_name,
+          label: f.label ?? "",
+          help_text: f.help_text ?? "",
+          field_type: f.field_type,
+          required: !!f.required,
+          sort_order: f.sort_order ?? fieldIndex,
+          config_json: JSON.stringify(cfg ?? {}),
+          active: f.active !== undefined ? !!f.active : true,
+        };
+      }),
+    }));
+
+    setSteps(
+      mappedSteps.length
+        ? mappedSteps
+        : [
+            {
+              step_id: 1,
+              step_number: 1,
+              step_title: "Step 1",
+              step_description: "",
+              sort_order: 0,
+              is_active: true,
+              fields: [],
+            },
+          ]
+    );
+
+    setCurrentStepIndex(0);
+    setSelectedFieldId(null);
+  }, [currentForm, currentFormStatus, formKey]);
+
+  // ----------------------------
+  // Toast errors (optional, but your UI now also shows AppError)
+  // ----------------------------
+  useEffect(() => {
+    if (currentFormError) {
+      notify({
+        type: "error",
+        title: "Load failed",
+        message: currentFormError,
+      });
+    }
+  }, [currentFormError]);
+
+  useEffect(() => {
+    if (updatedFormError) {
+      notify({
+        type: "error",
+        title: "Save failed",
+        message: updatedFormError,
+      });
+    }
+  }, [updatedFormError]);
+
+  // Navigate on successful update (optional)
+  useEffect(() => {
+    if (updatedFormStatus === "succeeded" && updatedFormId) {
+      notify({
+        type: "success",
+        title: "Form updated",
+        message: "Changes saved successfully.",
+      });
+      navigate("/forms");
+    }
+  }, [updatedFormStatus, updatedFormId, navigate]);
+
+  // ----------------------------
+  // Steps/Fields manipulation
+  // ----------------------------
   const addStep = () => {
     const newStep = {
       step_id: Date.now(),
@@ -154,12 +408,6 @@ const NewForm = () => {
     };
     setSteps([...steps, newStep]);
     setCurrentStepIndex(steps.length);
-  };
-
-  const updateStep = (stepIndex, updates) => {
-    const updatedSteps = [...steps];
-    updatedSteps[stepIndex] = { ...updatedSteps[stepIndex], ...updates };
-    setSteps(updatedSteps);
   };
 
   const removeStep = (stepIndex) => {
@@ -188,7 +436,7 @@ const NewForm = () => {
 
   const addField = (fieldType) => {
     const step = steps[currentStepIndex];
-    const stepId = step.step_number; // or step.id
+    const stepId = step.step_number;
     const nextIndex = getNextFieldIndex(step.fields);
     const nextSort = step.fields.length;
 
@@ -215,14 +463,6 @@ const NewForm = () => {
     setSelectedFieldId(newField.id);
   };
 
-  const updateField = (id, updates) => {
-    const updatedSteps = [...steps];
-    updatedSteps[currentStepIndex].fields = updatedSteps[
-      currentStepIndex
-    ].fields.map((f) => (f.id === id ? { ...f, ...updates } : f));
-    setSteps(updatedSteps);
-  };
-
   const removeField = (id) => {
     const updatedSteps = [...steps];
     updatedSteps[currentStepIndex].fields = updatedSteps[
@@ -232,176 +472,9 @@ const NewForm = () => {
     if (selectedFieldId === id) setSelectedFieldId(null);
   };
 
-  const currentFields = steps[currentStepIndex]?.fields || [];
-  const selectedField = currentFields.find((f) => f.id === selectedFieldId);
-
-  const currentTitle = steps[currentStepIndex]?.step_title ?? "";
-  const [title, setTitle] = useState(currentTitle);
-
-  useEffect(() => {
-    setTitle(currentTitle);
-  }, [currentTitle]);
-
-  const safeParseConfig = (field) => {
-    try {
-      return JSON.parse(field.config_json || "{}");
-    } catch {
-      return {};
-    }
-  };
-
-  const updateFieldConfig = (fieldId, patch) => {
-    const field = currentFields.find((f) => f.id === fieldId);
-    const currentConfig = field ? safeParseConfig(field) : {};
-    const nextConfig = { ...currentConfig, ...patch };
-    updateField(fieldId, { config_json: JSON.stringify(nextConfig) });
-  };
-
-  const getDynamicUrl = (field) => {
-    const cfg = safeParseConfig(field);
-    return cfg?.dynamicOptions?.url || "";
-  };
-
-  const isDynamicEnabled = (field) => {
-    const cfg = safeParseConfig(field);
-    return !!cfg?.dynamicOptions?.enabled;
-  };
-
-  const getFieldOptions = (field) => {
-    try {
-      const config = JSON.parse(field.config_json);
-      return config.options || [];
-    } catch {
-      return [];
-    }
-  };
-
-  const updateFieldOptions = (fieldId, options) => {
-    const field = currentFields.find((f) => f.id === fieldId);
-    const currentConfig = field ? safeParseConfig(field) : {};
-
-    const nextConfig = {
-      ...currentConfig,
-      options,
-    };
-
-    updateField(fieldId, { config_json: JSON.stringify(nextConfig) });
-  };
-
-  const safeJsonParse = (val) => {
-    if (!val) return {};
-    if (typeof val === "object") return val;
-    try {
-      return JSON.parse(val);
-    } catch {
-      return {};
-    }
-  };
-
-  const configToFieldOptions = (config_json) => {
-    const cfg = safeJsonParse(config_json);
-    const raw = Array.isArray(cfg.options) ? cfg.options : [];
-
-    return raw
-      .map((opt, idx) => {
-        // string option
-        if (typeof opt === "string") {
-          return {
-            label: opt,
-            value: opt,
-            is_default: false,
-            sort_order: idx,
-          };
-        }
-
-        // object option
-        if (opt && typeof opt === "object") {
-          return {
-            label: String(opt.label ?? opt.value ?? `Option ${idx + 1}`),
-            value: String(opt.value ?? opt.label ?? `Option ${idx + 1}`),
-            is_default: !!opt.is_default,
-            sort_order: opt.sort_order ?? idx,
-          };
-        }
-
-        return null;
-      })
-      .filter(Boolean);
-  };
-
-  const buildCleanConfigJsonForPayload = (field) => {
-    const cfg = safeJsonParse(field.config_json);
-
-    const dynamicEnabled = !!cfg?.dynamicOptions?.enabled;
-    if (!dynamicEnabled) {
-      return JSON.stringify(cfg); // keep as-is
-    }
-
-    // Dynamic enabled: strip static options
-    const { options, ...rest } = cfg; // remove options key
-    return JSON.stringify(rest);
-  };
-
-  const handleSubmit = async () => {
-    const payload = {
-      ...formData,
-      form_key: slugify(formData.title),
-      steps: steps.map((step) => ({
-        step_number: step.step_number,
-        step_title: step.step_title,
-        step_description: step.step_description ?? "",
-        sort_order: step.sort_order ?? 0,
-        is_active: step.is_active !== undefined ? !!step.is_active : true,
-        fields: (step.fields || []).map((f) => {
-          const cfg = safeJsonParse(f.config_json);
-          const dynamicEnabled = !!cfg?.dynamicOptions?.enabled;
-
-          // If dynamic enabled: don't send static options (anywhere)
-          const options =
-            !dynamicEnabled &&
-            (f.field_type === "select" ||
-              f.field_type === "radio" ||
-              f.field_type === "multiselect")
-              ? configToFieldOptions(f.config_json)
-              : [];
-
-          const cleanConfigJson = dynamicEnabled
-            ? buildCleanConfigJsonForPayload(f)
-            : f.config_json;
-
-          return {
-            key_name: f.key_name,
-            label: f.label,
-            help_text: f.help_text ?? "",
-            field_type: f.field_type,
-            required: !!f.required,
-            sort_order: f.sort_order ?? 0,
-            active: f.active !== undefined ? !!f.active : true,
-
-            // Cleaned config_json (options removed if dynamic is enabled)
-            config_json: cleanConfigJson,
-
-            // Options array also cleared if dynamic enabled
-            options,
-          };
-        }),
-      })),
-    };
-
-    const { form_id } = await dispatch(createForm(payload)).unwrap();
-
-    notify({
-      type: "success",
-      title: "Form created",
-      message: "Your form was created successfully.",
-    });
-    navigate(`/forms`);
-  };
-
-  if (error) {
-    notify({ type: "error", title: "Error", message: error });
-  }
-
+  // ----------------------------
+  // DnD
+  // ----------------------------
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   );
@@ -425,6 +498,65 @@ const NewForm = () => {
 
     setSteps(updatedSteps);
   };
+
+  // ----------------------------
+  // Submit (dispatch updateForm thunk)
+  // ----------------------------
+  const handleSubmit = async () => {
+    const payload = {
+      ...formData,
+      form_key: stableFormKey, // do not change the URL key on edit
+      steps: steps.map((step) => ({
+        step_number: step.step_number,
+        step_title: step.step_title,
+        step_description: step.step_description ?? "",
+        sort_order: step.sort_order ?? 0,
+        is_active: step.is_active !== undefined ? !!step.is_active : true,
+        fields: (step.fields || []).map((f) => {
+          const cfg = safeJsonParse(f.config_json);
+          const dynamicEnabled = !!cfg?.dynamicOptions?.enabled;
+
+          const options =
+            !dynamicEnabled &&
+            (f.field_type === "select" ||
+              f.field_type === "radio" ||
+              f.field_type === "multiselect")
+              ? configToFieldOptions(f.config_json)
+              : [];
+
+          const cleanConfigJson = dynamicEnabled
+            ? buildCleanConfigJsonForPayload(f)
+            : f.config_json;
+
+          return {
+            key_name: f.key_name,
+            label: f.label,
+            help_text: f.help_text ?? "",
+            field_type: f.field_type,
+            required: !!f.required,
+            sort_order: f.sort_order ?? 0,
+            active: f.active !== undefined ? !!f.active : true,
+            config_json: cleanConfigJson,
+            options,
+          };
+        }),
+      })),
+    };
+
+    await dispatch(updateForm({ formKey: stableFormKey, payload })).unwrap();
+    await dispatch(resetUpdateState());
+    navigate(`/forms`);
+  };
+
+  const isLoading = currentFormStatus === "loading";
+  const isSaving = updatedFormStatus === "loading";
+  const isError =
+    currentFormStatus === "failed" || updatedFormStatus === "failed";
+  const errorMessage = currentFormError || updatedFormError;
+
+  if (isLoading) return <AppLoader />;
+  if (isError) return <AppError message={errorMessage || "Something broke."} />;
+
   return (
     <Box minH="100vh" p={6}>
       <Flex justify="space-between" align="center" mb={6}>
@@ -656,8 +788,8 @@ const NewForm = () => {
             <Card.Header>
               <Heading size="sm">Fields</Heading>
               {/* <Text fontSize="xs" color="gray.600">
-                Click to add to canvas
-              </Text> */}
+                    Click to add to canvas
+                  </Text> */}
             </Card.Header>
             <Card.Body overflowY="auto">
               <Stack gap={1}>
@@ -687,14 +819,20 @@ const NewForm = () => {
               <Flex justify="space-between" align="center">
                 <Box>
                   <Heading size="md">
-                    {steps[currentStepIndex].step_title}
+                    {steps[currentStepIndex]?.step_title ?? "Step"}
                   </Heading>
                   <Text color="gray.600" fontSize="sm">
                     {currentFields.length} field(s) added
                   </Text>
                 </Box>
 
-                <Dialog.Root>
+                <Dialog.Root
+                  onOpenChange={(details) => {
+                    if (details.open) {
+                      setTitle(steps[currentStepIndex]?.step_title ?? "");
+                    }
+                  }}
+                >
                   <Dialog.Trigger asChild>
                     <Button size="sm" variant="ghost">
                       Edit Step
@@ -724,6 +862,7 @@ const NewForm = () => {
                               onClick={() => {
                                 const trimmed = title.trim();
                                 if (!trimmed) return;
+
                                 updateStep(currentStepIndex, {
                                   step_title: trimmed,
                                 });
@@ -1206,4 +1345,4 @@ const NewForm = () => {
   );
 };
 
-export default NewForm;
+export default EditForm;

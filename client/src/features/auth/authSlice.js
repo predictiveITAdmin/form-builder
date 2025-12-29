@@ -191,7 +191,7 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.isAzureUser = false;
         state.authMode = null;
-        state.error = action.error || "Session failed";
+        state.error = action.error.message || "Session failed";
       });
 
     // ----------------------------
