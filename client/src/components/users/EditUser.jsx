@@ -222,7 +222,11 @@ const EditUser = ({ isOpen, onClose, user }) => {
                 <Button variant="outline">Cancel</Button>
               </Dialog.ActionTrigger>
 
-              <Button onClick={handleSave} isDisabled={!userDetails}>
+              <Button
+                onClick={handleSave}
+                isDisabled={!userDetails}
+                bgColor={"#94ca5c"}
+              >
                 Save
               </Button>
             </Dialog.Footer>

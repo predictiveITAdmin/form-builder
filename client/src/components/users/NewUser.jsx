@@ -91,12 +91,10 @@ const NewUser = ({ isOpen, onClose }) => {
                 <Button variant="outline">Cancel</Button>
               </Dialog.ActionTrigger>
 
-              <Button onClick={handleInvite}>Send Invite</Button>
+              <Button onClick={handleInvite} bgColor={"#94ca5c"}>
+                Send Invite
+              </Button>
             </Dialog.Footer>
-
-            {/* <Dialog.CloseTrigger asChild>
-              <CloseButton size="sm" />
-            </Dialog.CloseTrigger> */}
           </Dialog.Content>
         </Dialog.Positioner>
       </Portal>
