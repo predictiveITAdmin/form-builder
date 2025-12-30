@@ -190,6 +190,39 @@ module.exports = {
       return res.status(500).json({ message: "Internal Server Error" });
     }
   },
+
+  editUser: async (req, res) => {
+    try {
+      const user_id = Number(req.params.user_id);
+      const payload = req.body;
+
+      if (!user_id) {
+        return res
+          .status(400)
+          .json({ message: "User is required to update records" });
+      }
+
+      const assigned_by = req.user.userId;
+
+      const result = await queries.editUserDetailsAndRoles(
+        user_id,
+        payload,
+        assigned_by
+      );
+
+      return res.status(200).json({
+        message: "User record updated successfully",
+        ...result,
+      });
+    } catch (err) {
+      const status = err.statusCode || 500;
+      return res.status(status).json({
+        message: err.message || "Internal Server Error",
+        ...(err.details ? { details: err.details } : {}),
+      });
+    }
+  },
+
   getMe: async (req, res) => {
     try {
       let user = null;
@@ -367,8 +400,8 @@ module.exports = {
     try {
       const includeInactive =
         String(req.query.includeInactive).toLowerCase() === "true";
+
       const result = await queries.allRoles({ includeInactive });
-      console.log(result);
       return res.json(result);
     } catch (err) {
       return serverError(res, err);

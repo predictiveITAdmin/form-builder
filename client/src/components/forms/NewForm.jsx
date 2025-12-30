@@ -488,7 +488,6 @@ const NewForm = () => {
                           setFormData({ ...formData, status: e.target.value })
                         }
                       >
-                        <option value="Published">Published</option>
                         <option value="Draft">Draft</option>
                         <option value="Archived">Archived</option>
                       </NativeSelect.Field>

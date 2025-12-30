@@ -16,6 +16,7 @@ import LoginPage from "./pages/LoginPage";
 import NewForm from "./components/forms/NewForm";
 import FormDetail from "./components/forms/FormDetail";
 import EditForm from "./components/forms/EditForm";
+import CreatePasswordPage from "./pages/CreatePassword";
 
 // Main App Component
 function App() {
@@ -27,6 +28,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/create-password" element={<CreatePasswordPage />} />
       <Route path="/test" element={<Test />} />
       <Route path="/auth/redirect" element={<Navigate to="/" replace />} />
       <Route element={<RequireAuth />}>

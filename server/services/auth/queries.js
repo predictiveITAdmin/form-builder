@@ -190,6 +190,54 @@ const getUserByEmail = async (email) => {
   return result.rows[0] || null;
 };
 
+const editUserDetails = async (user_id, payload) => {
+  const pool = await getPool();
+  const client = await pool.connect();
+
+  try {
+    const { display_name, is_active } = payload;
+
+    const sql = `
+      UPDATE public.users
+      SET
+        display_name = $1,
+        is_active = $2
+      WHERE user_id = $3
+      RETURNING user_id, display_name, is_active;
+    `;
+
+    const { rows } = await client.query(sql, [
+      display_name,
+      is_active,
+      user_id,
+    ]);
+
+    if (rows.length === 0) {
+      throw new Error(`User not found: ${user_id}`);
+    }
+
+    return rows[0];
+  } catch (error) {
+    console.error("editUser failed:", error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+async function getRoleIdsByCodes(roleCodes = []) {
+  const pool = await getPool();
+  const { rows } = await pool.query(
+    `SELECT role_id, role_code
+     FROM roles
+     WHERE role_code = ANY($1::text[]) AND is_active = true`,
+    [roleCodes]
+  );
+
+  const map = new Map(rows.map((r) => [r.role_code, r.role_id]));
+  return { map, rows };
+}
+
 const addRole = async (payload) => {
   const pool = await getPool();
   const sql = `INSERT INTO roles (role_name, role_code, description, is_system_role, is_active, created_at, updated_at)
@@ -260,10 +308,29 @@ async function deactivateRole(role_id) {
 
 function allRoles({ includeInactive = false } = {}) {
   const sql = `
-    SELECT *
-    FROM roles
-    WHERE ($1::boolean = TRUE OR is_active = TRUE)
-    ORDER BY role_name ASC
+        SELECT 
+        r.role_id, 
+        r.role_name, 
+        r.role_code, 
+        r.description, 
+        r.is_system_role, 
+        r.is_active, 
+        r.created_at, 
+        r.updated_at,
+        COALESCE(u.user_count, 0) as role_to_users,
+        COALESCE(p.permission_count, 0) as permission_to_roles
+    FROM public.roles r
+    LEFT JOIN (
+        SELECT role_id, COUNT(*) as user_count
+        FROM user_roles
+        GROUP BY role_id
+    ) u ON u.role_id = r.role_id
+    LEFT JOIN (
+        SELECT role_id, COUNT(*) as permission_count
+        FROM role_permissions
+        GROUP BY role_id
+    ) p ON p.role_id = r.role_id
+     WHERE ($1::boolean = TRUE OR is_active = TRUE)
   `;
   return query(sql, [includeInactive]);
 }
@@ -291,56 +358,132 @@ function rolesForUser(user_id, { includeExpired = false } = {}) {
   return query(sql, [user_id, includeExpired]);
 }
 
-async function setUserRoles({
+const editUserDetailsAndRoles = async (
   user_id,
-  role_ids,
-  assigned_by = null,
-  expires_at = null,
-}) {
+  payload,
+  assigned_by = null
+) => {
   const pool = await getPool();
   const client = await pool.connect();
 
-  await client.query("BEGIN");
-
   try {
-    await client.query(`DELETE FROM user_roles WHERE user_id = $1`, [user_id]);
+    await client.query("BEGIN");
 
-    if (Array.isArray(role_ids) && role_ids.length > 0) {
-      const values = [];
-      const params = [];
+    const { display_name, is_active } = payload;
 
-      let idx = 1;
+    const updateUserSql = `
+      UPDATE public.users
+      SET
+        display_name = $1,
+        is_active = $2
+      WHERE user_id = $3
+      RETURNING user_id, display_name, is_active;
+    `;
 
-      role_ids.forEach((role) => {
-        values.push(`($${idx++}, $${idx++}, NOW(), $${idx++}, $${idx++})`);
-        params.push(user_id, role, assigned_by, expires_at);
-      });
+    const userResult = await client.query(updateUserSql, [
+      display_name,
+      is_active,
+      user_id,
+    ]);
 
-      console.log(values);
-      console.log(params);
-
-      const sql = `INSERT INTO user_roles (user_id, role_id, assigned_at, assigned_by, expires_at)
-          VALUES ${values.join(", ")}
-          RETURNING *`;
-      await client.query(sql, params);
+    if (userResult.rows.length === 0) {
+      throw new Error(`User not found: ${user_id}`);
     }
-    await client.query("COMMIT");
 
-    const { rows } = await client.query(
-      `SELECT ur.*, r.role_name, r.role_code, r.description, r.is_system_role, r.is_active
+    const updatedUser = userResult.rows[0];
+
+    if (payload.roles !== undefined && !Array.isArray(payload.roles)) {
+      const err = new Error("roles must be an array");
+      err.statusCode = 400;
+      throw err;
+    }
+
+    let updatedRoles = [];
+
+    if (Array.isArray(payload.roles)) {
+      const roleCodes = [
+        ...new Set(
+          payload.roles.map((r) => (r?.role_code || "").trim()).filter(Boolean)
+        ),
+      ];
+
+      await client.query(`DELETE FROM user_roles WHERE user_id = $1`, [
+        user_id,
+      ]);
+
+      if (roleCodes.length > 0) {
+        const roleLookup = await client.query(
+          `
+          SELECT role_id, role_code
+          FROM roles
+          WHERE role_code = ANY($1::text[])
+            AND is_active = true
+          `,
+          [roleCodes]
+        );
+
+        const codeToId = new Map(
+          roleLookup.rows.map((r) => [r.role_code, r.role_id])
+        );
+        const missing = roleCodes.filter((code) => !codeToId.has(code));
+
+        if (missing.length > 0) {
+          const err = new Error("Invalid or inactive role_code provided");
+          err.statusCode = 400;
+          err.details = { missing };
+          throw err;
+        }
+
+        const role_ids = roleCodes.map((code) => codeToId.get(code));
+
+        const expires_at = payload.expires_at ?? null;
+
+        const values = [];
+        const params = [];
+        let idx = 1;
+
+        role_ids.forEach((roleId) => {
+          values.push(`($${idx++}, $${idx++}, NOW(), $${idx++}, $${idx++})`);
+          params.push(user_id, roleId, assigned_by, expires_at);
+        });
+
+        await client.query(
+          `
+          INSERT INTO user_roles (user_id, role_id, assigned_at, assigned_by, expires_at)
+          VALUES ${values.join(", ")}
+          `,
+          params
+        );
+      }
+
+      const rolesResult = await client.query(
+        `
+        SELECT ur.*, r.role_name, r.role_code, r.description, r.is_system_role, r.is_active
         FROM user_roles ur
         JOIN roles r ON r.role_id = ur.role_id
         WHERE ur.user_id = $1
-        ORDER BY r.role_name ASC`,
-      [user_id]
-    );
+        ORDER BY r.role_name ASC
+        `,
+        [user_id]
+      );
 
-    return rows;
-  } catch (e) {
+      updatedRoles = rolesResult.rows;
+    }
+
+    await client.query("COMMIT");
+
+    return {
+      user: updatedUser,
+      roles: updatedRoles,
+    };
+  } catch (error) {
     await client.query("ROLLBACK");
-    throw e;
+    console.error("editUserDetailsAndRoles failed:", error);
+    throw error;
+  } finally {
+    client.release();
   }
-}
+};
 
 async function addPermission({
   permission_name,
@@ -562,13 +705,15 @@ module.exports = {
 
   getAllUsers,
   getUser,
+  editUserDetails,
 
   addRole,
+  getRoleIdsByCodes,
   editRole,
   allRoles,
   deactivateRole,
   rolesForUser,
-  setUserRoles,
+  editUserDetailsAndRoles,
 
   addPermission,
   editPermission,

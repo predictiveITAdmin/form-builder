@@ -14,7 +14,7 @@ import {
 } from "@chakra-ui/react";
 import DataTable from "../DataTable";
 import { FaRegEye, FaSearch, FaRegEdit, FaTrashAlt } from "react-icons/fa";
-import { FaPlus } from "react-icons/fa6";
+import { FaDeleteLeft, FaEye, FaPlus } from "react-icons/fa6";
 import { Link, useNavigate } from "react-router-dom";
 import { usePagination } from "@/utils/pagination";
 import { useDispatch, useSelector } from "react-redux";
@@ -89,6 +89,45 @@ const Forms = () => {
       sortable: true,
       render: (value) => (value ? value : "-"),
     },
+    {
+      key: "actions",
+      label: "Actions",
+      sortable: false,
+      render: (_, row) => (
+        <HStack spacing={0} width={12}>
+          <IconButton
+            size="sm"
+            aria-label="View"
+            variant="ghost"
+            color={"green"}
+            // TODO: hook up edit route
+            onClick={() => navigate(`/forms/${row.form_key}`)}
+          >
+            <FaEye size={16} />
+          </IconButton>
+          <IconButton
+            size="sm"
+            aria-label="Edit"
+            variant="ghost"
+            color={"#FFBF00"}
+            // TODO: hook up edit route
+            onClick={() => navigate(`/forms/${row.form_key}/edit`)}
+          >
+            <FaRegEdit size={16} />
+          </IconButton>
+          <IconButton
+            size="sm"
+            aria-label="Edit"
+            variant="ghost"
+            color={"red"}
+            // TODO: hook up remove route
+            onClick={() => console.log(`Removing: ${row} `)}
+          >
+            <FaTrashAlt size={16} />
+          </IconButton>
+        </HStack>
+      ),
+    },
   ];
   const { page, setPage, pageSize, totalItems, pageData } = usePagination(
     filteredForms,
@@ -136,11 +175,7 @@ const Forms = () => {
       {status === "loading" && <Text>Loading forms...</Text>}
       {status === "failed" && <Text color="red.500">{error}</Text>}
 
-      <DataTable
-        columns={columns}
-        data={pageData ?? []}
-        rowClickable={{ onClick: (row) => navigate(`/forms/${row.form_key}`) }}
-      />
+      <DataTable columns={columns} data={pageData ?? []} />
       <Pagination.Root
         count={totalItems}
         pageSize={pageSize}

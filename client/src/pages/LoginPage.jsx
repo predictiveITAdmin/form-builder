@@ -26,7 +26,9 @@ export default function LoginPage() {
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    const res = await dispatch(loginExternal({ email, password }));
+    const res = await dispatch(
+      loginExternal({ email: email.toLowerCase(), password })
+    );
     if (loginExternal.fulfilled.match(res)) navigate("/");
   };
 

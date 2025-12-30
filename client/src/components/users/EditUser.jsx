@@ -1,4 +1,9 @@
 import {
+  editUserDetailsAndRoles,
+  getAllRoles,
+  selectAllRoles,
+} from "@/features/auth/roleSlice";
+import {
   Button,
   Dialog,
   Portal,
@@ -12,12 +17,16 @@ import {
   Switch,
   createListCollection,
 } from "@chakra-ui/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { notify } from "../ui/notifyStore";
 
 const EditUser = ({ isOpen, onClose, user }) => {
   const [userDetails, setUserDetails] = useState(null);
   const [selectedRoleCodes, setSelectedRoleCodes] = useState([]);
+  const roles = useSelector(selectAllRoles) ?? [];
 
+  const dispatch = useDispatch();
   const toRoleCodes = (roles) =>
     Array.isArray(roles)
       ? roles
@@ -36,14 +45,15 @@ const EditUser = ({ isOpen, onClose, user }) => {
     { role_code: "form-admin", role_name: "Form Administrator" },
   ];
 
-  const rolesCollection = createListCollection({
-    items: allRoles.map((r) => ({
-      label: r.role_name,
-      value: r.role_code,
-    })),
-  });
+  const rolesCollection = useMemo(() => {
+    return createListCollection({
+      items: (Array.isArray(roles) ? roles : []).map((r) => ({
+        label: r.role_name,
+        value: r.role_code,
+      })),
+    });
+  }, [roles]);
 
-  // Load selected user into form when opened / user changes
   useEffect(() => {
     if (isOpen && user) {
       setUserDetails({
@@ -56,6 +66,7 @@ const EditUser = ({ isOpen, onClose, user }) => {
         roles: Array.isArray(user.roles) ? user.roles : [],
       });
       setSelectedRoleCodes(toRoleCodes(user.roles));
+      dispatch(getAllRoles({ includeInactive: false }));
     }
 
     // Clear when closed
@@ -69,22 +80,39 @@ const EditUser = ({ isOpen, onClose, user }) => {
     console.log(userDetails);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!userDetails) return;
 
-    // This is typically what you'd send to your backend
     const payload = {
       user_id: userDetails.user_id,
       email: userDetails.email.trim(),
       display_name: userDetails.display_name.trim(),
       user_type: userDetails.user_type,
       is_active: userDetails.is_active,
-      roles: toRoleObjects(selectedRoleCodes, allRoles),
+      roles: userDetails.is_active
+        ? toRoleObjects(selectedRoleCodes, roles)
+        : [],
     };
 
-    console.log("Saving user payload:", payload);
+    try {
+      await dispatch(editUserDetailsAndRoles(payload)).unwrap();
 
-    onClose();
+      notify({
+        type: "success",
+        title: "Successfully Updated",
+        message: "User Updated!",
+      });
+
+      onClose();
+      window.location.reload();
+    } catch (err) {
+      console.log(err);
+      notify({
+        type: "error",
+        title: "Update failed",
+        message: typeof err === "string" ? err : "Failed to update user.",
+      });
+    }
   };
 
   return (
@@ -118,16 +146,10 @@ const EditUser = ({ isOpen, onClose, user }) => {
                         ? new Date(userDetails.created_at).toLocaleString()
                         : "-"}
                     </Text>
+                    <Text fontSize="sm" opacity={0.7}>
+                      Email: {userDetails.email}
+                    </Text>
                   </Stack>
-
-                  <Field.Root>
-                    <Field.Label>Email</Field.Label>
-                    <Input
-                      value={userDetails.email}
-                      onChange={(e) => updateField("email", e.target.value)}
-                    />
-                  </Field.Root>
-
                   <Field.Root>
                     <Field.Label>Display Name</Field.Label>
                     <Input
@@ -137,7 +159,6 @@ const EditUser = ({ isOpen, onClose, user }) => {
                       }
                     />
                   </Field.Root>
-
                   <Field.Root>
                     <HStack justify="space-between">
                       <Switch.Root
@@ -157,56 +178,60 @@ const EditUser = ({ isOpen, onClose, user }) => {
                     </HStack>
                   </Field.Root>
 
-                  <Field.Root>
-                    <Field.Label>Roles</Field.Label>
+                  {userDetails.is_active && (
+                    <Field.Root>
+                      <Field.Label>Roles</Field.Label>
 
-                    <Select.Root
-                      collection={rolesCollection}
-                      multiple
-                      value={selectedRoleCodes}
-                      onValueChange={(e) => setSelectedRoleCodes(e.value ?? [])}
-                    >
-                      <Select.HiddenSelect />
-                      <Select.Control>
-                        <Select.Trigger>
-                          <Select.ValueText placeholder="Select Roles" />
-                        </Select.Trigger>
-                        <Select.IndicatorGroup>
-                          <Select.Indicator />
-                        </Select.IndicatorGroup>
-                      </Select.Control>
-                      <Portal>
-                        <Select.Positioner style={{ zIndex: 2000 }}>
-                          <Select.Content style={{ zIndex: 2000 }}>
-                            {rolesCollection.items.map((item) => (
-                              <Select.Item item={item} key={item.value}>
-                                {item.label}
-                                <Select.ItemIndicator />
-                              </Select.Item>
-                            ))}
-                          </Select.Content>
-                        </Select.Positioner>
-                      </Portal>
-                    </Select.Root>
-                    <HStack wrap="wrap" mt={2}>
-                      {selectedRoleCodes.length ? (
-                        selectedRoleCodes.map((code) => {
-                          const item = rolesCollection.items.find(
-                            (i) => i.value === code
-                          );
-                          return (
-                            <Tag.Root key={code} size="sm" variant="subtle">
-                              <Tag.Label>{item?.label ?? code}</Tag.Label>
-                            </Tag.Root>
-                          );
-                        })
-                      ) : (
-                        <Tag.Root size="sm" variant="surface">
-                          <Tag.Label>No roles assigned</Tag.Label>
-                        </Tag.Root>
-                      )}
-                    </HStack>
-                  </Field.Root>
+                      <Select.Root
+                        collection={rolesCollection}
+                        multiple
+                        value={selectedRoleCodes}
+                        onValueChange={(e) =>
+                          setSelectedRoleCodes(e.value ?? [])
+                        }
+                      >
+                        <Select.HiddenSelect />
+                        <Select.Control>
+                          <Select.Trigger>
+                            <Select.ValueText placeholder="Select Roles" />
+                          </Select.Trigger>
+                          <Select.IndicatorGroup>
+                            <Select.Indicator />
+                          </Select.IndicatorGroup>
+                        </Select.Control>
+                        <Portal>
+                          <Select.Positioner style={{ zIndex: 2000 }}>
+                            <Select.Content style={{ zIndex: 2000 }}>
+                              {rolesCollection.items.map((item) => (
+                                <Select.Item item={item} key={item.value}>
+                                  {item.label}
+                                  <Select.ItemIndicator />
+                                </Select.Item>
+                              ))}
+                            </Select.Content>
+                          </Select.Positioner>
+                        </Portal>
+                      </Select.Root>
+                      <HStack wrap="wrap" mt={2}>
+                        {selectedRoleCodes.length ? (
+                          selectedRoleCodes.map((code) => {
+                            const item = rolesCollection.items.find(
+                              (i) => i.value === code
+                            );
+                            return (
+                              <Tag.Root key={code} size="sm" variant="subtle">
+                                <Tag.Label>{item?.label ?? code}</Tag.Label>
+                              </Tag.Root>
+                            );
+                          })
+                        ) : (
+                          <Tag.Root size="sm" variant="surface">
+                            <Tag.Label>No roles assigned</Tag.Label>
+                          </Tag.Root>
+                        )}
+                      </HStack>
+                    </Field.Root>
+                  )}
                 </Stack>
               )}
             </Dialog.Body>

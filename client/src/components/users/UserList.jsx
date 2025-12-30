@@ -64,7 +64,7 @@ const UserList = () => {
 
   const [search, setSearch] = useState("");
   const [userType, setUserType] = useState(["all"]);
-  const [isActive, setIsActive] = useState(["all"]);
+  const [isActive, setIsActive] = useState(["active"]);
 
   const columns = useMemo(
     () => [
@@ -136,17 +136,6 @@ const UserList = () => {
               onClick={() => handleEditClick(row)}
             >
               <FaRegEdit size={16} />
-            </IconButton>
-
-            <IconButton
-              size="sm"
-              aria-label="Delete"
-              variant="ghost"
-              color="#BA2222"
-              // TODO: hook up delete action
-              onClick={() => console.log("delete", row.form_key)}
-            >
-              <FaTrashAlt size={16} />
             </IconButton>
           </HStack>
         ),

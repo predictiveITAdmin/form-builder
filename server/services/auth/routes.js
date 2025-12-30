@@ -77,6 +77,7 @@ router.delete("/roles/:roleId", authMiddleware, controller.removeRole);
 
 router.get("/users", authMiddleware, controller.getAllUsers);
 router.get("/users/:user_id", authMiddleware, controller.getUser);
+router.put("/users/:user_id", authMiddleware, controller.editUser);
 
 router.get("/users/:userId/roles", authMiddleware, controller.getUserRoles);
 router.post("/users/:userId/roles", authMiddleware, controller.assignUserRoles);

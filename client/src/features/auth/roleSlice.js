@@ -20,11 +20,40 @@ export const getAllUsers = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const res = await http.get(`/api/auth/users`);
-      console.log(res);
       return res.data;
     } catch (err) {
       return rejectWithValue(
         err?.response?.data?.message || "Failed to get Users"
+      );
+    }
+  }
+);
+
+export const getAllRoles = createAsyncThunk(
+  "auth/getAllRoles",
+  async ({ includeInactive }, { rejectWithValue }) => {
+    try {
+      const res = await http.get(
+        `/api/auth/roles?includeInactive=${includeInactive}`
+      );
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err?.response?.data?.message || "Failed to get Roles"
+      );
+    }
+  }
+);
+
+export const editUserDetailsAndRoles = createAsyncThunk(
+  "/auth/editUserAndRoles",
+  async (payload, { rejectWithValue }) => {
+    try {
+      const res = await http.put(`/api/auth/users/${payload.user_id}`, payload);
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err?.response?.data?.message || "Failed to get Roles"
       );
     }
   }
@@ -38,6 +67,14 @@ const initialState = {
   usersStatus: "idle",
   allUsers: null,
   usersError: null,
+
+  rolesStatus: "idle",
+  allRoles: null,
+  rolesError: null,
+
+  editUser: null,
+  editUserStatus: "idle",
+  editUserError: null,
 };
 
 const roleSlice = createSlice({
@@ -82,14 +119,60 @@ const roleSlice = createSlice({
           (state.usersError =
             error || "Something went wrong. Could not get Users");
       });
+    builder
+      .addCase(getAllRoles.pending, (state) => {
+        (state.rolesStatus = "loading"),
+          (state.rolesError = null),
+          (state.allRoles = null);
+      })
+      .addCase(getAllRoles.fulfilled, (state, action) => {
+        const user = action.payload;
+        (state.rolesStatus = "success"),
+          (state.allRoles = user),
+          (state.rolesError = null);
+      })
+      .addCase(getAllRoles.rejected, (state, action) => {
+        const error = action.error;
+
+        state.rolesStatus = "failed";
+        (state.allRoles = null),
+          (state.rolesError =
+            error || "Something went wrong. Could not get Users");
+      });
+    builder
+      .addCase(editUserDetailsAndRoles.pending, (state) => {
+        (state.editUserStatus = "loading"),
+          (state.editUserError = null),
+          (state.editUser = null);
+      })
+      .addCase(editUserDetailsAndRoles.fulfilled, (state, action) => {
+        const user = action.payload;
+        (state.editUserStatus = "success"),
+          (state.editUser = user),
+          (state.editUserError = null);
+      })
+      .addCase(editUserDetailsAndRoles.rejected, (state, action) => {
+        const error = action.error;
+
+        state.editUserStatus = "failed";
+        (state.editUser = null),
+          (state.editUserError =
+            error || "Something went wrong. Could not get Users");
+      });
   },
 });
 
 export default roleSlice.reducer;
 
 export const selectUser = (state) => state.roles.user;
-export const selectAllUser = (state) => state.roles.allUsers;
-export const selectError = (state) => state.roles.error;
-export const selectUsersError = (state) => state.roles.usersError;
 export const selectStatus = (state) => state.roles.status;
+export const selectError = (state) => state.roles.error;
+export const selectAllUser = (state) => state.roles.allUsers;
 export const selectUsersStatus = (state) => state.roles.usersStatus;
+export const selectUsersError = (state) => state.roles.usersError;
+export const selectAllRoles = (state) => state.roles.allRoles;
+export const selectRolesStatus = (state) => state.roles.rolesStatus;
+export const selectRolesError = (state) => state.roles.rolesEtatus;
+export const selectEditUser = (state) => state.roles.editUser;
+export const selectEditStatus = (state) => state.roles.editUserStatus;
+export const selectEditError = (state) => state.roles.editUserError;

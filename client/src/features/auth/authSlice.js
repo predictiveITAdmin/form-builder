@@ -115,19 +115,37 @@ export const handleAzureCallback = createAsyncThunk(
   }
 );
 
+export const createPassword = createAsyncThunk(
+  "auth/createPassword",
+  async ({ inviteToken, newPassword }, { rejectWithValue }) => {
+    try {
+      const res = await http.post("/api/auth/createPassword", {
+        inviteToken,
+        newPassword,
+      });
+      return res.data; // { message: "Password created successfully..." }
+    } catch (err) {
+      return rejectWithValue(
+        err?.response?.data?.message || "Failed to create password"
+      );
+    }
+  }
+);
+
 // ------------------------------------------
 // Slice
 // ------------------------------------------
 
 const initialState = {
-  status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
-  isAuthenticated: false, // derived: Boolean(user || token)
-  token: localStorage.getItem("token") || null, // survive refresh (storage)
+  status: "idle",
+  isAuthenticated: false,
+  token: localStorage.getItem("token") || null,
   user: null,
   error: null,
+  refreshError: null,
 
-  authMode: null, // 'jwt' | 'azure' | null (optional but useful)
-  isAzureUser: false, // derived from userType
+  authMode: null,
+  isAzureUser: false,
 };
 
 const authSlice = createSlice({
@@ -191,7 +209,7 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.isAzureUser = false;
         state.authMode = null;
-        state.error = action.error.message || "Session failed";
+        state.refreshError = action.error.message || "Session failed";
       });
 
     // ----------------------------
@@ -218,8 +236,13 @@ const authSlice = createSlice({
       })
       .addCase(loginExternal.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload || "Login failed";
+        state.error = action.payload || action.error?.message || "Login failed";
         state.isAuthenticated = false;
+        state.user = null;
+        state.token = null;
+        state.authMode = null;
+        state.isAzureUser = false;
+        localStorage.removeItem("token");
       });
 
     // ----------------------------
@@ -240,7 +263,7 @@ const authSlice = createSlice({
         state.authMode = state.token ? "jwt" : user ? "azure" : null;
       })
       .addCase(refreshUser.rejected, (state, action) => {
-        state.error = action.payload || "Failed to refresh user";
+        state.refreshError = action.error || "Failed to refresh user";
       });
 
     // ----------------------------
@@ -272,6 +295,26 @@ const authSlice = createSlice({
         state.status = "failed";
         state.error = action.payload || "Azure authentication failed";
         state.isAuthenticated = false;
+      });
+
+    // ----------------------------
+    // createPassword
+    // ----------------------------
+    builder
+      .addCase(createPassword.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(createPassword.fulfilled, (state) => {
+        state.status = "succeeded";
+        state.error = null;
+      })
+      .addCase(createPassword.rejected, (state, action) => {
+        state.status = "failed";
+        state.error =
+          action.payload ||
+          action.error?.message ||
+          "Failed to create password";
       });
   },
 });

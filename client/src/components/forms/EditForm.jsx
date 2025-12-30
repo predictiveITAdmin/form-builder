@@ -627,6 +627,18 @@ const EditForm = () => {
                       <NativeSelect.Indicator />
                     </NativeSelect.Root>
                   </Field.Root>
+                  {formData.status === "Published" && (
+                    <Field.Root>
+                      <Button
+                        variant={"outline"}
+                        alignSelf={"flex-start"}
+                        mt={6}
+                        justifySelf={"center"}
+                      >
+                        Assign Users to Form
+                      </Button>
+                    </Field.Root>
+                  )}
                 </Grid>
 
                 <Field.Root mt={4}>
