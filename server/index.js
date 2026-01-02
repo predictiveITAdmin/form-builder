@@ -8,6 +8,7 @@ const authRoutes = require("./services/auth/routes");
 const session = require("express-session");
 const cookieParser = require("cookie-parser");
 const { query } = require("./db/pool");
+const analyticRoutes = require("./services/analytics/routes");
 // Import API From Services
 const formsRoutes = require("./services/forms/routes");
 
@@ -77,6 +78,8 @@ app.get("/verify", (req, res) => {
 });
 
 app.use("/api/forms", formsRoutes);
+
+app.use("/api/analytics", analyticRoutes);
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`Server running on ${port}`));

@@ -1,28 +1,95 @@
 const { getPool, query } = require("../../db/pool");
 
 async function ensureUser({ entraObjectId, email, displayName }) {
-  const existing = await query(
-    `SELECT user_id FROM Public.Users WHERE entra_object_id = $1`,
-    [entraObjectId]
-  );
-
-  console.log(existing);
-
-  if (existing.length > 0) {
-    return existing[0].user_id;
-  }
-
   const pool = await getPool();
-  const insertResult = await pool.query(
-    `
-      INSERT INTO Public.Users (entra_object_id, email, display_name)
-      VALUES ($1, $2, $3)
-      RETURNING user_id
-    `,
-    [entraObjectId, email, displayName ?? null]
-  );
+  const client = await pool.connect();
 
-  return insertResult.rows[0].user_id;
+  try {
+    await client.query("BEGIN");
+
+    // 1) Find existing user by entra_object_id
+    const existingRes = await client.query(
+      `SELECT user_id FROM public.users WHERE entra_object_id = $1 LIMIT 1`,
+      [entraObjectId]
+    );
+
+    if (existingRes.rows.length > 0) {
+      await client.query("COMMIT");
+      return existingRes.rows[0].user_id;
+    }
+
+    // 2) Insert user (new login)
+    const insertRes = await client.query(
+      `
+        INSERT INTO public.users (entra_object_id, email, display_name)
+        VALUES ($1, $2, $3)
+        RETURNING user_id
+      `,
+      [entraObjectId, email, displayName ?? null]
+    );
+
+    const userId = insertRes.rows[0].user_id;
+
+    // 3) If nobody has SUPER_ADMIN yet, give it to this first user
+    //    This is safe + deterministic inside the transaction.
+    const superRoleRes = await client.query(
+      `SELECT role_id FROM public.roles WHERE role_code = 'SUPER_ADMIN' LIMIT 1`
+    );
+
+    if (superRoleRes.rows.length === 0) {
+      // roles seed didn't run or role_code mismatch
+      throw new Error("SUPER_ADMIN role not found. Ensure init seed ran.");
+    }
+
+    const superRoleId = superRoleRes.rows[0].role_id;
+
+    const superAlreadyAssignedRes = await client.query(
+      `
+        SELECT 1
+        FROM public.user_roles ur
+        JOIN public.roles r ON r.role_id = ur.role_id
+        WHERE r.role_code = 'SUPER_ADMIN'
+        LIMIT 1
+      `
+    );
+
+    if (superAlreadyAssignedRes.rows.length === 0) {
+      // Assign SUPER_ADMIN to this first user
+      await client.query(
+        `
+          INSERT INTO public.user_roles (user_id, role_id, assigned_at, assigned_by, expires_at)
+          VALUES ($1, $2, CURRENT_TIMESTAMP, NULL, NULL)
+          ON CONFLICT DO NOTHING
+        `,
+        [userId, superRoleId]
+      );
+    } else {
+      // Optional: assign USER role to everyone else (if you want default access)
+      // If you already assign roles elsewhere, you can remove this block.
+      const userRoleRes = await client.query(
+        `SELECT role_id FROM public.roles WHERE role_code = 'USER' LIMIT 1`
+      );
+
+      if (userRoleRes.rows.length > 0) {
+        await client.query(
+          `
+            INSERT INTO public.user_roles (user_id, role_id, assigned_at, assigned_by, expires_at)
+            VALUES ($1, $2, CURRENT_TIMESTAMP, NULL, NULL)
+            ON CONFLICT DO NOTHING
+          `,
+          [userId, userRoleRes.rows[0].role_id]
+        );
+      }
+    }
+
+    await client.query("COMMIT");
+    return userId;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 async function getUser(userId) {
@@ -51,6 +118,28 @@ WHERE u.user_id = $1
 GROUP BY u.user_id;`,
     [userId]
   );
+}
+
+async function getUserPermissionsByUserId(userId) {
+  const sql = `
+    SELECT DISTINCT
+      p.permission_id,
+      p.permission_name,
+      p.permission_code,
+      p.description,
+      p.resource,
+      p.action
+    FROM user_roles ur
+    JOIN role_permissions rp
+      ON rp.role_id = ur.role_id
+    JOIN permissions p
+      ON p.permission_id = rp.permission_id
+    WHERE ur.user_id = $1
+      AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
+    ORDER BY p.resource NULLS FIRST, p.action NULLS FIRST, p.permission_code;
+  `;
+
+  return query(sql, [userId]);
 }
 
 async function getAllUsers() {
@@ -284,6 +373,7 @@ const editRole = async (role_id, patch = {}) => {
       UPDATE roles
       SET ${set.join(", ")}
       WHERE role_id = $${idx}
+      AND is_system_role = FALSE
       RETURNING *
     `;
   params.push(role_id);
@@ -598,8 +688,6 @@ function allPermissions() {
   return query(sql);
 }
 
-// ---------------- ROLE <-> PERMISSION ----------------
-
 async function setPermissionsForRole({
   role_id,
   permission_ids,
@@ -673,7 +761,7 @@ async function setPermissionsForRole({
   }
 }
 
-function permissionsForRole(role_id) {
+function getPermissionsFromRole(role_id) {
   const sql = `
     SELECT
       rp.role_permission_id,
@@ -702,6 +790,7 @@ module.exports = {
   createExternalUser,
   getUserById,
   getUserByEntraObjectId,
+  getUserPermissionsByUserId,
 
   getAllUsers,
   getUser,
@@ -721,5 +810,6 @@ module.exports = {
   getPermissionById,
   allPermissions,
   setPermissionsForRole,
-  permissionsForRole,
+
+  getPermissionsFromRole,
 };

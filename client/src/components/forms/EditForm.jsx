@@ -75,6 +75,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import AssignForms from "./AssignForms";
 
 function SortableFieldCard({ field, children }) {
   const {
@@ -144,6 +145,7 @@ const EditForm = () => {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [selectedFieldId, setSelectedFieldId] = useState(null);
   const [isBasicInfoOpen, setIsBasicInfoOpen] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fieldTypeOptions = useMemo(
     () => [
@@ -182,6 +184,10 @@ const EditForm = () => {
     } catch {
       return {};
     }
+  };
+
+  const handleUserAssignment = () => {
+    setIsModalOpen(true);
   };
 
   const configToFieldOptions = (config_json) => {
@@ -630,10 +636,10 @@ const EditForm = () => {
                   {formData.status === "Published" && (
                     <Field.Root>
                       <Button
-                        variant={"outline"}
-                        alignSelf={"flex-start"}
+                        variant="outline"
+                        size="sm"
                         mt={6}
-                        justifySelf={"center"}
+                        onClick={() => setIsModalOpen(true)}
                       >
                         Assign Users to Form
                       </Button>
@@ -1353,6 +1359,14 @@ const EditForm = () => {
           )}
         </GridItem>
       </Grid>
+      {currentForm && (
+        <AssignForms
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          formId={currentForm?.form_id}
+          formTitle={formData.title}
+        />
+      )}
     </Box>
   );
 };

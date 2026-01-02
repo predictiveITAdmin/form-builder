@@ -227,6 +227,10 @@ module.exports = {
     try {
       let user = null;
 
+      const permissions = await queries.getUserPermissionsByUserId(
+        req.user.userId
+      );
+
       if (req.user.type === "internal") {
         if (req.user.idTokenClaims.oid) {
           user = await queries.getUserByEntraObjectId(
@@ -255,6 +259,7 @@ module.exports = {
             userType: user.user_type,
             entraObjectId: user.entra_object_id,
             createdAt: user.created_at,
+            permissions,
           },
         });
       }
@@ -281,6 +286,7 @@ module.exports = {
             createdAt: user.created_at,
             updatedAt: user.updated_at,
             lastLoginAt: user.last_login_at,
+            permissions,
           },
         });
       }
@@ -550,6 +556,23 @@ module.exports = {
 
       const result = await queries.allPermissions();
       return res.json(result);
+    } catch (err) {
+      return serverError(res, err);
+    }
+  },
+
+  getPermissionsForRole: async (req, res) => {
+    const roleId = req.params.roleId;
+    const role_id = Number(roleId);
+    if (!role_id) {
+      return badRequest(
+        res,
+        "role id must be provided and should be an integer value"
+      );
+    }
+    try {
+      const result = await queries.getPermissionsFromRole(role_id);
+      return res.status(200).json(result);
     } catch (err) {
       return serverError(res, err);
     }

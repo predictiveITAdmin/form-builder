@@ -99,20 +99,13 @@ export const saveDraft = createAsyncThunk(
   }
 );
 
-/**
- * Create full form graph
- * POST /api/forms
- * Returns: { form_id: number }
- */
 export const createForm = createAsyncThunk(
   "forms/createForm",
   async (payload, { rejectWithValue }) => {
     try {
       const res = await http.post("/api/forms", payload);
-      // expecting { form_id }
       return res.data;
     } catch (err) {
-      // Your controller returns { error, problems } on 400 and { error, details } on 500/409
       const data = err?.response?.data;
       const msg =
         data?.message ||
@@ -121,6 +114,34 @@ export const createForm = createAsyncThunk(
         "Failed to create form";
 
       return rejectWithValue(msg);
+    }
+  }
+);
+
+export const getUsersForForm = createAsyncThunk(
+  "forms/getUsersforForm",
+  async (formId, { rejectWithValue }) => {
+    try {
+      const res = await http.get(`/api/forms/${formId}/getUsers`);
+
+      return res.data;
+    } catch (err) {
+      rejectWithValue(err || "Could not find users assigned to form");
+    }
+  }
+);
+
+export const assignUsersForForm = createAsyncThunk(
+  "forms/setUsersforForm",
+  async ({ formId, userIds }, { rejectWithValue }) => {
+    try {
+      const res = await http.put(`/api/forms/${formId}/assignUsers`, {
+        userIds: userIds,
+      });
+
+      return res.data;
+    } catch (err) {
+      rejectWithValue(err || "Could not assign users to Form");
     }
   }
 );
@@ -174,6 +195,14 @@ const initialState = {
   updatedFormId: null,
   updatedFormStatus: "idle",
   updatedFormError: null,
+
+  usersForForm: null,
+  usersForFormStatus: "idle",
+  usersForFormError: null,
+
+  setUsersForForm: null,
+  setUsersForFormStatus: "idle",
+  setUsersForFormError: null,
 };
 
 const formSlice = createSlice({
@@ -199,6 +228,15 @@ const formSlice = createSlice({
       state.updatedFormError = null;
       state.updatedFormStatus = "idle";
       state.updatedFormId = null;
+    },
+
+    resetAssignState(state) {
+      state.usersForForm = null;
+      state.usersForFormError = null;
+      state.usersForFormStatus = "idle";
+      state.setUsersForForm = null;
+      state.setUsersForFormError = null;
+      state.setUsersForFormStatus = "idle";
     },
   },
   extraReducers: (builder) => {
@@ -341,6 +379,37 @@ const formSlice = createSlice({
         state.sessionDataError =
           action.error.message || "Failed to Retrieve Session";
       });
+
+    builder
+      .addCase(getUsersForForm.pending, (state) => {
+        state.usersForFormStatus = "loading";
+        state.usersForFormError = null;
+      })
+      .addCase(getUsersForForm.fulfilled, (state, action) => {
+        state.usersForFormStatus = "succeeded";
+        state.usersForFormError = null;
+        state.usersForForm = action.payload; // contains response_id/session/etc
+      })
+      .addCase(getUsersForForm.rejected, (state, action) => {
+        state.usersForFormStatus = "failed";
+        state.usersForFormError =
+          action.payload.message || "Failed to Retrieve Session";
+      });
+    builder
+      .addCase(assignUsersForForm.pending, (state) => {
+        state.setUsersForFormStatus = "loading";
+        state.setUsersForFormError = null;
+      })
+      .addCase(assignUsersForForm.fulfilled, (state, action) => {
+        state.setUsersForFormStatus = "succeeded";
+        state.setUsersForFormError = null;
+        state.setUsersForForm = action.payload;
+      })
+      .addCase(assignUsersForForm.rejected, (state, action) => {
+        state.setUsersForFormStatus = "failed";
+        state.setUsersForFormError =
+          action.payload || "Failed to Retrieve Session";
+      });
   },
 });
 
@@ -349,6 +418,7 @@ export const {
   resetCreateState,
   resetDraftSaveState,
   resetUpdateState,
+  resetAssignState,
 } = formSlice.actions;
 export default formSlice.reducer;
 
@@ -381,3 +451,15 @@ export const selectLastDraftSave = (state) => state.forms.lastDraftSave;
 export const selectSessionDataStatus = (state) => state.forms.sessionDataStatus;
 export const selectSessionDataError = (state) => state.forms.sessionDataError;
 export const selectSessionData = (state) => state.forms.sessionData;
+
+export const selectGetUserForFormStatus = (state) =>
+  state.forms.usersForFormStatus;
+export const selectGetUserForFormError = (state) =>
+  state.forms.usersForFormError;
+export const selectGetUserForForm = (state) => state.forms.usersForForm;
+
+export const selectSetUsersForFormStatus = (state) =>
+  state.forms.SetUsersForFormStatus;
+export const selectSetUsersForFormError = (state) =>
+  state.forms.SetUsersForFormError;
+export const selectSetUsersForForm = (state) => state.forms.SetUsersForForm;

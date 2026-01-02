@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
   Box,
   Button,
@@ -9,11 +9,25 @@ import {
   Grid,
   GridItem,
   Badge,
-  Progress,
-  Spacer,
   Card,
   Separator,
+  Progress,
 } from "@chakra-ui/react";
+
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router";
+
+import AppLoader from "@/components/ui/AppLoader";
+import AppError from "@/components/ui/AppError";
+
+import {
+  selectHomeData,
+  selectLoading,
+  selectError,
+  clearAnalyticsError,
+  getHomeData,
+} from "@/features/reports/reportSlice";
+import { selectUser } from "@/features/auth/authSlice";
 
 /* -------------------------
    Helpers
@@ -41,90 +55,39 @@ function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
-function StatusBadge({ status }) {
-  if (!status) return null;
-
-  const map = {
-    Received: "gray",
-    Processing: "blue",
-    Completed: "green",
-    Failed: "red",
-  };
-
-  return (
-    <Badge variant="subtle" colorScheme={map[status] || "gray"}>
-      {status === "Failed" ? "Needs attention" : status}
-    </Badge>
-  );
+// Resolve form id from whatever your backend sends.
+// For forms: id is typically fine.
+// For sessions: you MUST have formId/form_id included, otherwise we can’t build /forms/:formid.
+function resolveFormCode(item) {
+  return item?.formCode ?? item?.form_key ?? item?.formCode ?? item?.id ?? null;
 }
 
 /* -------------------------
-   Home Component
+   Component
 -------------------------- */
 
 export default function Home() {
-  /* -------------------------
-     Dummy Data (replace later)
-  -------------------------- */
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const user = useSelector(selectUser);
 
-  const userFirstName = "Bruce";
+  const userFirstName = user?.displayName;
 
-  const sessions = [
-    {
-      id: "s1",
-      formName: "Onboarding Request",
-      progressCurrent: 6,
-      progressTotal: 12,
-      updatedAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-    },
-    {
-      id: "s2",
-      formName: "Hardware Request",
-      progressCurrent: 2,
-      progressTotal: 8,
-      updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
-    },
-  ];
+  const home = useSelector(selectHomeData);
+  const loading = useSelector(selectLoading);
+  const error = useSelector(selectError);
 
-  const availableForms = [
-    {
-      id: "f1",
-      name: "Onboarding Request",
-      description: "Request access, accounts, and onboarding tasks.",
-      estMinutes: 6,
-    },
-    {
-      id: "f2",
-      name: "Hardware Request",
-      description: "Request laptop, peripherals, or replacements.",
-      estMinutes: 4,
-    },
-    {
-      id: "f3",
-      name: "Travel Reimbursement",
-      description: "Submit expenses for approval.",
-      estMinutes: 5,
-    },
-  ];
+  const sessions = Array.isArray(home?.sessions) ? home.sessions : [];
+  const availableForms = Array.isArray(home?.availableForms)
+    ? home.availableForms
+    : [];
+  const recentSubmissions = Array.isArray(home?.recentSubmissions)
+    ? home.recentSubmissions
+    : [];
 
-  const recentSubmissions = [
-    {
-      id: "r1",
-      formName: "VPN Access",
-      submittedAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-      status: "Received",
-    },
-    {
-      id: "r2",
-      formName: "Travel Reimbursement",
-      submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-      status: "Completed",
-    },
-  ];
-
-  /* -------------------------
-     Derived
-  -------------------------- */
+  useEffect(() => {
+    dispatch(getHomeData());
+  }, [dispatch]);
 
   const sortedSessions = useMemo(() => {
     return [...sessions].sort(
@@ -132,7 +95,9 @@ export default function Home() {
     );
   }, [sessions]);
 
-  const sortedForms = useMemo(() => [...availableForms], [availableForms]);
+  const sortedForms = useMemo(() => {
+    return [...availableForms];
+  }, [availableForms]);
 
   const sortedSubmissions = useMemo(() => {
     return [...recentSubmissions].sort(
@@ -140,37 +105,58 @@ export default function Home() {
     );
   }, [recentSubmissions]);
 
-  /* -------------------------
-     Render
-  -------------------------- */
+  // Navigation rules:
+  // - All forms: /forms
+  // - Any session: /forms/:formid
+  // - Any form: /forms/:formid
+  const goAllForms = () => navigate("/forms");
+
+  const goForm = (formCode) => {
+    if (!formCode) return navigate("/forms");
+    navigate(`/forms/${formCode}`);
+  };
+
+  const goFirstForm = () => {
+    const first = sortedForms[0];
+    goForm(resolveFormCode(first));
+  };
+
+  const retry = () => dispatch(getHomeData());
+  const dismissError = () => dispatch(clearAnalyticsError());
+
+  if (loading) return <AppLoader />;
+
+  if (error) {
+    return <AppError error={error} onRetry={retry} onDismiss={dismissError} />;
+  }
 
   return (
     <Box p={{ base: 4, md: 6 }} maxW="1200px" mx="auto">
-      {/* Greeting */}
+      {/* Header */}
       <VStack align="start" spacing={1} mb={6}>
-        <Heading size="lg">Welcome back, {userFirstName}</Heading>
+        <Heading size="lg">Welcome, {userFirstName}</Heading>
         <Text color="gray.600">
           {sortedSessions.length > 0
             ? `You have ${sortedSessions.length} active session${
                 sortedSessions.length > 1 ? "s" : ""
-              } and ${sortedForms.length} form${
-                sortedForms.length > 1 ? "s" : ""
-              } available.`
-            : `No active sessions right now. You have ${
+              } and ${sortedForms.length} available form${
+                sortedForms.length !== 1 ? "s" : ""
+              }.`
+            : `No active sessions. You have ${
                 sortedForms.length
-              } form${sortedForms.length > 1 ? "s" : ""} available to start.`}
+              } available form${sortedForms.length !== 1 ? "s" : ""}.`}
         </Text>
       </VStack>
 
-      {/* Layout: 2 columns on lg */}
       <Grid
         templateColumns={{ base: "1fr", lg: "2fr 1fr" }}
         gap={5}
         alignItems="start"
       >
-        {/* Left: Sessions */}
+        {/* Left column */}
         <GridItem>
-          <VStack>
+          <VStack spacing={5} align="stretch">
+            {/* Sessions */}
             <Card.Root width="full">
               <Card.Header>
                 <VStack align="start" spacing={1}>
@@ -184,13 +170,23 @@ export default function Home() {
               <Card.Body>
                 {sortedSessions.length === 0 ? (
                   <VStack align="start" spacing={3}>
-                    <Text color="gray.600">No active sessions.</Text>
-                    <Button
-                      colorScheme="blue"
-                      isDisabled={sortedForms.length === 0}
-                    >
-                      Start a form
-                    </Button>
+                    <Text color="gray.600">
+                      No active sessions. Start something new.
+                    </Text>
+
+                    <HStack>
+                      <Button
+                        colorScheme="blue"
+                        onClick={goFirstForm}
+                        isDisabled={sortedForms.length === 0}
+                      >
+                        Start a form
+                      </Button>
+
+                      <Button variant="ghost" onClick={goAllForms}>
+                        Browse all forms
+                      </Button>
+                    </HStack>
                   </VStack>
                 ) : (
                   <VStack align="stretch" spacing={0}>
@@ -206,11 +202,13 @@ export default function Home() {
                             )
                           : 0;
 
+                      const formId = resolveFormCode(s);
+
                       return (
                         <Box key={s.id} py={4}>
                           <HStack align="start" spacing={3}>
                             <Box flex="1">
-                              <HStack wrap="wrap">
+                              <HStack wrap="wrap" spacing={2}>
                                 <Heading size="sm">{s.formName}</Heading>
                                 <Badge variant="outline" colorScheme="gray">
                                   Updated {formatRelativeTime(s.updatedAt)}
@@ -237,9 +235,27 @@ export default function Home() {
                                   </Progress.ValueText>
                                 </HStack>
                               </Progress.Root>
+
+                              {pct === 100 && (
+                                <Text
+                                  mt={2}
+                                  fontSize="sm"
+                                  color="orange.600"
+                                  fontStyle="italic"
+                                >
+                                  All fields completed — final submission
+                                  pending. Review your responses and click{" "}
+                                  <strong>“Submit Final Response”</strong>{" "}
+                                  inside the form to finish.
+                                </Text>
+                              )}
                             </Box>
 
-                            <Button size="sm" bgColor={"#2596be"}>
+                            <Button
+                              size="sm"
+                              bgColor={"#2596be"}
+                              onClick={() => goForm(formId)}
+                            >
                               Resume
                             </Button>
                           </HStack>
@@ -255,19 +271,25 @@ export default function Home() {
               </Card.Body>
             </Card.Root>
 
+            {/* Recent submissions */}
             <Card.Root width="full">
               <Card.Header>
                 <VStack align="start" spacing={1}>
                   <Heading size="md">Recent submissions</Heading>
                   <Text fontSize="sm" color="gray.600">
-                    Your latest activity.
+                    Your latest submitted activity.
                   </Text>
                 </VStack>
               </Card.Header>
 
               <Card.Body>
                 {sortedSubmissions.length === 0 ? (
-                  <Text color="gray.600">Nothing submitted recently.</Text>
+                  <VStack align="start" spacing={2}>
+                    <Text color="gray.600">Nothing submitted recently.</Text>
+                    <Text fontSize="sm" color="gray.500">
+                      Completed submissions will appear here.
+                    </Text>
+                  </VStack>
                 ) : (
                   <VStack align="stretch" spacing={0}>
                     {sortedSubmissions.map((s, idx) => (
@@ -275,17 +297,10 @@ export default function Home() {
                         <HStack align="start" spacing={3}>
                           <Box flex="1">
                             <Heading size="sm">{s.formName}</Heading>
-                            <HStack mt={1} spacing={2} wrap="wrap">
-                              <Text fontSize="sm" color="gray.600">
-                                Submitted {formatRelativeTime(s.submittedAt)}
-                              </Text>
-                              <StatusBadge status={s.status} />
-                            </HStack>
+                            <Text fontSize="sm" color="gray.600" mt={1}>
+                              Submitted {formatRelativeTime(s.submittedAt)}
+                            </Text>
                           </Box>
-
-                          <Button size="sm" variant="ghost">
-                            View
-                          </Button>
                         </HStack>
 
                         {idx !== sortedSubmissions.length - 1 && (
@@ -300,10 +315,9 @@ export default function Home() {
           </VStack>
         </GridItem>
 
-        {/* Right: Forms + Submissions */}
+        {/* Right column */}
         <GridItem>
           <VStack spacing={5} align="stretch">
-            {/* Available Forms */}
             <Card.Root>
               <Card.Header>
                 <VStack align="start" spacing={1}>
@@ -316,47 +330,65 @@ export default function Home() {
 
               <Card.Body>
                 {sortedForms.length === 0 ? (
-                  <Text color="gray.600">No forms available right now.</Text>
+                  <VStack align="start" spacing={3}>
+                    <Text color="gray.600">No forms available right now.</Text>
+                    <Button variant="ghost" size="sm" onClick={goAllForms}>
+                      Browse all forms
+                    </Button>
+                  </VStack>
                 ) : (
                   <VStack align="stretch" spacing={0}>
-                    {sortedForms.map((f, idx) => (
-                      <Box key={f.id} py={4}>
-                        <HStack align="start" spacing={3}>
-                          <Box flex="1">
-                            <HStack wrap="wrap" spacing={2}>
-                              <Heading size="sm">{f.name}</Heading>
-                            </HStack>
+                    {sortedForms.map((f, idx) => {
+                      const formId = resolveFormCode(f);
 
-                            <Text
-                              mt={1}
-                              fontSize="sm"
-                              color="gray.600"
-                              noOfLines={2}
+                      return (
+                        <Box key={f.id ?? formId ?? idx} py={4}>
+                          <HStack align="start" spacing={3}>
+                            <Box flex="1">
+                              <HStack wrap="wrap" spacing={2}>
+                                <Heading size="sm">{f.name}</Heading>
+                                {Number.isFinite(f.estMinutes) && (
+                                  <Badge variant="subtle" colorScheme="gray">
+                                    ~{f.estMinutes} min
+                                  </Badge>
+                                )}
+                              </HStack>
+
+                              <Text
+                                mt={1}
+                                fontSize="sm"
+                                color="gray.600"
+                                noOfLines={2}
+                              >
+                                {f.description}
+                              </Text>
+                            </Box>
+
+                            <Button
+                              size="sm"
+                              bgColor={"#94ca5c"}
+                              onClick={() => goForm(formId)}
                             >
-                              {f.description}
-                            </Text>
-                          </Box>
+                              Start
+                            </Button>
+                          </HStack>
 
-                          <Button size="sm" bgColor={"#94ca5c"}>
-                            Start
-                          </Button>
-                        </HStack>
-
-                        {idx !== sortedForms.length - 1 && <Separator mt={4} />}
-                      </Box>
-                    ))}
+                          {idx !== sortedForms.length - 1 && (
+                            <Separator mt={4} />
+                          )}
+                        </Box>
+                      );
+                    })}
                   </VStack>
                 )}
               </Card.Body>
 
               <Card.Footer>
-                <Button variant="ghost" size="sm" w="full">
+                <Button variant="ghost" size="sm" w="full" onClick={goAllForms}>
                   Browse all forms
                 </Button>
               </Card.Footer>
             </Card.Root>
-
-            {/* Recent Submissions */}
           </VStack>
         </GridItem>
       </Grid>

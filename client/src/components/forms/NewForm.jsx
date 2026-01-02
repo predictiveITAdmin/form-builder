@@ -304,7 +304,6 @@ const NewForm = () => {
 
     return raw
       .map((opt, idx) => {
-        // string option
         if (typeof opt === "string") {
           return {
             label: opt,
@@ -314,7 +313,6 @@ const NewForm = () => {
           };
         }
 
-        // object option
         if (opt && typeof opt === "object") {
           return {
             label: String(opt.label ?? opt.value ?? `Option ${idx + 1}`),
@@ -334,11 +332,10 @@ const NewForm = () => {
 
     const dynamicEnabled = !!cfg?.dynamicOptions?.enabled;
     if (!dynamicEnabled) {
-      return JSON.stringify(cfg); // keep as-is
+      return JSON.stringify(cfg);
     }
 
-    // Dynamic enabled: strip static options
-    const { options, ...rest } = cfg; // remove options key
+    const { options, ...rest } = cfg;
     return JSON.stringify(rest);
   };
 
@@ -377,18 +374,14 @@ const NewForm = () => {
             required: !!f.required,
             sort_order: f.sort_order ?? 0,
             active: f.active !== undefined ? !!f.active : true,
-
-            // Cleaned config_json (options removed if dynamic is enabled)
             config_json: cleanConfigJson,
-
-            // Options array also cleared if dynamic enabled
             options,
           };
         }),
       })),
     };
 
-    const { form_id } = await dispatch(createForm(payload)).unwrap();
+    await dispatch(createForm(payload)).unwrap();
 
     notify({
       type: "success",
@@ -654,9 +647,6 @@ const NewForm = () => {
           <Card.Root h="full">
             <Card.Header>
               <Heading size="sm">Fields</Heading>
-              {/* <Text fontSize="xs" color="gray.600">
-                Click to add to canvas
-              </Text> */}
             </Card.Header>
             <Card.Body overflowY="auto">
               <Stack gap={1}>

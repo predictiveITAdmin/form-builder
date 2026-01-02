@@ -17,11 +17,26 @@ async function listForms() {
       f.created_at,
       f.updated_at,
       u.display_name AS owner_name,
-      f.rpa_webhook_url
+      f.rpa_webhook_url,
+      COUNT(fa.user_id) AS assigned_user_count
     FROM Forms f
-    LEFT JOIN Users u ON u.user_id = f.owner_user_id
-    ORDER BY f.created_at DESC
-    `
+    LEFT JOIN Users u
+      ON u.user_id = f.owner_user_id
+    LEFT JOIN form_access fa
+      ON fa.form_id = f.form_id
+    GROUP BY
+      f.form_id,
+      f.title,
+      f.description,
+      f.status,
+      f.owner_user_id,
+      f.is_anonymous,
+      f.form_key,
+      f.created_at,
+      f.updated_at,
+      u.display_name,
+      f.rpa_webhook_url
+    ORDER BY f.created_at DESC;`
   );
 }
 /**
@@ -40,12 +55,17 @@ async function listPublishedForms() {
       f.form_key,
       f.created_at,
       f.updated_at,
-      u.display_name AS owner_name
+      u.display_name AS owner_name,
+      f.rpa_webhook_url
     FROM Forms f
-    LEFT JOIN Users u ON u.user_id = f.owner_user_id
-    WHERE f.status = 'Published'
-    ORDER BY f.created_at DESC
-    `
+    INNER JOIN form_access fa
+      ON fa.form_id = f.form_id
+    INNER JOIN Users u
+      ON u.user_id = f.owner_user_id
+    WHERE
+      f.status = 'published'
+      AND fa.user_id = $1
+    ORDER BY f.created_at DESC;`
   );
 }
 
@@ -129,7 +149,6 @@ async function createForm(payload, { owner_user_id = null } = {}) {
             field.field_type,
             field.required !== undefined ? !!field.required : false,
             field.sort_order ?? 0,
-            // store what frontend sends; it is already a string
             field.config_json ?? "{}",
             field.active !== undefined ? !!field.active : true,
             stepId,
@@ -138,7 +157,6 @@ async function createForm(payload, { owner_user_id = null } = {}) {
 
         const fieldId = fieldRes.rows[0].field_id;
 
-        // 4) Insert FieldOptions from payload (static only)
         if (Array.isArray(field.options) && field.options.length) {
           const { sql, params } = buildBulkInsertFieldOptions(
             fieldId,
@@ -801,6 +819,64 @@ async function getOrCreateOpenSession(userId, formId, sessionToken) {
   }
 }
 
+async function fetchFormUsers(formId) {
+  const sql = `
+  SELECT fa.user_id, fa.form_id, u.display_name, u.is_active, f.title, f.form_key from Forms f
+LEFT JOIN form_access fa ON fa.form_id = f.form_id
+LEFT JOIN Users u on u.user_id = fa.user_id WHERE fa.form_id = $1`;
+
+  return query(sql, [formId]);
+}
+
+async function setFormUsers(formId, userIds, grantedBy) {
+  const pool = await getPool();
+  if (!Array.isArray(userIds)) {
+    throw new Error("setFormUsers: userIds must be an array");
+  }
+
+  const cleanUserIds = [...new Set(userIds)]
+    .filter(
+      (x) => Number.isInteger(x) || (typeof x === "string" && x.trim() !== "")
+    )
+    .map((x) => Number(x))
+    .filter((x) => Number.isInteger(x));
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const delRes = await client.query(
+      `DELETE FROM form_access WHERE form_id = $1`,
+      [formId]
+    );
+
+    if (cleanUserIds.length === 0) {
+      await client.query("COMMIT");
+      return { deleted: delRes.rowCount ?? 0, inserted: 0 };
+    }
+
+    const insRes = await client.query(
+      `
+      INSERT INTO form_access (form_id, user_id, granted_at, granted_by)
+      SELECT $1, u.user_id, NOW(), $2
+      FROM UNNEST($3::int[]) AS u(user_id)
+      `,
+      [formId, grantedBy, cleanUserIds]
+    );
+
+    await client.query("COMMIT");
+    return {
+      deleted: delRes.rowCount ?? 0,
+      inserted: insRes.rowCount ?? cleanUserIds.length,
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   listForms,
   listPublishedForms,
@@ -815,4 +891,6 @@ module.exports = {
   selectTotalSteps,
   getOrCreateOpenSession,
   updateFormByKey,
+  fetchFormUsers,
+  setFormUsers,
 };

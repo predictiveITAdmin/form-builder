@@ -367,6 +367,45 @@ async function getSessionDataByUser(req, res, next) {
   }
 }
 
+async function getUsersForForm(req, res) {
+  const formId = req.params.formId;
+
+  if (!formId) {
+    return res.status(400).json({ message: "formId is required." });
+  }
+  try {
+    const result = await svc.fetchFormUsers(formId);
+
+    res.status(200).json(result);
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ message: "Unable to complete the request " + err });
+  }
+}
+
+async function setUsersForForm(req, res) {
+  const formId = req.params.formId;
+  const userIds = req.body.userIds;
+  const grantedBy = req.user.userId;
+
+  if (!grantedBy) {
+    return res.status(400).json({ message: "User is not Authenticated." });
+  }
+  if (!formId) {
+    return res.status(400).json({ message: "formId is required." });
+  }
+  try {
+    const result = await svc.setFormUsers(formId, userIds, grantedBy);
+
+    res.status(200).json(result);
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ message: "Unable to complete the request " + err });
+  }
+}
+
 module.exports = {
   listAll,
   listPublished,
@@ -378,4 +417,6 @@ module.exports = {
   allDraftSessionsByUser,
   getSessionDataByUser,
   updateForm,
+  getUsersForForm,
+  setUsersForForm,
 };

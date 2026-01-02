@@ -22,7 +22,8 @@ import DataTable from "../DataTable";
 import AppLoader from "../ui/AppLoader";
 import AppError from "../ui/AppError";
 import { usePagination } from "@/utils/pagination";
-
+import NewRole from "./NewRole";
+import EditRole from "./EditRole";
 // TODO: adjust these imports to your real roles slice exports.
 // Pattern copied from your UserList reference. :contentReference[oaicite:1]{index=1}
 import {
@@ -57,14 +58,21 @@ const RolesList = () => {
 
   const [selectedRole, setSelectedRole] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
-
+  const [newOpen, setNewOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [systemRole, setSystemRole] = useState(["all"]);
-  const [isActive, setIsActive] = useState(["all"]);
+  const [isActive, setIsActive] = useState(["active"]);
 
+  const refreshRoles = () => {
+    dispatch(getAllRoles({ includeInactive: true }));
+  };
+
+  // Initial load
   useEffect(() => {
-    if (status === "idle") dispatch(getAllRoles({ includeInactive: true }));
-  }, [dispatch, status]);
+    if (status === "idle") {
+      refreshRoles();
+    }
+  }, [status]);
 
   const systemRoleCollection = createListCollection({
     items: [
@@ -123,15 +131,7 @@ const RolesList = () => {
   const columns = useMemo(
     () => [
       { key: "role_name", label: "Role Name" },
-      {
-        key: "role_code",
-        label: "Code",
-        render: (val) => (
-          <Text maxWidth={"100%"} truncate title={val}>
-            {val ?? "-"}
-          </Text>
-        ),
-      },
+
       {
         key: "description",
         label: "Description",
@@ -174,41 +174,37 @@ const RolesList = () => {
         render: (val) => <Text>{Number.isFinite(val) ? val : val ?? 0}</Text>,
       },
       {
-        key: "created_at",
-        label: "Created",
-        render: (val) => (val ? new Date(val).toLocaleDateString() : "-"),
-      },
-      {
-        key: "updated_at",
-        label: "Updated",
-        render: (val) => (val ? new Date(val).toLocaleDateString() : "-"),
-      },
-      {
         key: "actions",
         label: "Actions",
-        render: (_, row) => (
-          <HStack spacing={0} width={12}>
-            <IconButton
-              size="sm"
-              aria-label="Edit"
-              variant="ghost"
-              color={"#FFBF00"}
-              onClick={() => handleEditClick(row)}
-            >
-              <FaRegEdit size={16} />
-            </IconButton>
+        render: (_, row) => {
+          const isSystem = !!row?.is_system_role;
 
-            <IconButton
-              size="sm"
-              aria-label="Delete"
-              variant="ghost"
-              color="#BA2222"
-              onClick={() => console.log("delete role", row?.role_id)}
-            >
-              <FaTrashAlt size={16} />
-            </IconButton>
-          </HStack>
-        ),
+          if (isSystem) {
+            return (
+              <Text
+                fontSize="sm"
+                opacity={0.7}
+                title="System roles cannot be edited or removed"
+              >
+                System role (locked)
+              </Text>
+            );
+          }
+
+          return (
+            <HStack spacing={0} width={12}>
+              <IconButton
+                size="sm"
+                aria-label="Edit"
+                variant="ghost"
+                color={"#FFBF00"}
+                onClick={() => handleEditClick(row)}
+              >
+                <FaRegEdit size={16} />
+              </IconButton>
+            </HStack>
+          );
+        },
       },
     ],
     []
@@ -345,8 +341,17 @@ const RolesList = () => {
       </Pagination.Root>
 
       {/* Optional modals */}
-      {/* <NewRole isOpen={newOpen} onClose={() => setNewOpen(false)} /> */}
-      {/* <EditRole isOpen={editOpen} onClose={handleEditClose} role={selectedRole} /> */}
+      <NewRole
+        isOpen={newOpen}
+        onClose={() => setNewOpen(false)}
+        onCreated={refreshRoles}
+      />
+      <EditRole
+        isOpen={editOpen}
+        onClose={handleEditClose}
+        role={selectedRole}
+        onEdited={refreshRoles}
+      />
 
       {/* Keeping state hooks “live” so wiring modals later is trivial */}
       {editOpen && selectedRole ? null : null}

@@ -1,16 +1,13 @@
-/*
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License.
- */
-
 var express = require("express");
-
-const { azureAuth } = require("../../middlewares/azureAuth");
 
 const { authMiddleware } = require("../../middlewares/authMiddleware");
 const authProvider = require("./AuthProvider");
 const { REDIRECT_URI, POST_LOGOUT_REDIRECT_URI } = require("./authConfig");
 const controller = require("./controller");
+const {
+  hasPermissions,
+  hasAnyPermission,
+} = require("../../middlewares/permissionMiddleware");
 
 const router = express.Router();
 
@@ -41,7 +38,12 @@ router.get(
   })
 );
 
-router.post("/createUser", authMiddleware, controller.createUser);
+router.post(
+  "/createUser",
+  authMiddleware,
+  hasPermissions(["users.create"]),
+  controller.createUser
+);
 router.post("/login", controller.login);
 router.post("/createPassword", controller.createPassword);
 router.get("/me", authMiddleware, controller.getMe);
@@ -49,37 +51,90 @@ router.get("/me", authMiddleware, controller.getMe);
 router.put(
   "/roles/permissions",
   authMiddleware,
+  hasAnyPermission(["roles.create", "roles.update"]),
   controller.setPermissionsForRole
 );
 
-router.post("/permissions", authMiddleware, controller.createPermission);
-router.get("/permissions", authMiddleware, controller.getPermission);
 router.get(
-  "/permissions/:permissionId",
+  "/roles/permissions/:roleId",
   authMiddleware,
+  hasAnyPermission(["roles.create", "roles.read", "roles.update"]),
+  controller.getPermissionsForRole
+);
+
+router.get(
+  "/permissions",
+  authMiddleware,
+  hasAnyPermission(["roles.create", "roles.read", "roles.update"]),
   controller.getPermission
 );
-router.put(
-  "/permissions/:permissionId",
+
+router.post(
+  "/roles",
   authMiddleware,
-  controller.updatePermission
+  hasAnyPermission(["roles.create", "roles.update"]),
+  controller.createRole
+);
+router.get(
+  "/roles",
+  authMiddleware,
+  hasAnyPermission(["roles.create", "roles.read", "roles.update"]),
+  controller.getRoles
+);
+router.put(
+  "/roles/:roleId",
+  authMiddleware,
+  hasAnyPermission(["roles.create", "roles.read", "roles.update"]),
+  controller.updateRole
 );
 router.delete(
-  "/permissions/:permissionId",
+  "/roles/:roleId",
+  hasAnyPermission([
+    "roles.create",
+    "roles.read",
+    "roles.update",
+    "roles.delete",
+  ]),
   authMiddleware,
-  controller.deletePermission
+  controller.removeRole
 );
 
-router.post("/roles", authMiddleware, controller.createRole);
-router.get("/roles", authMiddleware, controller.getRoles);
-router.put("/roles/:roleId", authMiddleware, controller.updateRole);
-router.delete("/roles/:roleId", authMiddleware, controller.removeRole);
+router.get(
+  "/users",
+  authMiddleware,
+  hasAnyPermission(["users.create", "users.read", "users.update"]),
+  controller.getAllUsers
+);
+router.get(
+  "/users/:user_id",
+  authMiddleware,
+  hasAnyPermission(["users.create", "users.read", "users.update"]),
+  controller.getUser
+);
+router.put(
+  "/users/:user_id",
+  authMiddleware,
+  hasAnyPermission(["users.create", "users.update"]),
+  controller.editUser
+);
 
-router.get("/users", authMiddleware, controller.getAllUsers);
-router.get("/users/:user_id", authMiddleware, controller.getUser);
-router.put("/users/:user_id", authMiddleware, controller.editUser);
-
-router.get("/users/:userId/roles", authMiddleware, controller.getUserRoles);
-router.post("/users/:userId/roles", authMiddleware, controller.assignUserRoles);
+router.get(
+  "/users/:userId/roles",
+  authMiddleware,
+  hasPermissions(["users.read", "roles.read", "roles.update"]),
+  controller.getUserRoles
+);
+router.post(
+  "/users/:userId/roles",
+  hasPermissions([
+    "users.read",
+    "users.update",
+    "users.create",
+    "roles.update",
+    "roles.create",
+  ]),
+  authMiddleware,
+  controller.assignUserRoles
+);
 
 module.exports = router;
