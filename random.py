@@ -23,3 +23,6 @@ if __name__ == "__main__":
     # You can also specify different lengths
     print(f"\n16 bytes: {generate_random_base64(16)}")
     print(f"64 bytes: {generate_random_base64(256)}")
+
+
+    #Three Things left: Refresh Options, Final Submit..., URL Upload Handler...
