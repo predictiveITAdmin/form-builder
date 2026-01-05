@@ -56,10 +56,6 @@ function postJson(urlStr, payload, { timeoutMs = 8000, headers = {} } = {}) {
   });
 }
 
-/**
- * Fire-and-retry with backoff. Non-blocking.
- * If you want durability across restarts, we can add an Outbox table later.
- */
 async function deliverWithRetry(
   { url, secret, timeoutMs, retryCount },
   payload

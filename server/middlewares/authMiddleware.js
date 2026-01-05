@@ -1,6 +1,9 @@
 const jwt = require("jsonwebtoken");
 const jwksClient = require("jwks-rsa");
-const { getUserPermissionsByUserId } = require("../services/auth/queries");
+const {
+  getUserPermissionsByUserId,
+  getUserByEntraObjectId,
+} = require("../services/auth/queries");
 
 const tenantId = process.env.AZURE_TENANT_ID;
 const allowedAud = new Set(
@@ -41,9 +44,12 @@ const authMiddleware = async (req, res, next) => {
        1️⃣ SESSION AUTH (Azure SSO)
     -------------------------------------------------- */
     if (req.session?.account) {
+      const resolvedUser = await getUserByEntraObjectId(
+        req.session.account.localAccountId
+      );
       req.user = {
         ...req.session.account,
-        userId: req.session.account.userId,
+        userId: resolvedUser.user_id,
         authSource: "session",
         type: "internal",
       };

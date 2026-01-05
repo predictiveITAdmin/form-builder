@@ -1,3 +1,4 @@
+const { uploadFilesToBlob } = require("./fileService");
 const svc = require("./queries"); // same folder as controller.js
 const axios = require("axios");
 /**
@@ -21,8 +22,12 @@ async function listAll(req, res) {
  * End users
  */
 async function listPublished(req, res) {
+  const user_id = req.user?.userId;
+  if (!user_id) {
+    res.status(401).json({ message: "User is not authenticated!" });
+  }
   try {
-    const forms = await svc.listPublishedForms();
+    const forms = await svc.listPublishedForms(user_id);
     return res.json({ forms });
   } catch (err) {
     return res.status(500).json({
@@ -268,6 +273,44 @@ async function handleSaveDraft(req, res, next) {
   }
 }
 
+async function uploadFiles(req, res) {
+  try {
+    if (!req.files?.length) {
+      return res.status(400).json({ error: "No Files Uploaded" });
+    }
+
+    const uploader = req.user?.userId;
+    if (!uploader) {
+      return res.status(401).json({ message: "User is not Authenticated." });
+    }
+
+    const { formKey, fieldId } = req.params;
+    const sessionToken = req.query.sessionToken;
+
+    const formFieldId = Number(fieldId);
+    if (!formKey || !formFieldId || !sessionToken) {
+      return res.status(400).json({
+        error: "Missing required params. Need formKey, fieldId, sessionToken.",
+      });
+    }
+
+    const files = await uploadFilesToBlob(req.files, {
+      uploadedBy: String(uploader),
+      formFieldId,
+      sessionToken: String(sessionToken),
+      formKey: String(formKey),
+    });
+
+    return res.status(201).json({ files });
+  } catch (e) {
+    console.error("uploadFiles error:", e);
+    return res.status(500).json({
+      error: "Upload failed",
+      details: String(e?.message || e),
+    });
+  }
+}
+
 async function triggerOptionsProcessing(req, res, next) {
   try {
     const { formKey, fieldId } = req.params;
@@ -419,4 +462,5 @@ module.exports = {
   updateForm,
   getUsersForForm,
   setUsersForForm,
+  uploadFiles,
 };

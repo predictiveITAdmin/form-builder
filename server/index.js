@@ -15,10 +15,19 @@ const formsRoutes = require("./services/forms/routes");
 dotenv.config();
 
 const app = express();
+
 app.use(helmet());
+const allowedOrigins = new Set(
+  [process.env.FRONTEND_URL, "http://localhost:5173"].filter(Boolean)
+);
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173/",
+    origin: (origin, cb) => {
+      // allow non-browser tools (curl/postman) with no origin
+      if (!origin) return cb(null, true);
+      return cb(null, allowedOrigins.has(origin));
+    },
     credentials: true,
   })
 );
@@ -40,8 +49,6 @@ app.use(
 );
 
 app.use("/api/auth", authRoutes);
-
-app.use(errorHandler);
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -67,6 +74,9 @@ app.get("/api/health", async (req, res) => {
 app.get("/verify", (req, res) => {
   const { account } = req.session;
   console.log(account);
+  console.log("Cookie:", req.headers.cookie);
+  console.log("SessionID:", req.sessionID);
+  console.log("Session:", req.session);
   res.json({
     authenticated: true,
     user: {

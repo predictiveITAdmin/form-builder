@@ -36,12 +36,25 @@ import {
   selectSessionData,
   selectSessionDataError,
   selectSessionDataStatus,
+  uploadFile,
 } from "@/features/forms/formsSlice";
 import { getForm } from "@/features/forms/formsSlice";
 import { selectUser } from "@/features/auth/authSlice";
 import { validateWholeForm } from "@/utils/validation";
 import AppLoader from "../ui/AppLoader";
 import AppError from "../ui/AppError";
+
+const formatBytes = (bytes) => {
+  const n = Number(bytes);
+  if (!Number.isFinite(n) || n < 0) return "";
+  if (n < 1024) return `${n} B`;
+  const kb = n / 1024;
+  if (kb < 1024) return `${kb.toFixed(1)} KB`;
+  const mb = kb / 1024;
+  if (mb < 1024) return `${mb.toFixed(1)} MB`;
+  const gb = mb / 1024;
+  return `${gb.toFixed(2)} GB`;
+};
 
 const FormDetail = () => {
   const [isComplete, setisComplete] = useState(false);
@@ -59,6 +72,7 @@ const FormDetail = () => {
   const sessionStatus = useSelector(selectSessionDataStatus);
   const sessionError = useSelector(selectSessionDataError);
   const [uploading, setUploading] = useState({});
+  const [stagedFiles, setStagedFiles] = useState({});
 
   const isFieldInvalid = (field) =>
     touchedFields[field.key_name] && fieldErrors[field.key_name];
@@ -120,7 +134,6 @@ const FormDetail = () => {
 
   useEffect(() => {
     const sessionToken = formData?.session?.session_token;
-    console.log(formData);
     if (sessionToken) {
       dispatch(getUserSessionData({ formKey, sessionToken: sessionToken }));
       const createdAt = formData.session.created_at;
@@ -150,7 +163,6 @@ const FormDetail = () => {
   useEffect(() => {
     if (formKey && sessionData) {
       const normalized = normalizeSessionValues(sessionData, formData);
-      console.log(normalized);
       setFormValues(normalized);
     }
   }, [formKey, sessionData, formData]);
@@ -186,15 +198,35 @@ const FormDetail = () => {
   const handleFileUpload = async (field, file) => {
     if (!file) return;
 
+    const sessionToken = formData?.session?.session_token;
+    if (!sessionToken) {
+      notify({
+        type: "error",
+        title: "No session",
+        message: "Session token missing. Refresh the form and try again.",
+      });
+      return;
+    }
+
     try {
       setUploading((prev) => ({ ...prev, [field.key_name]: true }));
 
-      // ✅ replace this with your actual upload call
-      // Example expected response: { url: "https://..." }
-      const url = "randomURLforafile.com";
+      const result = await dispatch(
+        uploadFile({
+          formKey,
+          fieldId: field.field_id,
+          files: file,
+          sessionToken,
+        })
+      ).unwrap();
 
-      // store URL as TEXT in formValues
-      handleInputChange(field.key_name, url);
+      const uploadedFiles = result?.files || [];
+      if (!uploadedFiles.length)
+        throw new Error("Upload succeeded but no file metadata returned.");
+
+      const value = JSON.stringify({ files: uploadedFiles });
+
+      handleInputChange(field.key_name, value);
 
       notify({
         type: "success",
@@ -442,6 +474,17 @@ const FormDetail = () => {
     console.log("Submitting final response...");
     const payload = buildResponsePayload();
     console.log(payload);
+  };
+
+  const getUploadedFilesForField = (keyName) => {
+    const raw = formValues?.[keyName];
+    if (!raw) return [];
+    try {
+      const obj = typeof raw === "string" ? JSON.parse(raw) : raw;
+      return Array.isArray(obj?.files) ? obj.files : [];
+    } catch {
+      return [];
+    }
   };
 
   const RequiredLabel = ({ label, required }) => (
@@ -796,7 +839,11 @@ const FormDetail = () => {
         );
       }
 
-      case "file":
+      case "file": {
+        const uploadedFiles = getUploadedFilesForField(field.key_name);
+        const staged = stagedFiles[field.key_name] || [];
+        const isUploadingThis = !!uploading[field.key_name];
+
         return (
           <Field.Root
             key={field.field_id}
@@ -805,24 +852,100 @@ const FormDetail = () => {
           >
             <RequiredLabel label={field.label} required={field.required} />
 
-            <Stack gap={2}>
-              <FileUpload.Root
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  console.log(file);
-                  handleFileUpload(field, file);
-                }}
-                name={field.key_name}
-              >
-                <FileUpload.HiddenInput />
-                <FileUpload.Trigger asChild>
-                  <Button variant="outline" size="sm">
-                    <HiUpload /> Upload file
-                  </Button>
-                </FileUpload.Trigger>
+            {/* Permanent helper text */}
+            <Text fontSize="sm" color="red.600">
+              Max files: 10
+              <br /> Max size: 30 MB/file.
+            </Text>
 
-                <FileUpload.List showSize clearable />
-              </FileUpload.Root>
+            <Stack gap={2}>
+              {/* If files already uploaded, show read-only list */}
+              {uploadedFiles.length > 0 ? (
+                <Box borderWidth="1px" borderRadius="md" p={3} bg="gray.50">
+                  <Text fontWeight="600" mb={2}>
+                    Uploaded file{uploadedFiles.length > 1 ? "s" : ""}:
+                  </Text>
+
+                  <Stack gap={1}>
+                    {uploadedFiles.map((f, idx) => (
+                      <HStack
+                        key={`${f.file_id || idx}`}
+                        justify="space-between"
+                      >
+                        <Text fontSize="sm" noOfLines={1}>
+                          {f.original_name || "Unnamed file"}
+                        </Text>
+                        <Text fontSize="sm" color="gray.600">
+                          {formatBytes(f.size_bytes)}
+                        </Text>
+                      </HStack>
+                    ))}
+                  </Stack>
+
+                  {/* Optional: “Replace” button just clears current value so they can upload again */}
+                  <Button
+                    mt={3}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      // Clear stored uploaded file metadata
+                      handleInputChange(field.key_name, null);
+                      // Also clear staged files
+                      setStagedFiles((prev) => ({
+                        ...prev,
+                        [field.key_name]: [],
+                      }));
+                    }}
+                  >
+                    Replace upload
+                  </Button>
+                </Box>
+              ) : (
+                <>
+                  {/* No uploaded files yet: show picker + list + upload button */}
+                  <FileUpload.Root
+                    name={field.key_name}
+                    onChange={(e) => {
+                      const list = e?.target?.files;
+                      const arr = list ? Array.from(list) : [];
+                      // Optional: enforce max files client-side
+                      setStagedFiles((prev) => ({
+                        ...prev,
+                        [field.key_name]: arr.slice(0, 10),
+                      }));
+                    }}
+                  >
+                    <FileUpload.HiddenInput multiple />
+                    <FileUpload.Trigger asChild>
+                      <Button variant="outline" size="sm">
+                        <HiUpload /> Choose file(s)
+                      </Button>
+                    </FileUpload.Trigger>
+
+                    <FileUpload.List showSize clearable />
+                  </FileUpload.Root>
+
+                  {staged.length > 0 && (
+                    <Button
+                      size="sm"
+                      bgColor="#2596be"
+                      color="white"
+                      isLoading={isUploadingThis}
+                      loadingText="Uploading..."
+                      onClick={async () => {
+                        await handleFileUpload(field, staged);
+                        // Clear staged after successful upload
+                        setStagedFiles((prev) => ({
+                          ...prev,
+                          [field.key_name]: [],
+                        }));
+                      }}
+                    >
+                      Upload {staged.length} file{staged.length > 1 ? "s" : ""}
+                    </Button>
+                  )}
+                </>
+              )}
             </Stack>
 
             {isFieldInvalid(field) && (
@@ -833,6 +956,7 @@ const FormDetail = () => {
             )}
           </Field.Root>
         );
+      }
 
       default:
         return null;
@@ -844,6 +968,13 @@ const FormDetail = () => {
   const currentStepData = formData.steps[currentStep];
   const isLastStep = currentStep === formData.steps.length - 1;
   const isFirstStep = currentStep === 0;
+
+  const getStagedCountForField = (keyName) =>
+    stagedFiles?.[keyName]?.length || 0;
+
+  const hasAnyStagedFiles = Object.values(stagedFiles || {}).some(
+    (arr) => Array.isArray(arr) && arr.length > 0
+  );
   return (
     <Box>
       <Container width="80vw">
@@ -1000,7 +1131,7 @@ const FormDetail = () => {
                     size="sm"
                     borderRadius="md"
                     onClick={handleSaveDraft}
-                    disabled={draftStatus === "loading"}
+                    disabled={draftStatus === "loading" || hasAnyStagedFiles}
                   >
                     {draftStatus === "loading" ? "Saving" : "Save as Draft"}
                   </Button>
@@ -1012,10 +1143,17 @@ const FormDetail = () => {
                     fontWeight="semibold"
                     bgColor={"#2596be"}
                     onClick={handleFinalSubmit}
+                    disabled={hasAnyStagedFiles}
                   >
                     Submit Final Response
                   </Button>
                 </HStack>
+                {hasAnyStagedFiles && (
+                  <Text fontSize="sm" color="red.500" mt={2}>
+                    Files selected but not uploaded. Upload them or clear the
+                    selection before saving.
+                  </Text>
+                )}
               </Card.Body>
             </Card.Root>
           </VStack>

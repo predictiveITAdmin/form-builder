@@ -138,7 +138,6 @@ async function getUserPermissionsByUserId(userId) {
       AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
     ORDER BY p.resource NULLS FIRST, p.action NULLS FIRST, p.permission_code;
   `;
-
   return query(sql, [userId]);
 }
 

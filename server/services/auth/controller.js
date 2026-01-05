@@ -249,6 +249,10 @@ module.exports = {
           });
         }
 
+        const internalPermission = await queries.getUserPermissionsByUserId(
+          user.user_id
+        );
+
         // Return Azure AD user data
         return res.status(200).json({
           success: true,
@@ -259,7 +263,7 @@ module.exports = {
             userType: user.user_type,
             entraObjectId: user.entra_object_id,
             createdAt: user.created_at,
-            permissions,
+            permissions: internalPermission,
           },
         });
       }

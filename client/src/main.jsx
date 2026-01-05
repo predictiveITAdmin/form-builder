@@ -8,13 +8,16 @@ import App from "./App.jsx";
 import { BrowserRouter } from "react-router";
 import { store } from "./features/store";
 import { Provider as ReduxProvider } from "react-redux";
+import { PermissionsProvider } from "./auth/Permissions";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <ReduxProvider store={store}>
       <ChakraProvider value={system}>
         <BrowserRouter>
-          <App />
+          <PermissionsProvider>
+            <App />
+          </PermissionsProvider>
         </BrowserRouter>
       </ChakraProvider>
     </ReduxProvider>

@@ -12,10 +12,15 @@ import { http } from "../../api/http";
  */
 export const fetchForms = createAsyncThunk(
   "forms/fetchForms",
-  async (_, { rejectWithValue }) => {
+  async (hasPermission, { rejectWithValue }) => {
     try {
-      const res = await http.get("/api/forms");
-      return res.data?.forms ?? [];
+      if (hasPermission) {
+        const res = await http.get("/api/forms");
+        return res.data?.forms ?? [];
+      } else {
+        const res = await http.get("/api/forms/published");
+        return res.data?.forms ?? [];
+      }
     } catch (err) {
       return rejectWithValue(
         err?.response?.data?.message ||
@@ -165,6 +170,30 @@ export const updateForm = createAsyncThunk(
   }
 );
 
+export const uploadFile = createAsyncThunk(
+  "forms/uploadFiles",
+  async ({ formKey, fieldId, files, sessionToken }, { rejectWithValue }) => {
+    try {
+      if (!formKey) return rejectWithValue("Missing Form key");
+      const fileList = Array.isArray(files) ? files : [files];
+      if (!fileList.length) return rejectWithValue("No File List Provided");
+
+      const fd = new FormData();
+      for (const f of fileList) fd.append("files", f);
+
+      const res = await http.post(
+        `api/forms/${formKey}/fields/${fieldId}/files?sessionToken=${sessionToken}`,
+        fd
+      );
+      return res.data;
+    } catch (err) {
+      rejectWithValue(
+        err || "Something went wrong! Could not upload Files to server!"
+      );
+    }
+  }
+);
+
 // ------------------------------------------
 // Slice
 // ------------------------------------------
@@ -203,6 +232,10 @@ const initialState = {
   setUsersForForm: null,
   setUsersForFormStatus: "idle",
   setUsersForFormError: null,
+
+  setFile: null,
+  setFileStatus: "idle",
+  setFileError: null,
 };
 
 const formSlice = createSlice({
@@ -410,6 +443,23 @@ const formSlice = createSlice({
         state.setUsersForFormError =
           action.payload || "Failed to Retrieve Session";
       });
+
+    builder
+      .addCase(uploadFile.pending, (state) => {
+        state.setFileStatus = "loading";
+        state.setFileError = null;
+      })
+      .addCase(uploadFile.fulfilled, (state, action) => {
+        state.setFileStatus = "succeeded";
+        state.setFileError = null;
+        // You can store last upload result if useful:
+        state.setFile = action.payload?.files || [];
+      })
+      .addCase(uploadFile.rejected, (state, action) => {
+        state.setFileStatus = "failed";
+        state.setFileError =
+          action.payload || action.error?.message || "Upload failed";
+      });
   },
 });
 
@@ -463,3 +513,7 @@ export const selectSetUsersForFormStatus = (state) =>
 export const selectSetUsersForFormError = (state) =>
   state.forms.SetUsersForFormError;
 export const selectSetUsersForForm = (state) => state.forms.SetUsersForForm;
+
+export const selectFileUploadStatus = (s) => s.forms.setFileStatus;
+export const selectFileUploadError = (s) => s.forms.setFileError;
+export const selectFileUpload = (s) => s.forms.setFile || [];

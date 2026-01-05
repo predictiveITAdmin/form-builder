@@ -25,6 +25,9 @@ import {
   selectFormsStatus,
   selectFormsError,
 } from "../../features/forms/formsSlice";
+import { Can } from "@/auth/Can";
+
+import { selectUser } from "@/features/auth/authSlice";
 import AppLoader from "../ui/AppLoader";
 import AppError from "../ui/AppError";
 
@@ -34,13 +37,18 @@ const Forms = () => {
   const forms = useSelector(selectForms);
   const status = useSelector(selectFormsStatus);
   const error = useSelector(selectFormsError);
-
+  const user = useSelector(selectUser);
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    // Only fetch if we haven't already (prevents refetch loops)
-    dispatch(fetchForms());
-  }, [dispatch]);
+    if (!user) return;
+
+    const hasNonReadPermission = user.permissions?.some(
+      (p) => p.action !== "read" && p.resource === "forms"
+    );
+
+    dispatch(fetchForms(hasNonReadPermission));
+  }, [dispatch, user]);
 
   const filteredForms = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -105,26 +113,30 @@ const Forms = () => {
           >
             <FaEye size={16} />
           </IconButton>
-          <IconButton
-            size="sm"
-            aria-label="Edit"
-            variant="ghost"
-            color={"#FFBF00"}
-            // TODO: hook up edit route
-            onClick={() => navigate(`/forms/${row.form_key}/edit`)}
-          >
-            <FaRegEdit size={16} />
-          </IconButton>
-          <IconButton
-            size="sm"
-            aria-label="Edit"
-            variant="ghost"
-            color={"red"}
-            // TODO: hook up remove route
-            onClick={() => console.log(`Removing: ${row} `)}
-          >
-            <FaTrashAlt size={16} />
-          </IconButton>
+          <Can any={["forms.create", "forms.update", "forms.delete"]}>
+            <IconButton
+              size="sm"
+              aria-label="Edit"
+              variant="ghost"
+              color={"#FFBF00"}
+              // TODO: hook up edit route
+              onClick={() => navigate(`/forms/${row.form_key}/edit`)}
+            >
+              <FaRegEdit size={16} />
+            </IconButton>
+          </Can>
+          <Can any={["forms.create", "forms.update", "forms.delete"]}>
+            <IconButton
+              size="sm"
+              aria-label="Edit"
+              variant="ghost"
+              color={"red"}
+              // TODO: hook up remove route
+              onClick={() => console.log(`Removing: ${row} `)}
+            >
+              <FaTrashAlt size={16} />
+            </IconButton>
+          </Can>
         </HStack>
       ),
     },

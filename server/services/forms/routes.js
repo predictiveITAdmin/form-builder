@@ -8,6 +8,7 @@ const {
 } = require("../../middlewares/permissionMiddleware");
 
 const router = express.Router();
+const upload = require("../../middlewares/uploadMiddleware");
 
 router.get(
   "/published",
@@ -15,7 +16,12 @@ router.get(
   hasAnyPermission(["forms.read"]),
   ctrl.listPublished
 );
-router.get("/", authMiddleware, hasAnyPermission(["forms.read"]), ctrl.listAll);
+router.get(
+  "/",
+  authMiddleware,
+  hasAnyPermission(["forms.read", "forms.update"]),
+  ctrl.listAll
+);
 
 router.post(
   "/",
@@ -55,6 +61,13 @@ router.get(
   authMiddleware,
   hasPermissions(["forms.read"]),
   ctrl.getSessionDataByUser
+);
+
+router.post(
+  "/:formKey/fields/:fieldId/files",
+  authMiddleware,
+  upload.array("files", 10),
+  ctrl.uploadFiles
 );
 
 router.post(

@@ -42,7 +42,7 @@ async function listForms() {
 /**
  * End-user list - published only
  */
-async function listPublishedForms() {
+async function listPublishedForms(userId) {
   return query(
     `
     SELECT
@@ -63,9 +63,10 @@ async function listPublishedForms() {
     INNER JOIN Users u
       ON u.user_id = f.owner_user_id
     WHERE
-      f.status = 'published'
+      f.status ILIKE 'published'
       AND fa.user_id = $1
-    ORDER BY f.created_at DESC;`
+    ORDER BY f.created_at DESC;`,
+    [userId]
   );
 }
 
