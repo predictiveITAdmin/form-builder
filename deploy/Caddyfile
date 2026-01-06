@@ -1,11 +1,14 @@
 automation.predictiveit.com {
   encode gzip
 
-  root * /srv
-  file_server
-  try_files {path} /index.html
 
   handle /api/* {
     reverse_proxy api:3000
+  }
+
+  handle {
+    root * /srv
+    try_files {path} /index.html
+    file_server
   }
 }
