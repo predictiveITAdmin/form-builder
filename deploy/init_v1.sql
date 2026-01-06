@@ -540,7 +540,7 @@ CREATE TABLE "public"."file_uploads" (
 CREATE INDEX idx_file_uploads_uploaded_by ON file_uploads(uploaded_by);
 CREATE INDEX idx_file_uploads_status ON file_uploads(status);
 CREATE INDEX idx_file_uploads_created_at ON file_uploads(created_at DESC);
-CREATE INDEX idx_file_uploads_sha256 ON file_uploads(sha256) WHERE sha256 IS NOT NULL
+CREATE INDEX idx_file_uploads_sha256 ON file_uploads(sha256) WHERE sha256 IS NOT NULL;
 
 -- ------------------------------------------------------------------
 -- Indexes
