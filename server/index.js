@@ -44,15 +44,22 @@ const corsOrigins = new Set(
     .filter(Boolean)
 );
 
+const microsoftOrigins = [
+  'https://login.microsoftonline.com',
+  'https://login.microsoft.com',
+  'https://login.live.com'
+];
+
 app.use(
   cors({
     origin: (origin, cb) => {
-      // Allow tools like curl/postman (no Origin header)
       if (!origin) return cb(null, true);
+      
+      if (corsOrigins.has(origin) || microsoftOrigins.includes(origin)) {
+        return cb(null, true);
+      }
 
-      if (corsOrigins.has(origin)) return cb(null, true);
-
-      // Return a real error so you can see what's blocked
+      console.log(`CORS blocked for origin: ${origin}`);
       return cb(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,

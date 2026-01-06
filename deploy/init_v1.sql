@@ -305,32 +305,7 @@ CREATE TABLE "public"."users" (
   "is_active" boolean DEFAULT true NOT NULL
 );
 
-CREATE TABLE "public"."file_uploads" (
-    file_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    container TEXT NOT NULL,
-    blob_name TEXT NOT NULL UNIQUE,
-    original_name TEXT NOT NULL,
-    mime_type TEXT,
-    size_bytes BIGINT NOT NULL,
-    sha256 TEXT,
-    etag TEXT,
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'replaced', 'deleted')),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMPTZ,
-    uploaded_by INT NOT NULL,
-    
-    -- Foreign key to users table
-    CONSTRAINT fk_uploaded_by 
-        FOREIGN KEY (uploaded_by) 
-        REFERENCES users(user_id)
-        ON DELETE RESTRICT
-);
 
--- Indexes for common queries
-CREATE INDEX idx_file_uploads_uploaded_by ON file_uploads(uploaded_by);
-CREATE INDEX idx_file_uploads_status ON file_uploads(status);
-CREATE INDEX idx_file_uploads_created_at ON file_uploads(created_at DESC);
-CREATE INDEX idx_file_uploads_sha256 ON file_uploads(sha256) WHERE sha256 IS NOT NULL
 
 -- ------------------------------------------------------------------
 -- Link sequences to their owning columns
@@ -537,6 +512,35 @@ ALTER TABLE "public"."user_roles"
   ADD CONSTRAINT "fk_user_roles_assigned_by"
   FOREIGN KEY (assigned_by)
   REFERENCES "public"."users"(user_id) ON DELETE SET NULL;
+
+  
+CREATE TABLE "public"."file_uploads" (
+    file_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    container TEXT NOT NULL,
+    blob_name TEXT NOT NULL UNIQUE,
+    original_name TEXT NOT NULL,
+    mime_type TEXT,
+    size_bytes BIGINT NOT NULL,
+    sha256 TEXT,
+    etag TEXT,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'replaced', 'deleted')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ,
+    uploaded_by INT NOT NULL,
+    
+    -- Foreign key to users table
+    CONSTRAINT fk_uploaded_by 
+        FOREIGN KEY (uploaded_by) 
+        REFERENCES users(user_id)
+        ON DELETE RESTRICT
+);
+
+
+-- Indexes for common queries
+CREATE INDEX idx_file_uploads_uploaded_by ON file_uploads(uploaded_by);
+CREATE INDEX idx_file_uploads_status ON file_uploads(status);
+CREATE INDEX idx_file_uploads_created_at ON file_uploads(created_at DESC);
+CREATE INDEX idx_file_uploads_sha256 ON file_uploads(sha256) WHERE sha256 IS NOT NULL
 
 -- ------------------------------------------------------------------
 -- Indexes
