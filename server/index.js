@@ -103,7 +103,7 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-app.get("/verify", (req, res) => {
+app.get("/api/verify", (req, res) => {
   const account = req.session?.account;
 
   const authenticated = Boolean(account);
