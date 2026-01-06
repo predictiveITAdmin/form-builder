@@ -1,0 +1,21 @@
+# ---------- Stage 1: build Vite client ----------
+FROM node:20-alpine AS client_build
+WORKDIR /app
+
+COPY client/package*.json ./client/
+RUN cd client && npm ci
+
+COPY client ./client
+
+# If you need VITE_API_BASE_URL at build time, set it here.
+# But if you’re using same-domain + /api routing, you can keep it empty.
+ARG VITE_API_BASE_URL=
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
+RUN cd client && npm run build
+
+# ---------- Stage 2: Caddy serving static files ----------
+FROM caddy:2-alpine
+
+COPY deploy/Caddyfile /etc/caddy/Caddyfile
+COPY --from=client_build /app/client/dist /srv

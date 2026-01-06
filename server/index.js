@@ -3,93 +3,131 @@ const helmet = require("helmet");
 const cors = require("cors");
 const morgan = require("morgan");
 const dotenv = require("dotenv");
-const { errorHandler } = require("./middlewares/error");
-const authRoutes = require("./services/auth/routes");
 const session = require("express-session");
 const cookieParser = require("cookie-parser");
-const { query } = require("./db/pool");
-const analyticRoutes = require("./services/analytics/routes");
-// Import API From Services
+
+const { errorHandler } = require("./middlewares/error");
+const authRoutes = require("./services/auth/routes");
 const formsRoutes = require("./services/forms/routes");
+const analyticRoutes = require("./services/analytics/routes");
+const { query } = require("./db/pool");
 
 dotenv.config();
 
 const app = express();
 
+// If you're behind Caddy/Nginx/any reverse proxy, this matters for secure cookies + req.ip
+// In Docker on a VPS, you almost certainly are.
+app.set("trust proxy", 1);
+
 app.use(helmet());
-const allowedOrigins = new Set(
-  [process.env.FRONTEND_URL, "http://localhost:5173"].filter(Boolean)
+app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+
+// --- CORS ---
+/**
+ * Preferred config:
+ * - CORS_ORIGINS="https://automation.predictiveit.com,http://localhost:5173"
+ * OR
+ * - FRONTEND_URL="https://automation.predictiveit.com"
+ */
+const corsOrigins = new Set(
+  (
+    process.env.CORS_ORIGINS ||
+    process.env.FRONTEND_URL ||
+    "http://localhost:5173"
+  )
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
 );
 
 app.use(
   cors({
     origin: (origin, cb) => {
-      // allow non-browser tools (curl/postman) with no origin
+      // Allow tools like curl/postman (no Origin header)
       if (!origin) return cb(null, true);
-      return cb(null, allowedOrigins.has(origin));
+
+      if (corsOrigins.has(origin)) return cb(null, true);
+
+      // Return a real error so you can see what's blocked
+      return cb(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
   })
 );
-app.use(express.json());
-app.use(cookieParser());
-app.use(express.urlencoded({ extended: false }));
-app.use(morgan("dev"));
+
+// --- Sessions ---
+const isProd = process.env.NODE_ENV === "production";
 
 app.use(
   session({
-    secret: process.env.EXPRESS_SESSION_SECRET || "asd213213ds123d123v",
+    name: process.env.SESSION_COOKIE_NAME || "sid",
+    secret:
+      process.env.EXPRESS_SESSION_SECRET || "dev-insecure-secret-change-me",
     resave: false,
     saveUninitialized: false,
+    rolling: true, // refresh expiry on activity (optional but usually nicer)
     cookie: {
       httpOnly: true,
-      secure: false,
+      secure: isProd, // must be true in prod if you're using HTTPS
+      sameSite: isProd ? "none" : "lax", // "none" required if cross-site cookies; safe if you ever split domains
+      maxAge: Number(process.env.SESSION_MAX_AGE_MS || 1000 * 60 * 60 * 24), // 1 day default
     },
   })
 );
 
-app.use("/api/auth", authRoutes);
-
+// --- Routes ---
 app.get("/api/health", async (req, res) => {
   try {
     const [row] = await query("SELECT 1 AS ok");
     if (row?.ok !== 1) {
-      return res.status(500).json({ status: "fail" });
+      return res.status(500).json({ status: "fail", dbStatus: "down" });
     }
-    res.json({
+
+    return res.json({
       status: "ok",
       dbStatus: "up",
       timestamp: new Date().toISOString(),
-      version: "1.0.0",
+      version: process.env.APP_VERSION || "1.0.0",
       environment: process.env.NODE_ENV || "development",
     });
   } catch (err) {
-    res.status(500).json({
+    return res.status(500).json({
       status: "fail",
+      dbStatus: "down",
       error: err.message,
     });
   }
 });
 
 app.get("/verify", (req, res) => {
-  const { account } = req.session;
-  console.log(account);
-  console.log("Cookie:", req.headers.cookie);
-  console.log("SessionID:", req.sessionID);
-  console.log("Session:", req.session);
-  res.json({
-    authenticated: true,
-    user: {
-      name: account?.name,
-      username: account?.username || account?.homeAccountId,
-      oid: account?.localAccountId,
-    },
+  const account = req.session?.account;
+
+  const authenticated = Boolean(account);
+  return res.json({
+    authenticated,
+    user: authenticated
+      ? {
+          name: account?.name,
+          username: account?.username || account?.homeAccountId,
+          oid: account?.localAccountId,
+        }
+      : null,
   });
 });
 
+app.use("/api/auth", authRoutes);
 app.use("/api/forms", formsRoutes);
-
 app.use("/api/analytics", analyticRoutes);
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`Server running on ${port}`));
+// Optional: central error handler (keep if your project uses it)
+app.use(errorHandler);
+
+// --- Listen ---
+const port = Number(process.env.PORT || 3000);
+app.listen(port, "0.0.0.0", () => {
+  console.log(`Server running on ${port} (${isProd ? "prod" : "dev"})`);
+});

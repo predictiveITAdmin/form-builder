@@ -1,10 +1,27 @@
-import { Button, Dialog, Portal, Stack, Input, Field } from "@chakra-ui/react";
+import {
+  newUserInvitation,
+  selectNewUser,
+  selectNewUserError,
+  selectNewUserStatus,
+} from "@/features/auth/authSlice";
+import {
+  Button,
+  Dialog,
+  Portal,
+  Stack,
+  Input,
+  Field,
+  useSelect,
+} from "@chakra-ui/react";
 import { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { notify } from "../ui/notifyStore";
 
 const NewUser = ({ isOpen, onClose }) => {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [displayNameTouched, setDisplayNameTouched] = useState(false);
+  const dispatch = useDispatch();
 
   useEffect(() => {
     if (!displayNameTouched && email.includes("@")) {
@@ -20,15 +37,28 @@ const NewUser = ({ isOpen, onClose }) => {
     }
   }, [email, displayNameTouched]);
 
-  const handleInvite = () => {
+  const handleInvite = async () => {
     console.log("Inviting:", { email, displayName });
+    try {
+      const created = await dispatch(
+        newUserInvitation({ displayName, email })
+      ).unwrap();
+      console.log(created);
 
-    // reset form
-    setEmail("");
-    setDisplayName("");
-    setDisplayNameTouched(false);
+      notify({ type: "success", message: "User Created Successfully!" });
+      setEmail("");
+      setDisplayName("");
+      setDisplayNameTouched(false);
 
-    onClose();
+      onClose();
+    } catch (err) {
+      notify({ type: "error", message: "failed to create User. " + err });
+      setEmail("");
+      setDisplayName("");
+      setDisplayNameTouched(false);
+
+      onClose();
+    }
   };
 
   return (

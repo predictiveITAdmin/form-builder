@@ -132,6 +132,23 @@ export const createPassword = createAsyncThunk(
   }
 );
 
+export const newUserInvitation = createAsyncThunk(
+  "auth/createUser",
+  async ({ displayName, email }, { rejectWithValue }) => {
+    try {
+      const res = await http.post(`api/auth/createUser`, {
+        displayName,
+        email,
+      });
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err?.response?.message || err || "Failed to invite User"
+      );
+    }
+  }
+);
+
 // ------------------------------------------
 // Slice
 // ------------------------------------------
@@ -146,6 +163,10 @@ const initialState = {
 
   authMode: null,
   isAzureUser: false,
+
+  newUserStatus: "idle",
+  newUser: null,
+  newUserError: null,
 };
 
 const authSlice = createSlice({
@@ -316,6 +337,23 @@ const authSlice = createSlice({
           action.error?.message ||
           "Failed to create password";
       });
+    builder
+      .addCase(newUserInvitation.pending, (state) => {
+        state.newUserStatus = "loading";
+        state.newUserError = null;
+      })
+      .addCase(newUserInvitation.fulfilled, (state, action) => {
+        state.newUserStatus = "succeeded";
+        state.newUserError = null;
+        state.newUser = action.payload;
+      })
+      .addCase(newUserInvitation.rejected, (state, action) => {
+        state.newUserStatus = "failed";
+        state.newUserError =
+          action.payload ||
+          action.error?.message ||
+          "Failed to create password";
+      });
   },
 });
 
@@ -333,3 +371,6 @@ export const selectAuthStatus = (state) => state.auth.status;
 export const selectAuthError = (state) => state.auth.error;
 export const selectIsAzureUser = (state) => state.auth.isAzureUser;
 export const selectAuthMode = (state) => state.auth.authMode;
+export const selectNewUser = (state) => state.auth.newUser;
+export const selectNewUserStatus = (state) => state.auth.newUserStatus;
+export const selectNewUserError = (state) => state.auth.newUserError;

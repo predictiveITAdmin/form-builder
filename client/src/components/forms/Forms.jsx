@@ -169,18 +169,20 @@ const Forms = () => {
             </InputGroup>
           </Flex>
 
-          <Link to="/forms/new">
-            <Button
-              leftIcon={<FaPlus size={20} />}
-              color={"#fff"}
-              bgColor={"#2590ce"}
-            >
-              <HStack>
-                <FaPlus />
-                New Form
-              </HStack>
-            </Button>
-          </Link>
+          <Can any={["forms.create", "forms.update", "forms.delete"]}>
+            <Link to="/forms/new">
+              <Button
+                leftIcon={<FaPlus size={20} />}
+                color={"#fff"}
+                bgColor={"#2590ce"}
+              >
+                <HStack>
+                  <FaPlus />
+                  New Form
+                </HStack>
+              </Button>
+            </Link>
+          </Can>
         </Flex>
       </HStack>
 
