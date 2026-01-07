@@ -527,6 +527,9 @@ CREATE TABLE "public"."file_uploads" (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ,
     uploaded_by INT NOT NULL,
+    session_token text,
+    response_id bigint,
+    form_field_id integer,
     
     -- Foreign key to users table
     CONSTRAINT fk_uploaded_by 
