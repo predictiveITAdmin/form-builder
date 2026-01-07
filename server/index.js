@@ -9,6 +9,7 @@ const cookieParser = require("cookie-parser");
 const { errorHandler } = require("./middlewares/error");
 const authRoutes = require("./services/auth/routes");
 const formsRoutes = require("./services/forms/routes");
+const responseRoutes = require("./services/responses/routes");
 const analyticRoutes = require("./services/analytics/routes");
 const { query } = require("./db/pool");
 
@@ -45,16 +46,16 @@ const corsOrigins = new Set(
 );
 
 const microsoftOrigins = [
-  'https://login.microsoftonline.com',
-  'https://login.microsoft.com',
-  'https://login.live.com'
+  "https://login.microsoftonline.com",
+  "https://login.microsoft.com",
+  "https://login.live.com",
 ];
 
 app.use(
   cors({
     origin: (origin, cb) => {
       if (!origin) return cb(null, true);
-      
+
       if (corsOrigins.has(origin) || microsoftOrigins.includes(origin)) {
         return cb(null, true);
       }
@@ -129,6 +130,7 @@ app.get("/api/verify", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/forms", formsRoutes);
 app.use("/api/analytics", analyticRoutes);
+app.use("/api/responses", responseRoutes);
 
 // Optional: central error handler (keep if your project uses it)
 app.use(errorHandler);

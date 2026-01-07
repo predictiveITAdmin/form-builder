@@ -11,4 +11,11 @@ const router = express.Router();
 
 router.get("/home", authMiddleware, ctrl.getHomeDashboard);
 
+router.get(
+  "/admin",
+  authMiddleware,
+  hasAnyPermission(["users.read", "roles.read"]),
+  ctrl.getAdminDashboard
+);
+
 module.exports = router;

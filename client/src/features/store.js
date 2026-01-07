@@ -3,6 +3,7 @@ import authReducer from "./auth/authSlice";
 import formReducer from "./forms/formsSlice";
 import roleReducer from "./auth/roleSlice";
 import reportReducer from "./reports/reportSlice";
+import responseReducer from "./responses/responseSlice";
 
 export const store = configureStore({
   reducer: {
@@ -10,5 +11,6 @@ export const store = configureStore({
     forms: formReducer,
     roles: roleReducer,
     reports: reportReducer,
+    responses: responseReducer,
   },
 });

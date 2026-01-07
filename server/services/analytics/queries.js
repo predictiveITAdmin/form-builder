@@ -114,6 +114,265 @@ LIMIT 3;
   };
 }
 
+async function getAdminDashboardData() {
+  const pool = await getPool();
+
+  // ---- FORMS ----
+  const formsByStatusQuery = `
+    SELECT
+      COALESCE(status, 'Draft') AS status,
+      COUNT(*)::int AS count
+    FROM forms
+    WHERE COALESCE(status, '') NOT IN ('Archived', 'Deleted')
+    GROUP BY 1
+    ORDER BY 1;
+  `;
+
+  const formsAccessSummaryQuery = `
+    SELECT
+      f.form_id::int AS "formId",
+      f.title         AS title,
+      COALESCE(f.status, 'Draft') AS status,
+      COUNT(fa.user_id)::int AS "usersWithAccess"
+    FROM forms f
+    LEFT JOIN form_access fa ON fa.form_id = f.form_id
+    WHERE COALESCE(f.status, '') NOT IN ('Archived', 'Deleted')
+    GROUP BY f.form_id, f.title, f.status
+    ORDER BY "usersWithAccess" DESC, f.updated_at DESC
+    LIMIT 25;
+  `;
+
+  // ---- RESPONSES ----
+  const responsesByWeekQuery = `
+    SELECT
+      date_trunc('week', r.submitted_at)::date::text AS "bucketStart",
+      COUNT(*)::int AS "responsesSubmitted"
+    FROM responses r
+    WHERE r.submitted_at >= (now() - interval '12 weeks')
+    GROUP BY 1
+    ORDER BY 1;
+  `;
+
+  const responsesByMonthQuery = `
+    SELECT
+      date_trunc('month', r.submitted_at)::date::text AS "bucketStart",
+      COUNT(*)::int AS "responsesSubmitted"
+    FROM responses r
+    WHERE r.submitted_at >= (now() - interval '12 months')
+    GROUP BY 1
+    ORDER BY 1;
+  `;
+
+  const sessionsVsResponsesByWeekQuery = `
+    WITH sessions AS (
+      SELECT
+        date_trunc('week', created_at)::date::text AS "bucketStart",
+        COUNT(*)::int AS "sessionsStarted"
+      FROM formsessions
+      WHERE created_at >= (now() - interval '12 weeks')
+      GROUP BY 1
+    ),
+    resp AS (
+      SELECT
+        date_trunc('week', submitted_at)::date::text AS "bucketStart",
+        COUNT(*)::int AS "responsesSubmitted"
+      FROM responses
+      WHERE submitted_at >= (now() - interval '12 weeks')
+      GROUP BY 1
+    )
+    SELECT
+      COALESCE(s."bucketStart", r."bucketStart") AS "bucketStart",
+      COALESCE(s."sessionsStarted", 0)::int AS "sessionsStarted",
+      COALESCE(r."responsesSubmitted", 0)::int AS "responsesSubmitted"
+    FROM sessions s
+    FULL OUTER JOIN resp r USING ("bucketStart")
+    ORDER BY 1;
+  `;
+
+  const completionRateByWeekQuery = `
+    SELECT
+      date_trunc('week', fs.created_at)::date::text AS "bucketStart",
+      COUNT(*)::int AS "sessionsStarted",
+      COUNT(*) FILTER (WHERE COALESCE(fs.is_completed,false)=true)::int AS "sessionsCompleted",
+      ROUND(
+        (COUNT(*) FILTER (WHERE COALESCE(fs.is_completed,false)=true))::numeric
+        / NULLIF(COUNT(*), 0) * 100, 2
+      )::float8 AS "completionRatePercent"
+    FROM formsessions fs
+    WHERE fs.created_at >= (now() - interval '12 weeks')
+    GROUP BY 1
+    ORDER BY 1;
+  `;
+
+  // ---- FILES ----
+  const filesByWeekQuery = `
+    SELECT
+      date_trunc('week', fu.created_at)::date::text AS "bucketStart",
+      COUNT(*)::int AS "filesUploaded",
+      ROUND(SUM(COALESCE(fu.size_bytes, 0)) / 1024.0 / 1024.0, 2)::float8 AS "totalMB"
+    FROM file_uploads fu
+    WHERE fu.created_at >= (now() - interval '12 weeks')
+      AND fu.deleted_at IS NULL
+    GROUP BY 1
+    ORDER BY 1;
+  `;
+
+  const filesByStatusQuery = `
+    SELECT
+      COALESCE(status, 'unknown') AS status,
+      COUNT(*)::int AS count
+    FROM file_uploads
+    WHERE created_at >= (now() - interval '30 days')
+      AND deleted_at IS NULL
+    GROUP BY 1
+    ORDER BY count DESC, status;
+  `;
+
+  const topFormsBySizeQuery = `
+    SELECT
+      f.form_id::int AS "formId",
+      f.title         AS title,
+      COUNT(fu.file_id)::int AS "fileCount",
+      ROUND(SUM(COALESCE(fu.size_bytes, 0)) / 1024.0 / 1024.0, 2)::float8 AS "totalMB"
+    FROM file_uploads fu
+    JOIN responses r ON r.response_id = fu.response_id
+    JOIN forms f ON f.form_id = r.form_id
+    WHERE fu.created_at >= (now() - interval '30 days')
+      AND fu.deleted_at IS NULL
+    GROUP BY f.form_id, f.title
+    ORDER BY "totalMB" DESC, "fileCount" DESC
+    LIMIT 10;
+  `;
+
+  // ---- USERS / ROLES / PERMISSIONS ----
+  const usersActiveInactiveQuery = `
+    SELECT
+      COALESCE(is_active, true) AS "isActive",
+      COUNT(*)::int AS count
+    FROM users
+    GROUP BY 1
+    ORDER BY "isActive" DESC;
+  `;
+
+  const usersByRoleQuery = `
+    SELECT
+      r.role_id::int AS "roleId",
+      r.role_name     AS "roleName",
+      r.role_code     AS "roleCode",
+      COUNT(ur.user_id) FILTER (
+        WHERE ur.expires_at IS NULL OR ur.expires_at > now()
+      )::int AS "usersInRole"
+    FROM roles r
+    LEFT JOIN user_roles ur ON ur.role_id = r.role_id
+    GROUP BY r.role_id, r.role_name, r.role_code
+    ORDER BY "usersInRole" DESC, r.role_name;
+  `;
+
+  const rolesByPermissionCountQuery = `
+    SELECT
+      r.role_id::int AS "roleId",
+      r.role_name     AS "roleName",
+      COUNT(rp.permission_id)::int AS "permissionCount"
+    FROM roles r
+    LEFT JOIN role_permissions rp ON rp.role_id = r.role_id
+    GROUP BY r.role_id, r.role_name
+    ORDER BY "permissionCount" DESC, r.role_name;
+  `;
+
+  const topUsersByPermissionCountQuery = `
+    WITH user_perm AS (
+      SELECT
+        ur.user_id,
+        COUNT(DISTINCT rp.permission_id)::int AS permission_count
+      FROM user_roles ur
+      JOIN role_permissions rp ON rp.role_id = ur.role_id
+      WHERE ur.expires_at IS NULL OR ur.expires_at > now()
+      GROUP BY ur.user_id
+    )
+    SELECT
+      u.user_id::int AS "userId",
+      u.display_name AS "displayName",
+      u.email         AS email,
+      COALESCE(u.is_active, true) AS "isActive",
+      COALESCE(up.permission_count, 0)::int AS "permissionCount"
+    FROM users u
+    LEFT JOIN user_perm up ON up.user_id = u.user_id
+    ORDER BY "permissionCount" DESC, "isActive" DESC
+    LIMIT 20;
+  `;
+
+  const [
+    formsByStatus,
+    formsAccessSummary,
+    responsesByWeek,
+    responsesByMonth,
+    sessionsVsResponsesByWeek,
+    completionRateByWeek,
+    filesByWeek,
+    filesByStatus,
+    topFormsBySize,
+    usersActiveInactive,
+    usersByRole,
+    rolesByPermissionCount,
+    topUsersByPermissionCount,
+  ] = await Promise.all([
+    pool.query(formsByStatusQuery),
+    pool.query(formsAccessSummaryQuery),
+    pool.query(responsesByWeekQuery),
+    pool.query(responsesByMonthQuery),
+    pool.query(sessionsVsResponsesByWeekQuery),
+    pool.query(completionRateByWeekQuery),
+    pool.query(filesByWeekQuery),
+    pool.query(filesByStatusQuery),
+    pool.query(topFormsBySizeQuery),
+    pool.query(usersActiveInactiveQuery),
+    pool.query(usersByRoleQuery),
+    pool.query(rolesByPermissionCountQuery),
+    pool.query(topUsersByPermissionCountQuery),
+  ]);
+
+  // Access hover: you can keep it simple for now (counts only) and lazy-load the user list later
+  const accessHover = {};
+  for (const row of formsAccessSummary.rows || []) {
+    accessHover[row.formId] = { usersWithAccess: row.usersWithAccess };
+  }
+
+  return {
+    meta: {
+      generatedAt: new Date().toISOString(),
+      range: {
+        from: new Date(Date.now() - 1000 * 60 * 60 * 24 * 90)
+          .toISOString()
+          .slice(0, 10), // ~90d
+        to: new Date().toISOString().slice(0, 10),
+      },
+    },
+    forms: {
+      byStatus: formsByStatus.rows || [],
+      accessSummary: formsAccessSummary.rows || [],
+      accessHover,
+    },
+    responses: {
+      byWeek: responsesByWeek.rows || [],
+      byMonth: responsesByMonth.rows || [],
+      sessionsVsResponsesByWeek: sessionsVsResponsesByWeek.rows || [],
+      completionRateByWeek: completionRateByWeek.rows || [],
+    },
+    files: {
+      byWeek: filesByWeek.rows || [],
+      byStatus: filesByStatus.rows || [],
+      topFormsBySize: topFormsBySize.rows || [],
+    },
+    users: {
+      activeInactive: usersActiveInactive.rows || [],
+      byRole: usersByRole.rows || [],
+      rolesByPermissionCount: rolesByPermissionCount.rows || [],
+      topUsersByPermissionCount: topUsersByPermissionCount.rows || [],
+    },
+  };
+}
+
 module.exports = {
   getHomeDashboardData,
+  getAdminDashboardData,
 };

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { loginExternal } from "../features/auth/authSlice";
+import { loginExternal, refreshUser } from "../features/auth/authSlice";
 import {
   Box,
   Button,
@@ -26,10 +26,16 @@ export default function LoginPage() {
 
   const onSubmit = async (e) => {
     e.preventDefault();
+
     const res = await dispatch(
       loginExternal({ email: email.toLowerCase(), password })
     );
-    if (loginExternal.fulfilled.match(res)) navigate("/");
+
+    if (loginExternal.fulfilled.match(res)) {
+      // Pull the permission-rich user payload from /api/auth/me
+      await dispatch(refreshUser());
+      navigate("/");
+    }
   };
 
   const loginWithMicrosoft = () => {

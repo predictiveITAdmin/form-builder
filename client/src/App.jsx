@@ -7,7 +7,7 @@ import Test from "./pages/Test";
 import Dashboard from "./pages/Dashboard";
 import Configuration from "./pages/Configuration";
 import FormsLayout from "./pages/FormsLayout";
-import Responses from "./pages/Responses";
+import ResponseLayout from "./pages/ResponseLayout";
 import { loadSession } from "./features/auth/authSlice";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
@@ -17,6 +17,8 @@ import NewForm from "./components/forms/NewForm";
 import FormDetail from "./components/forms/FormDetail";
 import EditForm from "./components/forms/EditForm";
 import CreatePasswordPage from "./pages/CreatePassword";
+import Responses from "./components/responses/Responses";
+import ResponseDetail from "./components/responses/ResponseDetail";
 
 // Main App Component
 function App() {
@@ -71,13 +73,16 @@ function App() {
           <Route path=":formKey" element={<FormDetail />} />
         </Route>
         <Route
-          path="/responses"
+          path="responses"
           element={
             <Layout>
-              <Responses />
+              <ResponseLayout />
             </Layout>
           }
-        />
+        >
+          <Route index element={<Responses />} />
+          <Route path=":responseId" element={<ResponseDetail />} />
+        </Route>
       </Route>
     </Routes>
   );

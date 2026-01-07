@@ -140,8 +140,6 @@ module.exports = {
           id: user.user_id,
           email: user.email,
           displayName: user.display_name,
-          password: user.password_hash,
-          salt: user.password_salt,
         },
       });
     } catch (error) {

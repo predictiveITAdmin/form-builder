@@ -24,6 +24,7 @@ import logo from "../assets/logo-predictiveIT.svg";
 import { IoIosLogOut } from "react-icons/io";
 import { selectUser } from "../features/auth/authSlice";
 import AppToast from "@/components/ui/AppToast";
+import { Can } from "@/auth/Can";
 
 function Layout({ children }) {
   const navigate = useNavigate();
@@ -40,10 +41,38 @@ function Layout({ children }) {
 
   const menuItems = [
     { path: "/", label: "Home", icon: <FaHome /> },
-    { path: "/forms", label: "Forms", icon: <FaWpforms /> },
-    { path: "/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
-    { path: "/responses", label: "Responses", icon: <LuTicketCheck /> },
-    { path: "/configuration", label: "Configuration", icon: <CiSettings /> },
+
+    // Show dashboard if they have any meaningful access
+    {
+      path: "/dashboard",
+      label: "Dashboard",
+      icon: <FaTachometerAlt />,
+      any: ["roles.read", "users.read"],
+    },
+
+    // Forms
+    {
+      path: "/forms",
+      label: "Forms",
+      icon: <FaWpforms />,
+      code: "forms.read",
+    },
+
+    // Responses
+    {
+      path: "/responses",
+      label: "Responses",
+      icon: <LuTicketCheck />,
+      code: "responses.read",
+    },
+
+    // Config (admin-ish)
+    {
+      path: "/configuration",
+      label: "Configuration",
+      icon: <CiSettings />,
+      any: ["roles.read", "users.read"],
+    },
   ];
 
   return (
@@ -135,28 +164,38 @@ function Layout({ children }) {
           <VStack align="stretch" spacing={0} py={4}>
             {menuItems.map((item) => {
               const isActive = location.pathname === item.path;
+
               return (
-                <Link key={item.path} to={item.path}>
-                  <Box
-                    px={4}
-                    py={3}
-                    bg={isActive ? "#2596be" : "transparent"}
-                    color={isActive ? "white" : "gray.700"}
-                    _hover={{ bg: isActive ? "#2596be" : "gray.200" }}
-                    cursor="pointer"
-                    fontWeight={isActive ? "semibold" : "normal"}
-                    transition="all 0.2s"
-                  >
-                    {isSidebarOpen ? (
-                      <Flex align="center" gap="3">
-                        <Box>{item.icon}</Box>
-                        <Text>{item.label}</Text>
-                      </Flex>
-                    ) : (
-                      item.icon
-                    )}
-                  </Box>
-                </Link>
+                <Can
+                  key={item.path}
+                  code={item.code}
+                  resource={item.resource}
+                  action={item.action}
+                  any={item.any}
+                  all={item.all}
+                >
+                  <Link to={item.path}>
+                    <Box
+                      px={4}
+                      py={3}
+                      bg={isActive ? "#2596be" : "transparent"}
+                      color={isActive ? "white" : "gray.700"}
+                      _hover={{ bg: isActive ? "#2596be" : "gray.200" }}
+                      cursor="pointer"
+                      fontWeight={isActive ? "semibold" : "normal"}
+                      transition="all 0.2s"
+                    >
+                      {isSidebarOpen ? (
+                        <Flex align="center" gap="3">
+                          <Box>{item.icon}</Box>
+                          <Text>{item.label}</Text>
+                        </Flex>
+                      ) : (
+                        item.icon
+                      )}
+                    </Box>
+                  </Link>
+                </Can>
               );
             })}
           </VStack>

@@ -125,18 +125,6 @@ const Forms = () => {
               <FaRegEdit size={16} />
             </IconButton>
           </Can>
-          <Can any={["forms.create", "forms.update", "forms.delete"]}>
-            <IconButton
-              size="sm"
-              aria-label="Edit"
-              variant="ghost"
-              color={"red"}
-              // TODO: hook up remove route
-              onClick={() => console.log(`Removing: ${row} `)}
-            >
-              <FaTrashAlt size={16} />
-            </IconButton>
-          </Can>
         </HStack>
       ),
     },

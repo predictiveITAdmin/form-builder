@@ -15,12 +15,29 @@ export const getHomeData = createAsyncThunk(
   }
 );
 
+export const getAdminDashboardData = createAsyncThunk(
+  "analytics/adminDashboard",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await http.get("/api/analytics/admin");
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err?.response?.data ||
+          err?.message ||
+          "Could not get admin dashboard analytics"
+      );
+    }
+  }
+);
+
 const initialState = {
   home: {
     sessions: [],
     availableForms: [],
     recentSubmissions: [],
   },
+  adminDashboard: null,
   loading: false,
   error: null,
   lastUpdated: null,
@@ -50,6 +67,20 @@ const analyticsSlice = createSlice({
       .addCase(getHomeData.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || "Failed to load analytics";
+      });
+    builder
+      .addCase(getAdminDashboardData.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getAdminDashboardData.fulfilled, (state, action) => {
+        state.loading = false;
+        state.adminDashboard = action.payload;
+        state.lastUpdated = Date.now();
+      })
+      .addCase(getAdminDashboardData.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || "Failed to load admin dashboard";
       });
   },
 });
