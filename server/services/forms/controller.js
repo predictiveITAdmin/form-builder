@@ -320,13 +320,29 @@ async function triggerOptionsProcessing(req, res, next) {
         .json({ message: "Bad Request. Form Key or Field Id is required." });
     }
 
-    const fieldURL = await svc.getDynamicUrl(fieldId);
+    const field = await svc.getDynamicUrl(fieldId);
 
     // Trigger the RPA process (fire and forget)
-    await axios.post(fieldURL, {
+    await axios.post(field.url, {
       formKey: formKey,
       fieldId: fieldId,
-      callbackUrl: `${process.env.APP_BASE_URL}/api/webhooks/options-callback`, // Your webhook endpoint
+      callbackUrl: `${process.env.APP_BASE_URL}/api/forms/webhooks/options-callback`,
+      data: field.data,
+      message:
+        "Return a JSON payload to the callbackUrl with the following structure:\n" +
+        "{\n" +
+        "  formKey: string,\n" +
+        "  fieldId: string,\n" +
+        "  options: [\n" +
+        "    {\n" +
+        "      label: string,\n" +
+        "      value: string,\n" +
+        "      sort_order: number,\n" +
+        "      is_default: boolean\n" +
+        "    }\n" +
+        "  ]\n" +
+        "}\n" +
+        "The options array will be used to dynamically populate the field.",
     });
 
     return res.status(202).json({
@@ -335,8 +351,7 @@ async function triggerOptionsProcessing(req, res, next) {
       fieldId,
     });
   } catch (e) {
-    console.log(e);
-    return next(e);
+    res.status(500).json(e?.message || e);
   }
 }
 

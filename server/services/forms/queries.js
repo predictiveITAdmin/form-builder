@@ -343,13 +343,20 @@ async function updateFormByKey(
 async function getDynamicUrl(fieldId) {
   const result = await query(
     `
-    SELECT config_json
+    SELECT key_name,label,help_text, config_json
     FROM FormFields
     WHERE field_id = $1
     `,
     [fieldId]
   );
-  if (!result.length) {
+
+  const sql = await query(
+    `SELECT key_name,label,help_text
+    FROM FormFields
+    WHERE field_id = $1`,
+    [fieldId]
+  );
+  if (!result.length || !sql.length) {
     throw new Error(`Field with ID ${fieldId} not found`);
   }
   const configJson = result[0].config_json;
@@ -363,7 +370,7 @@ async function getDynamicUrl(fieldId) {
 
   // Check if dynamic options are enabled and URL exists
   if (config?.dynamicOptions?.enabled && config?.dynamicOptions?.url) {
-    return config.dynamicOptions.url;
+    return { url: config.dynamicOptions.url, data: sql[0] };
   }
 
   throw new Error(
