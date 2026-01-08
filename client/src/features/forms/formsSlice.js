@@ -182,7 +182,7 @@ export const uploadFile = createAsyncThunk(
       for (const f of fileList) fd.append("files", f);
 
       const res = await http.post(
-        `api/forms/${formKey}/fields/${fieldId}/files?sessionToken=${sessionToken}`,
+        `/api/forms/${formKey}/fields/${fieldId}/files?sessionToken=${sessionToken}`,
         fd
       );
       return res.data;

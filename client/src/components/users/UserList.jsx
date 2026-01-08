@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
 import { FaRegEdit, FaTrashAlt } from "react-icons/fa";
 import EditUser from "./EditUser";
+import { Can } from "@/auth/Can";
 import {
   Button,
   HStack,
@@ -126,18 +127,23 @@ const UserList = () => {
         key: "actions",
         label: "Actions",
         render: (_, row) => (
-          <HStack spacing={0} width={12}>
-            <IconButton
-              size="sm"
-              aria-label="Edit"
-              variant="ghost"
-              color={"#FFBF00"}
-              // TODO: hook up edit route
-              onClick={() => handleEditClick(row)}
-            >
-              <FaRegEdit size={16} />
-            </IconButton>
-          </HStack>
+          <Can
+            any={["users.update", "users.create", "users.delete"]}
+            fallback={<Text>You are not Authorized</Text>}
+          >
+            <HStack spacing={0} width={12}>
+              <IconButton
+                size="sm"
+                aria-label="Edit"
+                variant="ghost"
+                color={"#FFBF00"}
+                // TODO: hook up edit route
+                onClick={() => handleEditClick(row)}
+              >
+                <FaRegEdit size={16} />
+              </IconButton>
+            </HStack>
+          </Can>
         ),
       },
     ],

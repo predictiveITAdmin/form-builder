@@ -19,7 +19,7 @@ import EditForm from "./components/forms/EditForm";
 import CreatePasswordPage from "./pages/CreatePassword";
 import Responses from "./components/responses/Responses";
 import ResponseDetail from "./components/responses/ResponseDetail";
-
+import NotFound from "./components/ui/NotFound";
 // Main App Component
 function App() {
   const dispatch = useDispatch();
@@ -84,6 +84,7 @@ function App() {
           <Route path=":responseId" element={<ResponseDetail />} />
         </Route>
       </Route>
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

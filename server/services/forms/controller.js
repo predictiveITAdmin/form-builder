@@ -313,6 +313,8 @@ async function uploadFiles(req, res) {
 
 async function triggerOptionsProcessing(req, res, next) {
   try {
+    const auth = req.headers.authorization;
+    const token = auth.split(" ")[1];
     const { formKey, fieldId } = req.params;
     if (!formKey || !fieldId) {
       return res
@@ -328,6 +330,7 @@ async function triggerOptionsProcessing(req, res, next) {
       fieldId: fieldId,
       callbackUrl: `${process.env.APP_BASE_URL}/api/forms/webhooks/options-callback`,
       data: field.data,
+      token: token,
       message:
         "Return a JSON payload to the callbackUrl with the following structure:\n" +
         "{\n" +

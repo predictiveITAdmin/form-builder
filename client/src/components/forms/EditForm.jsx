@@ -76,6 +76,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import AssignForms from "./AssignForms";
+import { Can } from "@/auth/Can";
 
 function SortableFieldCard({ field, children }) {
   const {
@@ -633,18 +634,20 @@ const EditForm = () => {
                       <NativeSelect.Indicator />
                     </NativeSelect.Root>
                   </Field.Root>
-                  {formData.status === "Published" && (
-                    <Field.Root>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        mt={6}
-                        onClick={() => setIsModalOpen(true)}
-                      >
-                        Assign Users to Form
-                      </Button>
-                    </Field.Root>
-                  )}
+                  <Can any={["users.read"]}>
+                    {formData.status === "Published" && (
+                      <Field.Root>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          mt={6}
+                          onClick={() => setIsModalOpen(true)}
+                        >
+                          Assign Users to Form
+                        </Button>
+                      </Field.Root>
+                    )}
+                  </Can>
                 </Grid>
 
                 <Field.Root mt={4}>

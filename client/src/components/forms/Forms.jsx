@@ -176,8 +176,12 @@ const Forms = () => {
 
       {status === "loading" && <Text>Loading forms...</Text>}
       {status === "failed" && <Text color="red.500">{error}</Text>}
-
-      <DataTable columns={columns} data={pageData ?? []} />
+      <Can
+        any={["forms.read"]}
+        fallback={<Text>You are not authorized to access forms.</Text>}
+      >
+        <DataTable columns={columns} data={pageData ?? []} />
+      </Can>
       <Pagination.Root
         count={totalItems}
         pageSize={pageSize}
