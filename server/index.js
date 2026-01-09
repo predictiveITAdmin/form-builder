@@ -6,11 +6,12 @@ const dotenv = require("dotenv");
 const session = require("express-session");
 const cookieParser = require("cookie-parser");
 
-const { errorHandler } = require("./middlewares/error");
+const errorHandler = require("./middlewares/errorHandler");
 const authRoutes = require("./services/auth/routes");
 const formsRoutes = require("./services/forms/routes");
 const responseRoutes = require("./services/responses/routes");
 const analyticRoutes = require("./services/analytics/routes");
+const workflowRoutes = require("./services/workflows/routes");
 const { query } = require("./db/pool");
 
 dotenv.config();
@@ -131,6 +132,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/forms", formsRoutes);
 app.use("/api/analytics", analyticRoutes);
 app.use("/api/responses", responseRoutes);
+app.use("/api/workflows", workflowRoutes);
 
 // Optional: central error handler (keep if your project uses it)
 app.use(errorHandler);

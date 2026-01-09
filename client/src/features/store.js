@@ -4,7 +4,7 @@ import formReducer from "./forms/formsSlice";
 import roleReducer from "./auth/roleSlice";
 import reportReducer from "./reports/reportSlice";
 import responseReducer from "./responses/responseSlice";
-
+import workflowReducer from "./workflows/workflowSlice";
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -12,5 +12,6 @@ export const store = configureStore({
     roles: roleReducer,
     reports: reportReducer,
     responses: responseReducer,
+    workflows: workflowReducer,
   },
 });

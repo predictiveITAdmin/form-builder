@@ -20,6 +20,11 @@ import CreatePasswordPage from "./pages/CreatePassword";
 import Responses from "./components/responses/Responses";
 import ResponseDetail from "./components/responses/ResponseDetail";
 import NotFound from "./components/ui/NotFound";
+import WorkflowLayout from "./pages/WorkflowLayout";
+import WorkflowRunDetail from "./components/workflows/WorkflowRunDetail";
+import Workflows from "./components/workflows/Workflows";
+import WorkflowRuns from "./components/workflows/WorkflowRuns";
+import WorkflowTemplateDetail from "./components/workflows/WorkflowTemplateDetail";
 // Main App Component
 function App() {
   const dispatch = useDispatch();
@@ -82,6 +87,20 @@ function App() {
         >
           <Route index element={<Responses />} />
           <Route path=":responseId" element={<ResponseDetail />} />
+        </Route>
+
+        <Route
+          path="workflows"
+          element={
+            <Layout>
+              <WorkflowLayout />
+            </Layout>
+          }
+        >
+          <Route index element={<Workflows />} />
+          <Route path=":workflowId" element={<WorkflowTemplateDetail />} />
+          <Route path="workflow-runs" element={<WorkflowRuns />} />
+          <Route path="runs/:runId" element={<WorkflowRunDetail />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFound />} />

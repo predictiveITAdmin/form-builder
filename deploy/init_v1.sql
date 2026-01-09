@@ -513,6 +513,14 @@ ALTER TABLE "public"."user_roles"
   FOREIGN KEY (assigned_by)
   REFERENCES "public"."users"(user_id) ON DELETE SET NULL;
 
+ALTER TABLE forms
+ADD COLUMN usage_mode VARCHAR(20) NOT NULL DEFAULT 'standalone';
+
+-- Optional: enforce valid values (Postgres CHECK)
+ALTER TABLE forms
+ADD CONSTRAINT forms_usage_mode_chk
+CHECK (usage_mode IN ('standalone', 'workflow_only', 'both'));
+
   
 CREATE TABLE "public"."file_uploads" (
     file_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -538,6 +546,96 @@ CREATE TABLE "public"."file_uploads" (
         ON DELETE RESTRICT
 );
 
+CREATE TABLE workflows (
+  workflow_id SERIAL PRIMARY KEY,
+  workflow_key VARCHAR(100) UNIQUE,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  status VARCHAR(20) NOT NULL DEFAULT 'active',
+  created_by INTEGER REFERENCES users(user_id),
+  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_workflows_status ON workflows(status);
+
+
+-- 3) workflow_forms (template -> forms with rules)
+CREATE TABLE workflow_forms (
+  workflow_form_id SERIAL PRIMARY KEY,
+  workflow_id INTEGER NOT NULL REFERENCES workflows(workflow_id) ON DELETE CASCADE,
+  form_id INTEGER NOT NULL REFERENCES forms(form_id),
+  required BOOLEAN NOT NULL DEFAULT TRUE,
+  allow_multiple BOOLEAN NOT NULL DEFAULT FALSE,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_workflow_forms UNIQUE (workflow_id, form_id)
+);
+
+CREATE INDEX idx_workflow_forms_workflow ON workflow_forms(workflow_id);
+CREATE INDEX idx_workflow_forms_form ON workflow_forms(form_id);
+
+
+-- 4) workflow_runs (instances)
+CREATE TABLE workflow_runs (
+  workflow_run_id SERIAL PRIMARY KEY,
+  workflow_id INTEGER NOT NULL REFERENCES workflows(workflow_id),
+  display_name VARCHAR(255) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'not_started',
+  locked_at TIMESTAMP WITHOUT TIME ZONE,
+  locked_by INTEGER REFERENCES users(user_id),
+  created_by INTEGER REFERENCES users(user_id),
+  cancelled_at TIMESTAMP WITHOUT TIME ZONE,
+  cancelled_reason TEXT,
+  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+  CONSTRAINT workflow_runs_status_chk
+    CHECK (status IN ('not_started','in_progress','completed','cancelled'))
+);
+
+CREATE INDEX idx_workflow_runs_workflow ON workflow_runs(workflow_id);
+CREATE INDEX idx_workflow_runs_status ON workflow_runs(status);
+
+
+-- 5) workflow_items (the actionable units)
+CREATE TABLE workflow_items (
+  workflow_item_id SERIAL PRIMARY KEY,
+  workflow_run_id INTEGER NOT NULL REFERENCES workflow_runs(workflow_run_id) ON DELETE CASCADE,
+  workflow_form_id INTEGER NOT NULL REFERENCES workflow_forms(workflow_form_id),
+  sequence_num INTEGER NOT NULL DEFAULT 1,
+  status VARCHAR(20) NOT NULL DEFAULT 'not_started',
+  assigned_user_id INTEGER REFERENCES users(user_id),
+  skipped_reason TEXT,
+  completed_at TIMESTAMP WITHOUT TIME ZONE,
+  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+  CONSTRAINT workflow_items_status_chk
+    CHECK (status IN ('not_started','in_progress','submitted','skipped')),
+  CONSTRAINT uq_workflow_item_sequence UNIQUE (workflow_run_id, workflow_form_id, sequence_num)
+);
+
+CREATE INDEX idx_workflow_items_run ON workflow_items(workflow_run_id);
+CREATE INDEX idx_workflow_items_assigned ON workflow_items(assigned_user_id);
+CREATE INDEX idx_workflow_items_status ON workflow_items(status);
+
+
+-- 6) Link existing drafts/sessions to workflow context (nullable)
+ALTER TABLE formsessions
+ADD COLUMN workflow_run_id INTEGER REFERENCES workflow_runs(workflow_run_id),
+ADD COLUMN workflow_item_id INTEGER REFERENCES workflow_items(workflow_item_id);
+
+CREATE INDEX idx_formsessions_workflow_run ON formsessions(workflow_run_id);
+CREATE INDEX idx_formsessions_workflow_item ON formsessions(workflow_item_id);
+
+
+-- 7) Link existing responses to workflow context (nullable)
+ALTER TABLE responses
+ADD COLUMN workflow_run_id INTEGER REFERENCES workflow_runs(workflow_run_id),
+ADD COLUMN workflow_item_id INTEGER REFERENCES workflow_items(workflow_item_id);
+
+CREATE INDEX idx_responses_workflow_run ON responses(workflow_run_id);
+CREATE INDEX idx_responses_workflow_item ON responses(workflow_item_id);
 
 -- Indexes for common queries
 CREATE INDEX idx_file_uploads_uploaded_by ON file_uploads(uploaded_by);
@@ -607,38 +705,64 @@ WHERE NOT EXISTS (
   SELECT 1 FROM public.roles r WHERE r.role_code = v.role_code
 );
 
-INSERT INTO public.permissions (permission_name, permission_code, description, resource, action, created_at, updated_at)
+INSERT INTO public.permissions
+(permission_name, permission_code, description, resource, action, created_at, updated_at)
 SELECT v.permission_name, v.permission_code, v.description, v.resource, v.action, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM (
   VALUES
+    -- USERS
     ('Create Users', 'users.create', 'Can create users', 'users', 'create'),
     ('Read Users',   'users.read',   'Can view users',   'users', 'read'),
     ('Update Users', 'users.update', 'Can update users', 'users', 'update'),
     ('Delete Users', 'users.delete', 'Can delete users', 'users', 'delete'),
 
+    -- ROLES
     ('Create Roles', 'roles.create', 'Can create roles', 'roles', 'create'),
     ('Read Roles',   'roles.read',   'Can view roles',   'roles', 'read'),
     ('Update Roles', 'roles.update', 'Can update roles', 'roles', 'update'),
     ('Delete Roles', 'roles.delete', 'Can delete roles', 'roles', 'delete'),
 
+    -- FORMS
     ('Create Forms', 'forms.create', 'Can create forms', 'forms', 'create'),
     ('Read Forms',   'forms.read',   'Can view forms',   'forms', 'read'),
     ('Update Forms', 'forms.update', 'Can update forms', 'forms', 'update'),
     ('Delete Forms', 'forms.delete', 'Can delete forms', 'forms', 'delete'),
 
-    ('Create Responses', 'responses.create', 'Can create responses', 'responses', 'create'),
-    ('Read Responses',   'responses.read',   'Can view responses',   'responses', 'read'),
-    ('Update Responses', 'responses.update', 'Can update responses', 'responses', 'update'),
-    ('Delete Responses', 'responses.delete', 'Can delete responses', 'responses', 'delete'),
+    -- RESPONSES
+    ('Read all Responses', 'responses.readAll', 'Can read all responses', 'responses', 'readAll'),
+    ('Read Responses',     'responses.read',    'Can view responses',      'responses', 'read'),
+    ('Create Responses',   'responses.create',  'Can create responses',    'responses', 'create'),
+    ('Update Responses',   'responses.update',  'Can update responses',    'responses', 'update'),
 
+    -- REPORTS
     ('Create Reports', 'reports.create', 'Can create reports', 'reports', 'create'),
     ('Read Reports',   'reports.read',   'Can view reports',   'reports', 'read'),
     ('Update Reports', 'reports.update', 'Can update reports', 'reports', 'update'),
-    ('Delete Reports', 'reports.delete', 'Can delete reports', 'reports', 'delete')
+    ('Delete Reports', 'reports.delete', 'Can delete reports', 'reports', 'delete'),
+
+    -- ======================
+    -- WORKFLOWS (NEW)
+    -- ======================
+
+    ('Read Workflows', 'workflows.read', 'Can view workflow templates', 'workflows', 'read'),
+    ('Create Workflows', 'workflows.create', 'Can create Workflows', 'workflows', 'create'),
+
+    ('Create Workflow Run', 'workflows.run.create', 'Can start workflow runs', 'workflow_runs', 'create'),
+    ('List Workflow Runs',  'workflows.run.list',   'Can list workflow runs',  'workflow_runs', 'read'),
+    ('Lock Workflow Run',   'workflows.run.lock',   'Can lock workflow runs',  'workflow_runs', 'lock'),
+    ('Cancel Workflow Run', 'workflows.run.cancel', 'Can cancel workflow runs','workflow_runs', 'cancel'),
+    ('View Workflow Run', 'workflows.run.view', 'Can View Workflow Run', 'workflow_runs', 'view')
+
+    ('Start Workflow Item', 'workflows.item.start',  'Can start workflow items',  'workflow_items', 'start'),
+    ('Skip Workflow Item',  'workflows.item.skip',   'Can skip workflow items',   'workflow_items', 'skip'),
+    ('Assign Workflow Item','workflows.item.assign', 'Can assign workflow items', 'workflow_items', 'assign'),
+    ('Add Workflow Item',   'workflows.item.add',    'Can add repeatable workflow items', 'workflow_items', 'add')
+
 ) AS v(permission_name, permission_code, description, resource, action)
 WHERE NOT EXISTS (
   SELECT 1 FROM public.permissions p WHERE p.permission_code = v.permission_code
 );
+
 
 -- SUPER_ADMIN gets everything
 INSERT INTO public.role_permissions (role_id, permission_id, granted_at, granted_by)
@@ -657,7 +781,17 @@ JOIN public.permissions p ON p.permission_code IN (
   'roles.create','roles.read','roles.update',
   'forms.read','forms.create','forms.update',
   'responses.read','responses.create','responses.update',
-  'reports.read','reports.create','reports.update'
+  'reports.read','reports.create','reports.update',
+  'workflows.read',
+  'workflows.run.view',
+  'workflows.run.create',
+  'workflows.run.list',
+  'workflows.run.lock',
+  'workflows.run.cancel',
+  'workflows.item.start',
+  'workflows.item.skip',
+  'workflows.item.assign',
+  'workflows.item.add',
 )
 WHERE r.role_code = 'ADMIN'
 ON CONFLICT ON CONSTRAINT uq_role_permission DO NOTHING;
@@ -670,7 +804,13 @@ JOIN public.permissions p ON p.permission_code IN (
   'forms.read',
   'responses.read',
   'responses.create',
-  'responses.update'
+  'responses.update',
+
+  'workflows.read',
+  'workflows.run.create',
+  'workflows.run.list',
+  'workflows.item.start',
+  'workflows.item.skip'
 )
 WHERE r.role_code = 'USER'
 ON CONFLICT ON CONSTRAINT uq_role_permission DO NOTHING;
