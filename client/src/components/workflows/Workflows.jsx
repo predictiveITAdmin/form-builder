@@ -37,6 +37,7 @@ import {
   selectWorkflowLoading,
   selectWorkflowError,
 } from "@/features/workflows/workflowSlice";
+import slugify from "@/utils/slug";
 
 const Workflows = () => {
   const dispatch = useDispatch();
@@ -110,7 +111,7 @@ const Workflows = () => {
         <VStack align="start" spacing={0.5}>
           <Text fontWeight="bold">{value || "-"}</Text>
           <Text fontSize="sm" color="gray.600">
-            {row.workflow_key || "-"}
+            {row.description || "-"}
           </Text>
         </VStack>
       ),
@@ -121,9 +122,8 @@ const Workflows = () => {
       sortable: true,
       render: (value) => (
         <Badge
-          colorScheme={
-            String(value).toLowerCase() === "active" ? "green" : "gray"
-          }
+          bgColor={String(value).toLowerCase() === "active" ? "green" : "gray"}
+          color={"white"}
         >
           <Text>{value || "-"}</Text>
         </Badge>
@@ -360,12 +360,15 @@ const Workflows = () => {
                 <Input
                   placeholder="Title (e.g. Client Onboarding)"
                   value={wfTitle}
-                  onChange={(e) => setWfTitle(e.target.value)}
+                  onChange={(e) => {
+                    setWfTitle(e.target.value);
+                    setWfKey(slugify(e.target.value));
+                  }}
                 />
                 <Input
-                  placeholder="Key (optional, e.g. client_onboarding)"
+                  placeholder="Key auto-generated"
                   value={wfKey}
-                  onChange={(e) => setWfKey(e.target.value)}
+                  disabled
                 />
                 <Input
                   placeholder="Description (optional)"

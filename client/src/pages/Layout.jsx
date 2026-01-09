@@ -10,6 +10,8 @@ import {
 } from "@chakra-ui/react";
 import { useDispatch, useSelector } from "react-redux";
 import { logoutUser } from "../features/auth/authSlice";
+import { GoWorkflow } from "react-icons/go";
+
 import {
   FaArrowLeft,
   FaArrowRight,
@@ -43,11 +45,12 @@ function Layout({ children }) {
     { path: "/", label: "Home", icon: <FaHome /> },
 
     // Show dashboard if they have any meaningful access
+
     {
-      path: "/dashboard",
-      label: "Dashboard",
-      icon: <FaTachometerAlt />,
-      any: ["roles.read", "users.read"],
+      path: "/workflows",
+      label: "Workflows",
+      icon: <GoWorkflow />,
+      any: ["workflows.read", "workflows.create"],
     },
 
     // Forms
@@ -65,7 +68,12 @@ function Layout({ children }) {
       icon: <LuTicketCheck />,
       code: "responses.read",
     },
-
+    {
+      path: "/dashboard",
+      label: "Dashboard",
+      icon: <FaTachometerAlt />,
+      any: ["roles.read", "users.read"],
+    },
     // Config (admin-ish)
     {
       path: "/configuration",

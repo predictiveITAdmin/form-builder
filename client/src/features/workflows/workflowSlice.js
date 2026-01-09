@@ -178,6 +178,20 @@ export const fetchWorkflows = createAsyncThunk(
   }
 );
 
+export const fetchWorkflowAssignableForms = createAsyncThunk(
+  "workflows/fetchWorkflowAssignableForms",
+  async (_, { rejectWithValue }) => {
+    try {
+      // TODO: replace with your real endpoint path
+      // This endpoint should return: [{ form_id, title, ... }]
+      const res = await http.get("/api/forms/published");
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(toErrorPayload(err));
+    }
+  }
+);
+
 // workflowSlice.js
 export const fetchWorkflowRuns = createAsyncThunk(
   "workflows/fetchRuns",
@@ -220,6 +234,7 @@ export const markWorkflowItemSubmitted = createAsyncThunk(
 const initialState = {
   workflows: [],
   workflowById: {}, // cache workflow details by id
+  assignableForms: [],
 
   dashboardsByRunId: {},
 
@@ -227,7 +242,7 @@ const initialState = {
     fetchWorkflows: false,
     createWorkflow: false,
     getWorkflow: false,
-
+    fetchAssignableForms: false,
     createRun: false,
     fetchRuns: false,
     fetchRunDashboard: false,
@@ -244,7 +259,7 @@ const initialState = {
     fetchWorkflows: null,
     createWorkflow: null,
     getWorkflow: null,
-
+    fetchAssignableForms: null,
     createRun: null,
     fetchRuns: null,
     fetchRunDashboard: null,
@@ -629,6 +644,22 @@ export const workflowSlice = createSlice({
         setOpLoading(state, "fetchRuns", false);
         setOpError(state, "fetchRuns", action.payload);
       });
+
+    builder
+      .addCase(fetchWorkflowAssignableForms.pending, (state) => {
+        setOpLoading(state, "fetchAssignableForms", true);
+        clearOpError(state, "fetchAssignableForms");
+      })
+      .addCase(fetchWorkflowAssignableForms.fulfilled, (state, action) => {
+        setOpLoading(state, "fetchAssignableForms", false);
+        state.assignableForms = Array.isArray(action.payload)
+          ? action.payload
+          : [];
+      })
+      .addCase(fetchWorkflowAssignableForms.rejected, (state, action) => {
+        setOpLoading(state, "fetchAssignableForms", false);
+        setOpError(state, "fetchAssignableForms", action.payload);
+      });
   },
 });
 
@@ -673,3 +704,6 @@ export const selectWorkflowLoading = (op) => (state) =>
 
 export const selectWorkflowError = (op) => (state) =>
   state.workflows?.error?.[op] ?? null;
+
+export const selectWorkflowAssignableForms = (state) =>
+  state.workflows?.assignableForms ?? [];

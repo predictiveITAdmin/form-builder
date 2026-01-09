@@ -14,6 +14,7 @@ async function listForms() {
       f.owner_user_id,
       f.is_anonymous,
       f.form_key,
+      f.usage_mode,
       f.created_at,
       f.updated_at,
       u.display_name AS owner_name,
@@ -29,6 +30,7 @@ async function listForms() {
       f.title,
       f.description,
       f.status,
+      f.usage_mode, 
       f.owner_user_id,
       f.is_anonymous,
       f.form_key,
@@ -65,6 +67,7 @@ async function listPublishedForms(userId) {
     WHERE
       f.status ILIKE 'published'
       AND fa.user_id = $1
+      AND COALESCE(f.usage_mode, 'standalone') IN ('standalone', 'both')
     ORDER BY f.created_at DESC;`,
     [userId]
   );
@@ -82,9 +85,9 @@ async function createForm(payload, { owner_user_id = null } = {}) {
       `
       INSERT INTO Forms
         (title, description, status, owner_user_id, is_anonymous, form_key,
-         rpa_webhook_url, rpa_header_key, rpa_secret, rpa_timeout_ms, rpa_retry_count)
+        usage_mode, rpa_webhook_url, rpa_header_key, rpa_secret, rpa_timeout_ms, rpa_retry_count)
       VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, $11)
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
       RETURNING form_id
       `,
       [
@@ -94,7 +97,7 @@ async function createForm(payload, { owner_user_id = null } = {}) {
         owner_user_id,
         !!payload.is_anonymous,
         payload.form_key ?? null,
-
+        payload.usage_mode ?? "standalone",
         payload.rpa_webhook_url ?? null,
         payload.rpa_secret_method ?? "authorization",
         payload.rpa_secret ?? null,
@@ -216,6 +219,7 @@ async function updateFormByKey(
         rpa_secret = $8,
         rpa_timeout_ms = $9,
         rpa_retry_count = $10,
+        usage_mode = $12,
         updated_at = NOW()
       WHERE form_id = $11
       `,
@@ -231,6 +235,7 @@ async function updateFormByKey(
         payload.rpa_timeout_ms ?? 8000,
         payload.rpa_retry_count ?? 0,
         formId,
+        payload.usage_mode ?? "standalone",
       ]
     );
 
@@ -488,6 +493,7 @@ async function getFormGraphByKey(form_key) {
         'owner_user_id', f.owner_user_id,
         'owner_name', u.display_name,
         'is_anonymous', f.is_anonymous,
+        'usage_mode', f.usage_mode,
         'form_key', f.form_key,
         'created_at', f.created_at,
         'updated_at', f.updated_at,

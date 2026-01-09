@@ -63,12 +63,8 @@ const AssignForms = ({ isOpen, onClose, formId, formTitle }) => {
     if (formUsers?.length) {
       const assignedUserIds = formUsers.map((u) => u.user_id);
       setSelection(assignedUserIds);
-      console.log(assignedUserIds);
     }
   }, [formUsers]);
-
-  console.log("formUsers selector value:", formUsers);
-  console.log("isArray:", Array.isArray(formUsers));
 
   /** ---------------- Search filtering ---------------- */
   const filteredUsers = useMemo(() => {

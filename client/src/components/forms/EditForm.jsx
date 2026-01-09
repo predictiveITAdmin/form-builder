@@ -122,6 +122,7 @@ const EditForm = () => {
     description: "",
     status: "Draft",
     is_anonymous: false,
+    usage_mode: "standalone",
     rpa_webhook_url: "",
     rpa_secret: "",
     rpa_secret_method: "",
@@ -286,12 +287,13 @@ const EditForm = () => {
     if (currentFormStatus !== "succeeded" || !currentForm) return;
 
     setStableFormKey(currentForm.form_key ?? formKey);
-
+    console.log(currentForm);
     setFormData({
       title: currentForm.title ?? "",
       description: currentForm.description ?? "",
       status: currentForm.status ?? "Draft",
       is_anonymous: !!currentForm.is_anonymous,
+      usage_mode: currentForm.usage_mode,
       rpa_webhook_url: currentForm.rpa_webhook_url ?? "",
       rpa_secret: currentForm.rpa_secret ?? "",
       rpa_secret_method:
@@ -550,6 +552,8 @@ const EditForm = () => {
       })),
     };
 
+    console.log(payload);
+
     await dispatch(updateForm({ formKey: stableFormKey, payload })).unwrap();
     await dispatch(resetUpdateState());
     navigate(`/forms`);
@@ -618,6 +622,27 @@ const EditForm = () => {
                     />
                   </Field.Root>
 
+                  <Field.Root>
+                    <Field.Label>Usage Mode</Field.Label>
+                    <NativeSelect.Root>
+                      <NativeSelect.Field
+                        value={formData.usage_mode}
+                        onChange={(e) => {
+                          setFormData({
+                            ...formData,
+                            usage_mode: e.target.value,
+                          });
+                        }}
+                      >
+                        <option value="standalone">Standalone</option>
+                        <option value="workflow_only">Wokflow Only</option>
+                      </NativeSelect.Field>
+                      <NativeSelect.Indicator />
+                    </NativeSelect.Root>
+                  </Field.Root>
+                </Grid>
+
+                <Grid templateColumns="repeat(3, 1fr)" gap={4}>
                   <Field.Root>
                     <Field.Label>Status</Field.Label>
                     <NativeSelect.Root>

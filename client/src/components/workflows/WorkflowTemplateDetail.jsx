@@ -37,6 +37,8 @@ import {
   selectWorkflowRuns,
   selectWorkflowLoading,
   selectWorkflowError,
+  fetchWorkflowAssignableForms,
+  selectWorkflowAssignableForms,
 } from "@/features/workflows/workflowSlice";
 
 const statusColor = (status) => {
@@ -78,10 +80,20 @@ const WorkflowTemplateDetail = () => {
 
   const createRunLoading = useSelector(selectWorkflowLoading("createRun"));
 
+  const assignableForms = useSelector(selectWorkflowAssignableForms);
+  const assignableFormsLoading = useSelector(
+    selectWorkflowLoading("fetchAssignableForms")
+  );
+  const assignableFormsError = useSelector(
+    selectWorkflowError("fetchAssignableForms")
+  );
+
   const [searchTerm, setSearchTerm] = useState("");
 
   // Create Run dialog state
   const [runDialogOpen, setRunDialogOpen] = useState(false);
+
+  const [manageFormsOpen, setManageFormsOpen] = useState(false);
   const [displayName, setDisplayName] = useState("");
 
   const closeRunDialog = () => {
@@ -95,6 +107,11 @@ const WorkflowTemplateDetail = () => {
     dispatch(getWorkflow({ workflowId: wid }));
     dispatch(fetchWorkflowRuns({ workflow_id: wid }));
   }, [dispatch, wid]);
+
+  useEffect(() => {
+    if (!runDialogOpen /* replace with your manageFormsOpen */) return;
+    dispatch(fetchWorkflowAssignableForms());
+  }, [dispatch, manageFormsOpen]);
 
   const runsForThisWorkflow = useMemo(() => {
     const list = Array.isArray(runs) ? runs : [];
@@ -305,8 +322,11 @@ const WorkflowTemplateDetail = () => {
                 </Text>
 
                 <HStack>
-                  <Button variant="outline" isDisabled>
-                    Manage Forms (coming next)
+                  <Button
+                    variant="outline"
+                    onClick={() => setManageFormsOpen(true)}
+                  >
+                    Manage Forms
                   </Button>
                 </HStack>
               </VStack>

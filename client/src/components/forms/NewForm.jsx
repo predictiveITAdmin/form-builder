@@ -100,6 +100,7 @@ const NewForm = () => {
     description: "",
     status: "Draft",
     is_anonymous: false,
+    usage_mode: "standalone",
     rpa_webhook_url: "",
     rpa_secret: "",
     rpa_secret_method: "",
@@ -472,6 +473,27 @@ const NewForm = () => {
                     />
                   </Field.Root>
 
+                  <Field.Root>
+                    <Field.Label>Usage Mode</Field.Label>
+                    <NativeSelect.Root>
+                      <NativeSelect.Field
+                        value={formData.usage_mode}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            usage_mode: e.target.value,
+                          })
+                        }
+                      >
+                        <option value="standalone">Standalone</option>
+                        <option value="workflow_only">Wokflow Only</option>
+                      </NativeSelect.Field>
+                      <NativeSelect.Indicator />
+                    </NativeSelect.Root>
+                  </Field.Root>
+                </Grid>
+
+                <Grid templateColumns="repeat(3, 1fr)" gap={4}>
                   <Field.Root>
                     <Field.Label>Status</Field.Label>
                     <NativeSelect.Root>
