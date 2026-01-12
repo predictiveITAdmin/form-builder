@@ -56,7 +56,7 @@ function Layout({ children }) {
     // Forms
     {
       path: "/forms",
-      label: "Forms",
+      label: "Self Service",
       icon: <FaWpforms />,
       code: "forms.read",
     },

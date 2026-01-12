@@ -315,11 +315,7 @@ const WorkflowTemplateDetail = () => {
                   allow_multiple, sort order) will live.
                 </Text>
 
-                <Text fontSize="sm" color="gray.600">
-                  If you already added backend routes for workflow form mapping,
-                  share the endpoints and I’ll wire: add/remove form, required
-                  toggle, allow_multiple toggle, reorder.
-                </Text>
+                <Text fontSize="sm" color="gray.600"></Text>
 
                 <HStack>
                   <Button
