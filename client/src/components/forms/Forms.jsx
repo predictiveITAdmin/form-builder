@@ -211,6 +211,20 @@ const Forms = () => {
             If you believe this is a mistake, please reach out to your
             administrator to request access.
           </Text>
+          <Can any={["forms.create"]}>
+            <Link to="/forms/new">
+              <Button
+                leftIcon={<FaPlus size={20} />}
+                color={"#fff"}
+                bgColor={"#2590ce"}
+              >
+                <HStack>
+                  <FaPlus />
+                  New Form
+                </HStack>
+              </Button>
+            </Link>
+          </Can>
         </Flex>
       ) : (
         <VStack spacing={6} align="stretch">
