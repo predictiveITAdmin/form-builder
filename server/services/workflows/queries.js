@@ -1,5 +1,6 @@
 // Workflows/queries.js
 const { getPool, query } = require("../../db/pool");
+const crypto = require("crypto");
 
 function normalizeRunStatus(status) {
   const s = String(status || "").toLowerCase();
@@ -622,7 +623,8 @@ async function startWorkflowItem(itemId, userId) {
         wi.status AS item_status,
         wr.status AS run_status,
         wr.locked_at,
-        wf.form_id
+        wf.form_id,
+        (SELECT COUNT(*) FROM formfields ff where ff.form_id = wf.form_id) as total_steps
       FROM workflow_items wi
       JOIN workflow_runs wr
         ON wr.workflow_run_id = wi.workflow_run_id
@@ -680,19 +682,27 @@ async function startWorkflowItem(itemId, userId) {
         reused: true,
       };
     }
+    const token = crypto.randomUUID();
 
     // Create a new session
     // NOTE: adjust columns to match your existing schema if needed.
     const sessionRes = await client.query(
       `
       INSERT INTO formsessions
-        (form_id, user_id, is_active, is_completed, created_at, updated_at,
+        (form_id, user_id, session_token, current_step, total_steps, is_completed, expires_at, client_ip, user_agent, created_at, updated_at,
          workflow_run_id, workflow_item_id)
       VALUES
-        ($1, $2, TRUE, FALSE, NOW(), NOW(), $3, $4)
+        ($1, $2, $3, 1 , $4, FALSE, (NOW() + INTERVAL '3 months'), NULL, NULL, NOW(), NOW(), $5, $6)
       RETURNING session_id, session_token, is_active, is_completed, created_at, updated_at
       `,
-      [item.form_id, userId, item.workflow_run_id, itemId]
+      [
+        item.form_id,
+        userId,
+        token,
+        item.total_steps,
+        item.workflow_run_id,
+        itemId,
+      ]
     );
 
     await client.query("COMMIT");

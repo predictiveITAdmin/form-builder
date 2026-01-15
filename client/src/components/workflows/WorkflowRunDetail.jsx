@@ -319,9 +319,8 @@ const WorkflowRunDetail = () => {
   };
 
   const onStartItem = async (item) => {
-    const res = await dispatch(
-      startWorkflowItem({ itemId: item.workflow_item_id })
-    );
+    console.log(item);
+    const res = await dispatch(startWorkflowItem({ itemId: item }));
 
     if (res?.meta?.requestStatus !== "fulfilled") {
       notify({
@@ -546,7 +545,7 @@ const WorkflowRunDetail = () => {
                 bgColor="blue"
                 color={"white"}
                 variant={done ? "outline" : "solid"}
-                onClick={() => navigate(`/forms/${row.form_key}`)}
+                onClick={() => onStartItem(row.workflow_item_id)}
                 isLoading={startLoading}
                 disabled={disabled}
               >

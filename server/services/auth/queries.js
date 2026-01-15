@@ -92,6 +92,27 @@ async function ensureUser({ entraObjectId, email, displayName }) {
   }
 }
 
+async function setInviteTokenForUserEmail(
+  email,
+  { inviteToken, inviteTokenExpiresAt }
+) {
+  const pool = await getPool();
+
+  const result = await pool.query(
+    `
+      UPDATE public.users
+      SET
+        invite_token = $1,
+        invite_token_expires_at = $2
+      WHERE email = $3
+      RETURNING user_id, email, user_type
+    `,
+    [inviteToken, inviteTokenExpiresAt, email]
+  );
+
+  return result.rows[0] || null;
+}
+
 async function getUser(userId) {
   return query(
     `SELECT
@@ -783,6 +804,8 @@ function getPermissionsFromRole(role_id) {
 
 module.exports = {
   ensureUser,
+  setInviteTokenForUserEmail,
+
   getUserByInviteToken,
   getUserByEmail,
   updateUserCredentials,

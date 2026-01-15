@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { loginExternal, refreshUser } from "../features/auth/authSlice";
+import { Dialog, Portal, CloseButton } from "@chakra-ui/react";
+import {
+  loginExternal,
+  refreshUser,
+  forgotPassword,
+  selectForgotStatus,
+  selectForgotError,
+} from "../features/auth/authSlice";
 import {
   Box,
   Button,
@@ -20,6 +27,11 @@ export default function LoginPage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { status, error } = useSelector((s) => s.auth);
+
+  const forgotStatus = useSelector(selectForgotStatus);
+  const forgotError = useSelector(selectForgotError);
+
+  const [forgotEmail, setForgotEmail] = useState("");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -43,6 +55,33 @@ export default function LoginPage() {
     window.location.href = `${
       import.meta.env.VITE_API_BASE_URL
     }/api/auth/signin`;
+  };
+
+  const onForgotPassword = async () => {
+    const cleaned = forgotEmail.trim().toLowerCase();
+
+    if (!cleaned) {
+      toaster.create({
+        title: "Enter your email address first.",
+        type: "warning",
+      });
+      return;
+    }
+
+    const res = await dispatch(forgotPassword({ email: cleaned }));
+
+    if (forgotPassword.fulfilled.match(res)) {
+      toaster.create({
+        title: "If an account exists, a reset link has been sent.",
+        type: "success",
+      });
+    } else {
+      // Still safe, but you asked for “redux work”, so you get it
+      toaster.create({
+        title: res.payload || "Could not send reset email.",
+        type: "error",
+      });
+    }
   };
 
   return (
@@ -114,6 +153,71 @@ export default function LoginPage() {
                 <Field.Root invalid={!!error}>
                   {error ? <Field.ErrorText>{error}</Field.ErrorText> : null}
                 </Field.Root>
+
+                <Dialog.Root>
+                  <Dialog.Trigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      alignSelf="flex-end"
+                      onClick={() => setForgotEmail(email.trim().toLowerCase())}
+                    >
+                      Forgot password?
+                    </Button>
+                  </Dialog.Trigger>
+
+                  <Portal>
+                    <Dialog.Backdrop />
+                    <Dialog.Positioner>
+                      <Dialog.Content>
+                        <Dialog.Header>
+                          <Dialog.Title>Reset Password</Dialog.Title>
+                        </Dialog.Header>
+
+                        <Dialog.Body>
+                          <VStack spacing="4" align="stretch">
+                            <Text fontSize="sm" color="gray.600">
+                              Enter your email and we’ll send you a reset link.
+                            </Text>
+
+                            <Field.Root>
+                              <Field.Label>Email</Field.Label>
+                              <Input
+                                value={forgotEmail}
+                                onChange={(e) => setForgotEmail(e.target.value)}
+                                autoComplete="email"
+                              />
+                            </Field.Root>
+
+                            {forgotStatus === "failed" && forgotError ? (
+                              <Text fontSize="sm" color="red.500">
+                                {forgotError}
+                              </Text>
+                            ) : null}
+                          </VStack>
+                        </Dialog.Body>
+
+                        <Dialog.Footer>
+                          <Dialog.ActionTrigger asChild>
+                            <Button variant="outline">Cancel</Button>
+                          </Dialog.ActionTrigger>
+
+                          <Button
+                            onClick={onForgotPassword}
+                            isLoading={forgotStatus === "loading"}
+                            colorPalette="blue"
+                          >
+                            Send reset link
+                          </Button>
+                        </Dialog.Footer>
+
+                        <Dialog.CloseTrigger asChild>
+                          <CloseButton size="sm" />
+                        </Dialog.CloseTrigger>
+                      </Dialog.Content>
+                    </Dialog.Positioner>
+                  </Portal>
+                </Dialog.Root>
 
                 <Button
                   type="submit"

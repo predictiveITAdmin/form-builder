@@ -655,6 +655,7 @@ const EditForm = () => {
                         <option value="Published">Published</option>
                         <option value="Draft">Draft</option>
                         <option value="Archived">Archived</option>
+                        <option value="Cancelled">Cancelled</option>
                       </NativeSelect.Field>
                       <NativeSelect.Indicator />
                     </NativeSelect.Root>

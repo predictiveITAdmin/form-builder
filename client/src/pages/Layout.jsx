@@ -66,7 +66,7 @@ function Layout({ children }) {
       path: "/responses",
       label: "Responses",
       icon: <LuTicketCheck />,
-      code: "responses.read",
+      code: "responses.readAll",
     },
     {
       path: "/dashboard",

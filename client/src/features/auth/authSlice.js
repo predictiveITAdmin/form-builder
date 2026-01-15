@@ -64,6 +64,21 @@ export const loadSession = createAsyncThunk(
   }
 );
 
+export const forgotPassword = createAsyncThunk(
+  "auth/forgotPassword",
+  async ({ email }, { rejectWithValue }) => {
+    try {
+      // IMPORTANT: use http + relative URL so proxy/interceptor works
+      const res = await http.post("/api/auth/forgotPassword", { email });
+      return res.data; // backend can return { message: "..."} or whatever
+    } catch (err) {
+      return rejectWithValue(
+        err?.response?.data?.message || "Failed to send reset email"
+      );
+    }
+  }
+);
+
 /**
  * Explicitly refresh user from server (same as loadSession but doesn't touch token)
  */
@@ -160,6 +175,9 @@ const initialState = {
   user: null,
   error: null,
   refreshError: null,
+
+  forgotStatus: "idle",
+  forgotError: null,
 
   authMode: null,
   isAzureUser: false,
@@ -354,6 +372,23 @@ const authSlice = createSlice({
           action.error?.message ||
           "Failed to create password";
       });
+
+    builder
+      .addCase(forgotPassword.pending, (state) => {
+        state.forgotStatus = "loading";
+        state.forgotError = null;
+      })
+      .addCase(forgotPassword.fulfilled, (state) => {
+        state.forgotStatus = "succeeded";
+        state.forgotError = null;
+      })
+      .addCase(forgotPassword.rejected, (state, action) => {
+        state.forgotStatus = "failed";
+        state.forgotError =
+          action.payload ||
+          action.error?.message ||
+          "Failed to send reset email";
+      });
   },
 });
 
@@ -374,3 +409,6 @@ export const selectAuthMode = (state) => state.auth.authMode;
 export const selectNewUser = (state) => state.auth.newUser;
 export const selectNewUserStatus = (state) => state.auth.newUserStatus;
 export const selectNewUserError = (state) => state.auth.newUserError;
+
+export const selectForgotStatus = (state) => state.auth.forgotStatus;
+export const selectForgotError = (state) => state.auth.forgotError;

@@ -1,8 +1,7 @@
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const queries = require("./queries");
-const { authConfig } = require("./authConfig");
-const sendInviteEmail = require("./utils");
+const sendPortalEmail = require("./utils");
 
 const hashPassword = (password) => {
   return new Promise((resolve, reject) => {
@@ -179,13 +178,59 @@ module.exports = {
       });
 
       const inviteLink = `${process.env.FRONTEND_URL}/create-password?token=${inviteToken}`;
-      sendInviteEmail(email, inviteLink);
+      sendPortalEmail(email, inviteLink, "invite");
       return res
         .status(201)
         .json({ message: "User created and invite email sent." });
     } catch (error) {
       console.error("Create User Error:", error);
       return res.status(500).json({ message: "Internal Server Error" });
+    }
+  },
+
+  forgotPassword: async (req, res) => {
+    const { email } = req.body;
+
+    console.log(email);
+
+    // Always respond success (don’t leak user existence)
+    const genericResponse = () =>
+      res.status(200).json({
+        message:
+          "If an account exists for that email, a reset link has been sent.",
+      });
+
+    try {
+      if (!email || String(email).trim() === "") return genericResponse();
+
+      const user = await queries.getUserByEmail(email);
+      if (!user) return genericResponse();
+
+      // Internal accounts should use Microsoft login, not local reset.
+      if (user.user_type === "Internal") return genericResponse();
+
+      const inviteToken = crypto.randomBytes(32).toString("hex");
+      const inviteTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+      const updated = await queries.setInviteTokenForUserEmail(email, {
+        inviteToken,
+        inviteTokenExpiresAt,
+      });
+
+      console.log(updated);
+
+      if (!updated) return genericResponse();
+
+      const resetLink = `${process.env.FRONTEND_URL}/create-password?token=${inviteToken}`;
+      console.log(resetLink);
+      // Send reset email
+      await sendPortalEmail(email, resetLink, "reset");
+
+      return genericResponse();
+    } catch (error) {
+      console.error("Forgot Password Error:", error);
+      // Still generic, because you don’t want attackers learning about failures.
+      return genericResponse();
     }
   },
 

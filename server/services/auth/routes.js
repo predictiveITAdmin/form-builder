@@ -44,6 +44,9 @@ router.post(
   hasPermissions(["users.create"]),
   controller.createUser
 );
+
+router.post("/forgotPassword", controller.forgotPassword);
+
 router.post("/login", controller.login);
 router.post("/createPassword", controller.createPassword);
 router.get("/me", authMiddleware, controller.getMe);

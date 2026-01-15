@@ -74,6 +74,7 @@ LEFT JOIN LATERAL (
     AND COALESCE(active, true) = true
 ) ff ON true
 WHERE COALESCE(f.status, '') NOT IN ('Archived', 'Deleted')
+AND f.usage_mode = 'standalone'
 ORDER BY f.updated_at DESC, f.form_id DESC
 LIMIT 10;
   `;
