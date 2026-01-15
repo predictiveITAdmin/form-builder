@@ -37,6 +37,22 @@ async function listPublished(req, res) {
   }
 }
 
+async function listWorkflowForms(req, res) {
+  const user_id = req.user?.userId;
+  if (!user_id) {
+    res.status(401).json({ message: "User is not authenticated!" });
+  }
+  try {
+    const forms = await svc.listWorkFlowForms();
+    return res.json(forms);
+  } catch (err) {
+    return res.status(500).json({
+      error: "Failed to list published forms",
+      details: String(err?.message || err),
+    });
+  }
+}
+
 async function create(req, res) {
   try {
     const payload = req.body;
@@ -481,4 +497,5 @@ module.exports = {
   getUsersForForm,
   setUsersForForm,
   uploadFiles,
+  listWorkflowForms,
 };

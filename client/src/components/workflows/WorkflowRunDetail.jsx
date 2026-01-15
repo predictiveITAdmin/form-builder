@@ -14,7 +14,7 @@ import {
   Progress,
   Splitter,
   Tag,
-  Select,
+  NativeSelect,
   Pagination,
 } from "@chakra-ui/react";
 import { useNavigate, useParams, Link as RouterLink } from "react-router-dom";
@@ -88,10 +88,10 @@ const WorkflowLifecycleChips = ({ run }) => {
   if (s === "cancelled") {
     return (
       <HStack wrap="wrap" gap={2}>
-        <Tag.Root colorScheme="red" variant="subtle">
+        <Tag.Root color={"white"} bgColor="red" variant="subtle">
           <Tag.Label>Cancelled</Tag.Label>
         </Tag.Root>
-        <Tag.Root colorScheme="gray" variant="outline">
+        <Tag.Root color={"white"} bgColor="gray" variant="outline">
           <Tag.Label>Created: {safeDate(run?.created_at)}</Tag.Label>
         </Tag.Root>
       </HStack>
@@ -118,7 +118,8 @@ const WorkflowLifecycleChips = ({ run }) => {
         return (
           <Tag.Root
             key={st.key}
-            colorScheme={scheme}
+            bgColor={scheme}
+            color={"white"}
             variant={active ? "solid" : "subtle"}
           >
             <Tag.Label>{st.label}</Tag.Label>
@@ -127,7 +128,8 @@ const WorkflowLifecycleChips = ({ run }) => {
       })}
 
       {locked ? (
-        <Tag.Root colorScheme="purple" variant="subtle">
+        <Tag.Root bgColor="purple" variant="subtle">
+          color={"white"}
           <Tag.Label>Locked</Tag.Label>
         </Tag.Root>
       ) : null}
@@ -431,16 +433,16 @@ const WorkflowRunDetail = () => {
           <HStack wrap="wrap">
             <Text fontWeight="bold">{row.form_title || "-"}</Text>
             {row.required ? (
-              <Badge colorScheme="red" variant="subtle">
+              <Badge bgColor="red" variant="subtle" color={"white"}>
                 Required
               </Badge>
             ) : (
-              <Badge colorScheme="gray" variant="subtle">
+              <Badge bgColor="gray" variant="subtle" color={"white"}>
                 Optional
               </Badge>
             )}
             {row.allow_multiple ? (
-              <Badge colorScheme="blue" variant="outline">
+              <Badge bgColor="blue" variant="outline" color={"white"}>
                 Repeatable
               </Badge>
             ) : null}
@@ -463,38 +465,39 @@ const WorkflowRunDetail = () => {
               (row.assigned_user_id ? `User #${row.assigned_user_id}` : "-")}
           </Text>
 
-          {/* Admin-only: quick assign input (simple by design; plug in your user picker later) */}
           <Can any={["workflows.item.assign"]}>
             <HStack>
-              <Select
+              <NativeSelect.Root
                 size="sm"
-                placeholder="Assign user id..."
-                value={assignByItem[row.workflow_item_id] ?? ""}
-                onChange={(e) =>
-                  setAssignByItem((prev) => ({
-                    ...prev,
-                    [row.workflow_item_id]: e.target.value,
-                  }))
-                }
                 width={44}
-                isDisabled={runIsCancelled || runIsLocked}
+                disabled={runIsCancelled || runIsLocked}
               >
-                {/* This is intentionally dumb: you likely have a user directory picker elsewhere.
-                    For now, allow typing IDs by adding them as options in your app-level user list,
-                    or replace this with your Select component / directory search. */}
-                {row.assigned_user_id ? (
-                  <option value={row.assigned_user_id}>
-                    {row.assigned_user_id}
-                  </option>
-                ) : null}
-              </Select>
+                <NativeSelect.Field
+                  placeholder="Assign user id..."
+                  value={assignByItem[row.workflow_item_id] ?? ""}
+                  onChange={(e) =>
+                    setAssignByItem((prev) => ({
+                      ...prev,
+                      [row.workflow_item_id]: e.target.value,
+                    }))
+                  }
+                >
+                  {row.assigned_user_id ? (
+                    <option value={row.assigned_user_id}>
+                      {row.assigned_user_id}
+                    </option>
+                  ) : null}
+                </NativeSelect.Field>
+
+                <NativeSelect.Indicator />
+              </NativeSelect.Root>
 
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => onAssign(row)}
                 isLoading={assignLoading}
-                isDisabled={runIsCancelled || runIsLocked}
+                disabled={runIsCancelled || runIsLocked}
               >
                 Assign
               </Button>
@@ -510,7 +513,8 @@ const WorkflowRunDetail = () => {
       render: (value, row) => (
         <VStack align="start" spacing={1}>
           <Badge
-            colorScheme={statusColor(value)}
+            bgColor={statusColor(value)}
+            color={"white"}
             variant="subtle"
             textTransform="capitalize"
           >
@@ -535,24 +539,16 @@ const WorkflowRunDetail = () => {
         return (
           <HStack spacing={1}>
             {/* View form template quickly */}
-            <IconButton
-              size="sm"
-              aria-label="View form"
-              variant="ghost"
-              color="green"
-              icon={<FaEye size={16} />}
-              onClick={() => navigate(`/forms/${row.form_key}`)}
-            />
-
             {/* Start / Continue */}
             <Can any={["workflows.item.start"]}>
               <Button
                 size="sm"
-                colorScheme="blue"
+                bgColor="blue"
+                color={"white"}
                 variant={done ? "outline" : "solid"}
-                onClick={() => onStartItem(row)}
+                onClick={() => navigate(`/forms/${row.form_key}`)}
                 isLoading={startLoading}
-                isDisabled={disabled}
+                disabled={disabled}
               >
                 {norm(row.status) === "not_started" ? "Start" : "Continue"}
               </Button>
@@ -563,10 +559,11 @@ const WorkflowRunDetail = () => {
               <Button
                 size="sm"
                 variant="outline"
-                colorScheme="orange"
+                bgColor="orange"
+                color={"white"}
                 onClick={() => onSkipItem(row)}
                 isLoading={skipLoading}
-                isDisabled={disabled || done}
+                disabled={disabled || done}
               >
                 Skip
               </Button>
@@ -580,7 +577,7 @@ const WorkflowRunDetail = () => {
                   variant="outline"
                   onClick={() => onAddAnother(row)}
                   isLoading={addRepeatLoading}
-                  isDisabled={disabled}
+                  disabled={disabled}
                 >
                   Add another
                 </Button>
@@ -604,7 +601,8 @@ const WorkflowRunDetail = () => {
             </Text>
 
             <Badge
-              colorScheme={statusColor(run.status)}
+              bgColor={statusColor(run.status)}
+              color={"white"}
               variant="subtle"
               textTransform="capitalize"
             >
@@ -612,7 +610,8 @@ const WorkflowRunDetail = () => {
             </Badge>
 
             {run.locked_at ? (
-              <Badge colorScheme="purple" variant="outline">
+              <Badge bgColor="purple" variant="outline">
+                color={"white"}
                 Locked
               </Badge>
             ) : null}
@@ -702,7 +701,8 @@ const WorkflowRunDetail = () => {
                 </Text>
 
                 <Badge
-                  colorScheme={progress.pct === 100 ? "green" : "blue"}
+                  bgColor={progress.pct === 100 ? "green" : "blue"}
+                  color={"white"}
                   variant="subtle"
                 >
                   {progress.pct}%
@@ -737,11 +737,12 @@ const WorkflowRunDetail = () => {
                 <HStack>
                   <Can any={["workflows.run.lock"]}>
                     <Button
-                      colorScheme="purple"
+                      bgColor="purple"
+                      color={"white"}
                       variant="outline"
                       onClick={onLock}
-                      isLoading={lockLoading}
-                      isDisabled={runIsCancelled || runIsLocked}
+                      loading={lockLoading}
+                      disabled={runIsCancelled || runIsLocked}
                     >
                       Lock Run
                     </Button>
@@ -749,11 +750,12 @@ const WorkflowRunDetail = () => {
 
                   <Can any={["workflows.run.cancel"]}>
                     <Button
-                      colorScheme="red"
+                      bgColor="red"
+                      color={"white"}
                       variant="outline"
                       onClick={onCancel}
-                      isLoading={cancelLoading}
-                      isDisabled={runIsCancelled}
+                      loading={cancelLoading}
+                      disabled={runIsCancelled}
                     >
                       Cancel Run
                     </Button>
@@ -766,7 +768,7 @@ const WorkflowRunDetail = () => {
                     value={cancelReason}
                     onChange={(e) => setCancelReason(e.target.value)}
                     width={{ base: "full", md: 96 }}
-                    isDisabled={runIsCancelled}
+                    disabled={runIsCancelled}
                   />
                 </InputGroup>
               </HStack>

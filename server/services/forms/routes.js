@@ -16,6 +16,14 @@ router.get(
   hasAnyPermission(["forms.read"]),
   ctrl.listPublished
 );
+
+router.get(
+  "/published/workflowForms",
+  authMiddleware,
+  hasPermissions(["forms.read", "workflows.read"]),
+  ctrl.listWorkflowForms
+);
+
 router.get(
   "/",
   authMiddleware,

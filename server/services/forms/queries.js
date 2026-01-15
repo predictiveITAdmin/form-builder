@@ -1,8 +1,5 @@
 const { getPool, query } = require("../../db/pool");
 
-/**
- * Admin list - all forms
- */
 async function listForms() {
   return query(
     `
@@ -71,6 +68,29 @@ async function listPublishedForms(userId) {
     ORDER BY f.created_at DESC;`,
     [userId]
   );
+}
+
+async function listWorkFlowForms() {
+  const sql = `SELECT
+            f.form_id,
+            f.title,
+            f.description,
+            f.status,
+            f.owner_user_id,
+            f.is_anonymous,
+            f.form_key,
+            f.created_at,
+            f.updated_at,
+            u.display_name AS owner_name,
+            f.rpa_webhook_url
+          FROM Forms f
+          LEFT JOIN Users u
+            ON u.user_id = f.owner_user_id
+          WHERE
+            f.status ILIKE 'published'
+            AND f.usage_mode = 'workflow_only'
+          ORDER BY f.created_at DESC`;
+  return await query(sql);
 }
 
 async function createForm(payload, { owner_user_id = null } = {}) {
@@ -907,4 +927,5 @@ module.exports = {
   updateFormByKey,
   fetchFormUsers,
   setFormUsers,
+  listWorkFlowForms,
 };

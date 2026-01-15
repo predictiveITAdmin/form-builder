@@ -239,6 +239,116 @@ async function listWorkflowRuns({
 }
 
 // -------------------------
+// Workflow Forms
+// -------------------------
+async function createWorkflowForm({
+  workflow_id,
+  form_id,
+  required = false,
+  allow_multiple = false,
+  sort_order = 50,
+}) {
+  const pool = await getPool();
+  const client = await pool.connect();
+
+  const sql = `
+    INSERT INTO public.workflow_forms 
+      (workflow_id, form_id, required, allow_multiple, sort_order, created_at, updated_at)
+    VALUES 
+      ($1, $2, $3, $4, $5, NOW(), NOW())
+    RETURNING workflow_id, form_id, required, allow_multiple, sort_order, updated_at
+  `;
+
+  const params = [workflow_id, form_id, required, allow_multiple, sort_order];
+
+  try {
+    const result = await client.query(sql, params);
+    return result.rows[0];
+  } catch (err) {
+    throw new Error("Unable to add Form to the Template. " + err.message);
+  } finally {
+    client.release();
+  }
+}
+
+async function removeWorkflowForm(workflow_form_id) {
+  const pool = await getPool();
+  const client = await pool.connect();
+  const sql = `DELETE FROM public.workflow_forms WHERE workflow_form_id = $1 returning workflow_id, form_id, sort_order`;
+  const params = [workflow_form_id];
+  try {
+    const result = await client.query(sql, params);
+    return result.rows[0];
+  } catch (e) {
+    throw new Error("Unable to Remove Form from Template. " + e.message);
+  } finally {
+    client.release();
+  }
+}
+
+async function updateWorkflowForm({
+  workflow_form_id,
+  required = false,
+  allow_multiple = false,
+  sort_order = 50,
+}) {
+  const pool = await getPool();
+  const client = await pool.connect();
+
+  const sql = `
+    UPDATE public.workflow_forms
+    SET
+      required = $2,
+      allow_multiple = $3,
+      sort_order = $4,
+      updated_at = NOW()
+    WHERE workflow_form_id = $1
+    RETURNING
+      workflow_form_id,
+      workflow_id,
+      form_id,
+      required,
+      allow_multiple,
+      sort_order,
+      updated_at
+  `;
+
+  const params = [workflow_form_id, required, allow_multiple, sort_order];
+
+  try {
+    const result = await client.query(sql, params);
+    return result.rows[0];
+  } catch (err) {
+    throw new Error("Unable to update Workflow Form. " + err.message);
+  } finally {
+    client.release();
+  }
+}
+
+async function getWorkflowForm(workflow_form_id) {
+  const sql = `SELECT workflow_form_id, workflow_id, form_id, required, allow_multiple, sort_order, created_at, updated_at
+	FROM public.workflow_forms WHERE workflow_form_id = $1;`;
+  const params = [workflow_form_id];
+  try {
+    const result = await query(sql, params);
+    return result;
+  } catch (err) {
+    throw new Error("Could not get Workflow Form. " + err);
+  }
+}
+
+async function listWorkflowForms() {
+  const sql = `SELECT workflow_form_id, workflow_id, wf.form_id, f.title, f.description, f.status, wf.required, wf.allow_multiple, wf.sort_order, wf.created_at, wf.updated_at
+	FROM public.workflow_forms wf LEFT JOIN Forms f on f.form_id = wf.form_id;`;
+  try {
+    const result = await query(sql);
+    return result;
+  } catch (err) {
+    throw new Error("Could not get Workflow Form. " + err);
+  }
+}
+
+// -------------------------
 // Workflow Runs
 // -------------------------
 
@@ -813,6 +923,14 @@ module.exports = {
   getWorkflowById,
   listWorkflows,
   listWorkflowRuns,
+
+  // workflow_forms
+  createWorkflowForm,
+  removeWorkflowForm,
+  getWorkflowForm,
+  listWorkflowForms,
+  updateWorkflowForm,
+
   // runs
   createWorkflowRun,
   getWorkflowRunDashboard,

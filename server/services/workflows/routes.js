@@ -41,6 +41,51 @@ router.get(
 );
 
 router.get(
+  "/workflow-forms",
+  authMiddleware,
+  hasAnyPermission(["workflows.read"]),
+  controller.listWorkflowForms
+);
+
+// Get one workflow form by id
+router.get(
+  "/workflow-forms/:workflowFormId",
+  authMiddleware,
+  hasAnyPermission(["workflows.read"]),
+  controller.getWorkflowForm
+);
+
+router.delete(
+  "/workflows/:workflowId/forms/:workflowFormId",
+  authMiddleware,
+  hasAnyPermission(["workflows.create"]),
+  controller.removeFormFromWorkflow
+);
+
+router.put(
+  "/workflow-forms/:workflowFormId",
+  authMiddleware,
+  hasAnyPermission(["workflows.create"]),
+  controller.updateWorkflowForm
+);
+
+// Assign a form to a workflow (create workflow_form row)
+router.post(
+  "/workflows/:workflowId/forms",
+  authMiddleware,
+  hasAnyPermission(["workflows.create"]),
+  controller.assignFormToWorkflow
+);
+
+// Remove workflow_form link by id
+router.delete(
+  "/workflow-forms/:workflowFormId",
+  authMiddleware,
+  hasAnyPermission(["workflows.create"]),
+  controller.removeFormFromWorkflow
+);
+
+router.get(
   "/workflow-runs",
   authMiddleware,
   hasAnyPermission(["workflows.run.list"]),

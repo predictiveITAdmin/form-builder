@@ -1,7 +1,6 @@
 // middleware/hasPermissions.js
 const hasPermissions = (requiredPermissions) => {
   return (req, res, next) => {
-    console.log(req.user);
     const userPermissions = req.user?.permissions;
 
     if (!userPermissions || !(userPermissions instanceof Set)) {

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   VStack,
   HStack,
-  Flex,
+  Stack,
   Dialog,
   Text,
   Badge,
@@ -14,6 +14,13 @@ import {
   Pagination,
   Card,
   Splitter,
+  Fieldset,
+  Field,
+  Combobox,
+  useListCollection,
+  useFilter,
+  Portal,
+  Checkbox,
 } from "@chakra-ui/react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams, Link as RouterLink } from "react-router-dom";
@@ -37,9 +44,15 @@ import {
   selectWorkflowRuns,
   selectWorkflowLoading,
   selectWorkflowError,
-  fetchWorkflowAssignableForms,
-  selectWorkflowAssignableForms,
+  fetchWorkflowForms,
+  assignFormToWorkflow,
+  updateWorkflowForm,
+  removeWorkflowFormFromWorkflow,
+  selectWorkflowForms,
+  fetchAssignableForms,
+  selectAssignableForms,
 } from "@/features/workflows/workflowSlice";
+import AssignableForms from "./AssignableForms";
 
 const statusColor = (status) => {
   const v = String(status || "").toLowerCase();
@@ -80,7 +93,7 @@ const WorkflowTemplateDetail = () => {
 
   const createRunLoading = useSelector(selectWorkflowLoading("createRun"));
 
-  const assignableForms = useSelector(selectWorkflowAssignableForms);
+  const assignableForms = useSelector(selectAssignableForms);
   const assignableFormsLoading = useSelector(
     selectWorkflowLoading("fetchAssignableForms")
   );
@@ -88,6 +101,19 @@ const WorkflowTemplateDetail = () => {
     selectWorkflowError("fetchAssignableForms")
   );
 
+  // "assignableForms" => combobox options
+  // "workflowForms"   => currently assigned forms in template setup
+  const workflowForms = useSelector(selectWorkflowForms);
+  const workflowFormsLoading = useSelector(
+    selectWorkflowLoading("fetchWorkflowForms")
+  );
+  const workflowFormsError = useSelector(
+    selectWorkflowError("fetchWorkflowForms")
+  );
+
+  const assignFormLoading = useSelector(
+    selectWorkflowLoading("assignFormToWorkflow")
+  );
   const [searchTerm, setSearchTerm] = useState("");
 
   // Create Run dialog state
@@ -96,9 +122,73 @@ const WorkflowTemplateDetail = () => {
   const [manageFormsOpen, setManageFormsOpen] = useState(false);
   const [displayName, setDisplayName] = useState("");
 
+  // Manage Forms dialog state
+  const [selectedFormId, setSelectedFormId] = useState(null);
+  const [isRequired, setIsRequired] = useState(false);
+  const [allowMultiple, setAllowMultiple] = useState(false);
+  const [sortOrder, setSortOrder] = useState(50);
+
+  // Edit existing assigned form
+  const [editFormOpen, setEditFormOpen] = useState(false);
+  const [editingWorkflowForm, setEditingWorkflowForm] = useState(null);
+
   const closeRunDialog = () => {
     setRunDialogOpen(false);
     setDisplayName("");
+  };
+
+  const onAssignForm = async () => {
+    const formIdNum = Number(selectedFormId);
+    if (!Number.isFinite(formIdNum)) {
+      notify({
+        type: "warning",
+        title: "Select a form",
+        message: "Pick a form to add to this workflow template.",
+      });
+      return;
+    }
+
+    const res = await dispatch(
+      assignFormToWorkflow({
+        workflowId: wid,
+        form_id: formIdNum,
+        required: Boolean(isRequired),
+        allow_multiple: Boolean(allowMultiple),
+        sort_order: Number(sortOrder) || 50,
+      })
+    );
+
+    if (res?.meta?.requestStatus === "fulfilled") {
+      notify({
+        type: "success",
+        title: "Form added",
+        message: "Form added to workflow template.",
+      });
+
+      // refresh workflow so the assigned forms list updates
+      dispatch(getWorkflow({ workflowId: wid }));
+      dispatch(fetchWorkflowForms({ workflow_id: wid }));
+      closeManageForms();
+    } else {
+      notify({
+        type: "error",
+        title: "Add form failed",
+        message: res?.payload?.message || "Unable to add form to workflow.",
+      });
+    }
+  };
+
+  const closeManageForms = () => {
+    setManageFormsOpen(false);
+    setSelectedFormId(null);
+    setIsRequired(false);
+    setAllowMultiple(false);
+    setSortOrder(50);
+  };
+
+  const closeEditForm = () => {
+    setEditFormOpen(false);
+    setEditingWorkflowForm(null);
   };
 
   useEffect(() => {
@@ -106,11 +196,12 @@ const WorkflowTemplateDetail = () => {
 
     dispatch(getWorkflow({ workflowId: wid }));
     dispatch(fetchWorkflowRuns({ workflow_id: wid }));
+    dispatch(fetchWorkflowForms({ workflow_id: wid }));
   }, [dispatch, wid]);
 
   useEffect(() => {
-    if (!runDialogOpen /* replace with your manageFormsOpen */) return;
-    dispatch(fetchWorkflowAssignableForms());
+    if (!manageFormsOpen /* replace with your manageFormsOpen */) return;
+    dispatch(fetchAssignableForms());
   }, [dispatch, manageFormsOpen]);
 
   const runsForThisWorkflow = useMemo(() => {
@@ -233,17 +324,130 @@ const WorkflowTemplateDetail = () => {
     }
   };
 
+  const assignedForms = useMemo(() => {
+    // Prefer the dedicated endpoint-backed list (workflowForms) if present.
+    const list = Array.isArray(workflowForms) ? workflowForms : [];
+    const scoped = list.filter((x) => Number(x.workflow_id) === wid);
+
+    if (scoped.length) return scoped;
+
+    // Fallback to whatever getWorkflow returned (older API shapes)
+    const legacy =
+      workflow?.workflow_forms ||
+      workflow?.forms ||
+      workflow?.template_forms ||
+      workflow?.workflowForms ||
+      [];
+    return Array.isArray(legacy) ? legacy : [];
+  }, [workflowForms, wid, workflow]);
+
+  const onRemoveAssignedForm = async (workflowFormId) => {
+    const wfFormIdNum = Number(workflowFormId);
+    if (!Number.isFinite(wfFormIdNum)) {
+      console.log(wfFormIdNum);
+      return;
+    }
+
+    const res = await dispatch(
+      removeWorkflowFormFromWorkflow({
+        workflowId: wid,
+        workflowFormId: wfFormIdNum,
+      })
+    );
+
+    if (res?.meta?.requestStatus === "fulfilled") {
+      notify({
+        type: "success",
+        title: "Removed",
+        message: "Form removed from workflow template.",
+      });
+      dispatch(getWorkflow({ workflowId: wid }));
+      dispatch(fetchWorkflowForms({ workflow_id: wid }));
+    } else {
+      notify({
+        type: "error",
+        title: "Remove failed",
+        message: res?.payload?.message || "Unable to remove form.",
+      });
+    }
+  };
+
+  const onOpenEditAssignedForm = (wfForm) => {
+    setEditingWorkflowForm(wfForm);
+    setIsRequired(Boolean(wfForm?.required));
+    setAllowMultiple(Boolean(wfForm?.allow_multiple));
+    setSortOrder(Number(wfForm?.sort_order ?? 50));
+    setEditFormOpen(true);
+  };
+
+  const onSaveEditAssignedForm = async () => {
+    const wfFormIdNum = Number(
+      editingWorkflowForm?.workflow_form_id ||
+        editingWorkflowForm?.workflowFormId ||
+        editingWorkflowForm?.workflow_formId ||
+        editingWorkflowForm?.id
+    );
+
+    if (!Number.isFinite(wfFormIdNum)) {
+      notify({
+        type: "error",
+        title: "Edit failed",
+        message: "Missing workflow_form_id for this assignment.",
+      });
+      return;
+    }
+
+    const res = await dispatch(
+      updateWorkflowForm({
+        workflowFormId: wfFormIdNum,
+        required: Boolean(isRequired),
+        allow_multiple: Boolean(allowMultiple),
+        sort_order: Number(sortOrder) || 50,
+      })
+    );
+
+    if (res?.meta?.requestStatus === "fulfilled") {
+      notify({
+        type: "success",
+        title: "Updated",
+        message: "Form settings updated.",
+      });
+      dispatch(getWorkflow({ workflowId: wid }));
+      dispatch(fetchWorkflowForms({ workflow_id: wid }));
+      closeEditForm();
+    } else {
+      notify({
+        type: "error",
+        title: "Update failed",
+        message: res?.payload?.message || "Unable to update form settings.",
+      });
+    }
+  };
+
+  const collectionForms = assignableForms.map((item) => ({
+    label: item.title,
+    value: item.form_id,
+  }));
+
+  const { contains } = useFilter({ sensitivity: "base" });
+
+  const { collection, filter } = useListCollection({
+    initialItems: collectionForms.map((item) => ({
+      label: item.title,
+      value: item.form_id,
+    })),
+    filter: contains,
+  });
+
   if (!Number.isFinite(wid))
     return <AppError message={`Invalid workflowId: ${workflowId}`} />;
   if (wfLoading) return <AppLoader />;
   if (wfError) return <AppError message={wfError?.message || wfError} />;
 
-  // If workflow isn't in cache yet but load finished, treat as not found.
   if (!workflow) return <AppError message="Workflow not found" />;
 
   return (
     <VStack spacing={6} align="stretch">
-      {/* Header */}
       <HStack justify="space-between" align="start">
         <VStack align="start" spacing={1}>
           <HStack wrap="wrap" spacing={3}>
@@ -311,20 +515,123 @@ const WorkflowTemplateDetail = () => {
             <Card.Body>
               <VStack align="stretch" spacing={3}>
                 <Text color="gray.600">
-                  This is where workflow forms (required/optional,
-                  allow_multiple, sort order) will live.
+                  You can manage the forms where, these forms will be part of
+                  each run that you create from this workflow.
                 </Text>
 
                 <Text fontSize="sm" color="gray.600"></Text>
 
                 <HStack>
                   <Button
-                    variant="outline"
+                    variant="solid"
+                    bgColor={"#2596be"}
                     onClick={() => setManageFormsOpen(true)}
                   >
-                    Manage Forms
+                    Add Form
                   </Button>
+                  {assignableForms.length > 0 && (
+                    <AssignableForms
+                      assignableForms={assignableForms}
+                      isRequired={isRequired}
+                      setIsRequired={setIsRequired}
+                      allowMultiple={allowMultiple}
+                      setAllowMultiple={setAllowMultiple}
+                      sortOrder={sortOrder}
+                      setSortOrder={setSortOrder}
+                      manageFormsOpen={manageFormsOpen}
+                      closeManageForms={closeManageForms}
+                      assignableFormsLoading={assignableFormsLoading}
+                      workflowTitle={workflow.title}
+                      setManageFormsOpen={setManageFormsOpen}
+                      selectedFormId={selectedFormId}
+                      setSelectedFormId={setSelectedFormId}
+                      onAssignForm={onAssignForm}
+                      assignFormLoading={assignFormLoading}
+                    />
+                  )}
                 </HStack>
+
+                {/* Assigned Forms list */}
+                <VStack align="stretch" spacing={2} pt={2}>
+                  <Text fontWeight="semibold">Forms in this Template</Text>
+
+                  {assignedForms.length === 0 ? (
+                    <Text fontSize="sm" color="gray.600">
+                      No forms assigned yet.
+                    </Text>
+                  ) : (
+                    assignedForms.map((wfForm) => {
+                      const wfFormId =
+                        wfForm.workflow_form_id ||
+                        wfForm.workflowFormId ||
+                        wfForm.id;
+
+                      const title =
+                        wfForm?.form?.title ||
+                        wfForm?.title ||
+                        wfForm?.form_title ||
+                        wfForm?.form_name ||
+                        `Form #${wfForm.form_id ?? wfForm.formId ?? "-"}`;
+
+                      return (
+                        <Card.Root
+                          key={wfFormId ?? title}
+                          variant="outline"
+                          borderRadius="xl"
+                        >
+                          <Card.Body>
+                            <HStack justify="space-between" align="start">
+                              <VStack align="start" spacing={0.5}>
+                                <Text fontWeight="bold">{title}</Text>
+                                <HStack spacing={2} wrap="wrap">
+                                  <Badge
+                                    bgColor={
+                                      wfForm.required ? "red.600" : "gray"
+                                    }
+                                    color="white"
+                                  >
+                                    {wfForm.required ? "Required" : "Optional"}
+                                  </Badge>
+                                  <Badge
+                                    bgColor={
+                                      wfForm.allow_multiple ? "blue" : "gray"
+                                    }
+                                    color="white"
+                                  >
+                                    {wfForm.allow_multiple
+                                      ? "Multiple allowed"
+                                      : "Single"}
+                                  </Badge>
+                                  <Badge variant="subtle">
+                                    Sort: {wfForm.sort_order ?? "-"}
+                                  </Badge>
+                                </HStack>
+                              </VStack>
+
+                              <HStack>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => onOpenEditAssignedForm(wfForm)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  colorPalette="red"
+                                  onClick={() => onRemoveAssignedForm(wfFormId)}
+                                >
+                                  Remove
+                                </Button>
+                              </HStack>
+                            </HStack>
+                          </Card.Body>
+                        </Card.Root>
+                      );
+                    })
+                  )}
+                </VStack>
               </VStack>
             </Card.Body>
           </Card.Root>
@@ -337,17 +644,6 @@ const WorkflowTemplateDetail = () => {
             <Card.Header pb={0}>
               <HStack justify="space-between" align="center">
                 <Text fontWeight="bold">Runs for this Workflow</Text>
-
-                <Can any={["workflows.run.create"]}>
-                  <Button
-                    size="sm"
-                    bgColor="#2590ce"
-                    color="#fff"
-                    onClick={() => setRunDialogOpen(true)}
-                  >
-                    Create Run
-                  </Button>
-                </Can>
               </HStack>
             </Card.Header>
 
@@ -461,6 +757,88 @@ const WorkflowTemplateDetail = () => {
                   isLoading={createRunLoading}
                 >
                   Create Run
+                </Button>
+              </HStack>
+            </Dialog.Footer>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Dialog.Root>
+
+      {/* Edit Assigned Form Dialog */}
+      <Dialog.Root
+        open={editFormOpen}
+        onOpenChange={(e) => setEditFormOpen(e.open)}
+      >
+        <Dialog.Trigger asChild>
+          <span style={{ display: "none" }} />
+        </Dialog.Trigger>
+
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content borderRadius="2xl">
+            <Dialog.CloseTrigger onClick={closeEditForm} />
+
+            <Dialog.Header>
+              <Dialog.Title>Edit Template Form</Dialog.Title>
+            </Dialog.Header>
+
+            <Dialog.Body marginTop={6}>
+              <VStack align="stretch" spacing={3}>
+                <Text fontSize={14}>
+                  <b>Workflow:</b> {workflow.title}
+                </Text>
+
+                <Text fontSize={14}>
+                  <b>Form:</b>{" "}
+                  {editingWorkflowForm?.form?.title ||
+                    editingWorkflowForm?.title ||
+                    editingWorkflowForm?.form_title ||
+                    "-"}
+                </Text>
+
+                <VStack align="stretch" spacing={2}>
+                  <Checkbox.Root
+                    checked={isRequired}
+                    onCheckedChange={(e) => setIsRequired(!!e.checked)}
+                  >
+                    <Checkbox.HiddenInput />
+                    <Checkbox.Control />
+                    <Checkbox.Label>Required</Checkbox.Label>
+                  </Checkbox.Root>
+
+                  <Checkbox.Root
+                    checked={allowMultiple}
+                    onCheckedChange={(e) => setAllowMultiple(!!e.checked)}
+                  >
+                    <Checkbox.HiddenInput />
+                    <Checkbox.Control />
+                    <Checkbox.Label>Allow Multiple</Checkbox.Label>
+                  </Checkbox.Root>
+
+                  <Field.Root maxW={40}>
+                    <Field.Label>Sort Order</Field.Label>
+                    <Input
+                      type="number"
+                      max={50}
+                      value={sortOrder}
+                      onChange={(e) => setSortOrder(e.target.value)}
+                    />
+                  </Field.Root>
+                </VStack>
+              </VStack>
+            </Dialog.Body>
+
+            <Dialog.Footer>
+              <HStack>
+                <Button variant="outline" onClick={closeEditForm}>
+                  Cancel
+                </Button>
+                <Button
+                  bgColor="#2590ce"
+                  color="#fff"
+                  onClick={onSaveEditAssignedForm}
+                >
+                  Save
                 </Button>
               </HStack>
             </Dialog.Footer>

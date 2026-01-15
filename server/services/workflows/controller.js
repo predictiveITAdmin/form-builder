@@ -67,6 +67,80 @@ async function listWorkflows(req, res, next) {
   }
 }
 
+async function assignFormToWorkflow(req, res, next) {
+  try {
+    const workflow_id = req.params.workflowId;
+    const { form_id, required, allow_multiple, sort_order } = req.body;
+
+    const result = await workflowQueries.createWorkflowForm({
+      workflow_id,
+      form_id,
+      required,
+      allow_multiple,
+      sort_order,
+    });
+
+    return res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateWorkflowForm(req, res, next) {
+  try {
+    const workflow_form_id = req.params.workflowFormId;
+    const { required, allow_multiple, sort_order } = req.body;
+
+    const result = await workflowQueries.updateWorkflowForm({
+      workflow_form_id,
+      required,
+      allow_multiple,
+      sort_order,
+    });
+
+    if (!result) {
+      return res.status(404).json({ message: "Workflow Form not found" });
+    }
+
+    return res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function removeFormFromWorkflow(req, res, next) {
+  try {
+    const workflow_form_id = req.params.workflowFormId;
+
+    const result = await workflowQueries.removeWorkflowForm(workflow_form_id);
+
+    // If your DELETE doesn't RETURNING anything (currently it doesn't),
+    // result will be undefined. Still fine: 204 is appropriate.
+    return res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getWorkflowForm(req, res, next) {
+  try {
+    const workflow_form_id = req.params.workflowFormId;
+
+    const result = await workflowQueries.getWorkflowForm(workflow_form_id);
+    return res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function listWorkflowForms(req, res, next) {
+  try {
+    const result = await workflowQueries.listWorkflowForms();
+    return res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
 /**
  * GET /workflow-runs
  * Optional query:
@@ -252,6 +326,13 @@ module.exports = {
   getWorkflow,
   createWorkflow,
   listWorkflows,
+
+  assignFormToWorkflow,
+  removeFormFromWorkflow,
+  getWorkflowForm,
+  listWorkflowForms,
+  updateWorkflowForm,
+
   listWorkflowRuns,
   createWorkflowRun,
   getWorkflowRunDashboard,
