@@ -751,7 +751,7 @@ FROM (
     ('List Workflow Runs',  'workflows.run.list',   'Can list workflow runs',  'workflow_runs', 'read'),
     ('Lock Workflow Run',   'workflows.run.lock',   'Can lock workflow runs',  'workflow_runs', 'lock'),
     ('Cancel Workflow Run', 'workflows.run.cancel', 'Can cancel workflow runs','workflow_runs', 'cancel'),
-    ('View Workflow Run', 'workflows.run.view', 'Can View Workflow Run', 'workflow_runs', 'view')
+    ('View Workflow Run', 'workflows.run.view', 'Can View Workflow Run', 'workflow_runs', 'view'),
 
     ('Start Workflow Item', 'workflows.item.start',  'Can start workflow items',  'workflow_items', 'start'),
     ('Skip Workflow Item',  'workflows.item.skip',   'Can skip workflow items',   'workflow_items', 'skip'),
@@ -791,7 +791,7 @@ JOIN public.permissions p ON p.permission_code IN (
   'workflows.item.start',
   'workflows.item.skip',
   'workflows.item.assign',
-  'workflows.item.add',
+  'workflows.item.add'
 )
 WHERE r.role_code = 'ADMIN'
 ON CONFLICT ON CONSTRAINT uq_role_permission DO NOTHING;
@@ -805,12 +805,7 @@ JOIN public.permissions p ON p.permission_code IN (
   'responses.read',
   'responses.create',
   'responses.update',
-
-  'workflows.read',
-  'workflows.run.create',
-  'workflows.run.list',
-  'workflows.item.start',
-  'workflows.item.skip'
+  'workflows.item.start'
 )
 WHERE r.role_code = 'USER'
 ON CONFLICT ON CONSTRAINT uq_role_permission DO NOTHING;
