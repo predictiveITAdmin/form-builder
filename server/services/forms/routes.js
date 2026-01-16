@@ -96,4 +96,11 @@ router.post(
   ctrl.handleSaveDraft
 );
 
+router.post(
+  "/:formKey/submit",
+  authMiddleware,
+  hasPermissions(["responses.create", "responses.update"]),
+  ctrl.handleFinalSubmit
+);
+
 module.exports = router;

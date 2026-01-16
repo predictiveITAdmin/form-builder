@@ -1,4 +1,5 @@
 const { uploadFilesToBlob } = require("./fileService");
+const { deliverWithRetry } = require("../integrations/webhook");
 const svc = require("./queries"); // same folder as controller.js
 const axios = require("axios");
 /**
@@ -196,7 +197,13 @@ async function getFormForRender(req, res, next) {
     if (!formKey || typeof formKey !== "string") {
       return res.status(400).json({ error: "Missing formKey" });
     }
+    const hasAccess = await svc.validateAccess(user_id, formKey);
 
+    if (!hasAccess) {
+      return res.status(403).json({
+        message: "You do not have access to this form",
+      });
+    }
     const result = await svc.getFormGraphByKey(formKey);
     if (!result.length || !result[0].form) {
       return res.status(404).json({ error: "Form not found" });
@@ -483,6 +490,145 @@ async function setUsersForForm(req, res) {
   }
 }
 
+async function handleFinalSubmit(req, res, next) {
+  try {
+    const { formKey } = req.params;
+    const { response, response_values } = req.body || {};
+
+    const user_id = req.user?.userId;
+    if (!user_id) {
+      return res.status(401).json({ message: "User is not authenticated!" });
+    }
+
+    if (!formKey || typeof formKey !== "string") {
+      return res.status(400).json({ message: "Missing formKey" });
+    }
+
+    if (!response || typeof response !== "object") {
+      return res
+        .status(400)
+        .json({ message: "Bad Request. Missing response object." });
+    }
+
+    if (!Array.isArray(response_values)) {
+      return res.status(400).json({
+        message: "Bad Request. response_values must be an array.",
+      });
+    }
+
+    // Resolve form_id server-side (don’t trust the browser)
+    const form_id = await svc.selectFormIdByKey(formKey);
+    if (!form_id) {
+      return res.status(404).json({ message: "Form not found" });
+    }
+
+    // Optional: validate access (keeps behaviour consistent with GET form)
+    const hasAccess = await svc.validateAccess(user_id, formKey);
+    if (!hasAccess) {
+      return res
+        .status(403)
+        .json({ message: "You do not have access to this form" });
+    }
+
+    // We store the session_token in response.session_id in the frontend (yes, naming is cursed).
+    const sessionToken = response.session_id;
+    if (!sessionToken) {
+      return res.status(400).json({
+        message:
+          "Bad Request. Missing required field: response.session_id (session token).",
+      });
+    }
+
+    // Normalize payload
+    const normalized = {
+      response: {
+        session_token: sessionToken,
+        form_id,
+        user_id,
+        total_steps: response.total_steps,
+        submitted_at: response.submitted_at ?? new Date().toISOString(),
+        client_ip: response.client_ip ?? req.ip ?? null,
+        user_agent: response.user_agent ?? req.headers["user-agent"] ?? null,
+        meta_json: response.meta_json ?? {},
+      },
+      response_values: response_values
+        .filter((v) => v && v.form_field_id)
+        .map((v) => ({
+          form_field_id: v.form_field_id,
+          value_text: v.value_text ?? null,
+          value_number: v.value_number ?? null,
+          value_date: v.value_date ?? null,
+          value_datetime: v.value_datetime ?? null,
+          value_bool: v.value_bool ?? null,
+        })),
+    };
+
+    // 1) Upsert draft + values
+    const upserted = await svc.upsertDraftWithValues(normalized);
+
+    // 2) Build aggregated payload (includes workflow context if present)
+    const bundle = await svc.getRpaSubmissionBundleByResponseId(
+      upserted.response_id
+    );
+    if (!bundle) {
+      return res
+        .status(500)
+        .json({ message: "Failed to build submission payload" });
+    }
+
+    // 3) Trigger webhook (if configured)
+    const rpa = bundle.form?.rpa || {};
+    const webhookUrl = rpa.webhook_url;
+    const rpaSecret = rpa.secret;
+    const headerKey = (rpa.header_key || "").trim();
+    const timeoutMs = Number(rpa.timeout_ms ?? 8000);
+    const retryCount = Number(rpa.retry_count ?? 0);
+
+    if (webhookUrl) {
+      let finalHeaderKey = headerKey || null;
+      let finalHeaderValue = null;
+
+      if (finalHeaderKey) {
+        if (finalHeaderKey.toLowerCase() === "authorization") {
+          finalHeaderValue = `Bearer ${rpaSecret || ""}`;
+        } else {
+          finalHeaderValue = rpaSecret || "";
+        }
+      }
+
+      await deliverWithRetry(
+        {
+          url: webhookUrl,
+          secret: rpaSecret,
+          timeoutMs,
+          retryCount,
+          headerKey: finalHeaderKey,
+          headerValue: finalHeaderValue,
+        },
+        bundle
+      );
+    }
+
+    // 4) Mark session complete (validators: form_id + user_id)
+    const completedSession = await svc.completeOpenSessionByFormAndUser(
+      form_id,
+      user_id
+    );
+
+    return res.status(200).json({
+      message: "Form submitted successfully",
+      response_id: upserted.response_id,
+      session_completed: !!completedSession,
+      completed_session: completedSession ?? null,
+    });
+  } catch (e) {
+    console.error("Error final submitting form:", e);
+    return next
+      ? next(e)
+      : res.status(500).json({ message: String(e?.message || e) });
+  }
+}
+
 module.exports = {
   listAll,
   listPublished,
@@ -498,4 +644,5 @@ module.exports = {
   setUsersForForm,
   uploadFiles,
   listWorkflowForms,
+  handleFinalSubmit,
 };

@@ -104,6 +104,28 @@ export const saveDraft = createAsyncThunk(
   }
 );
 
+export const submitFinal = createAsyncThunk(
+  "forms/submitFinal",
+  async ({ formKey, response, response_values }, { rejectWithValue }) => {
+    try {
+      if (!formKey) return rejectWithValue("Missing formKey");
+
+      // Same body shape as saveDraft
+      const res = await http.post(`/api/forms/${formKey}/submit`, {
+        response,
+        response_values,
+      });
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          "Failed to submit form"
+      );
+    }
+  }
+);
+
 export const createForm = createAsyncThunk(
   "forms/createForm",
   async (payload, { rejectWithValue }) => {
@@ -236,6 +258,10 @@ const initialState = {
   setFile: null,
   setFileStatus: "idle",
   setFileError: null,
+
+  finalSubmitStatus: "idle",
+  finalSubmitError: null,
+  lastFinalSubmit: null,
 };
 
 const formSlice = createSlice({
@@ -270,6 +296,12 @@ const formSlice = createSlice({
       state.setUsersForForm = null;
       state.setUsersForFormError = null;
       state.setUsersForFormStatus = "idle";
+    },
+
+    resetFinalSubmitState(state) {
+      state.finalSubmitStatus = "idle";
+      state.finalSubmitError = null;
+      state.lastFinalSubmit = null;
     },
   },
   extraReducers: (builder) => {
@@ -460,6 +492,24 @@ const formSlice = createSlice({
         state.setFileError =
           action.payload || action.error?.message || "Upload failed";
       });
+
+    builder
+      .addCase(submitFinal.pending, (state) => {
+        state.finalSubmitStatus = "loading";
+        state.finalSubmitError = null;
+      })
+
+      .addCase(submitFinal.fulfilled, (state, action) => {
+        state.finalSubmitStatus = "succeeded";
+        state.finalSubmitError = null;
+        state.lastFinalSubmit = action.payload;
+      })
+
+      .addCase(submitFinal.rejected, (state, action) => {
+        state.finalSubmitStatus = "failed";
+        state.finalSubmitError =
+          action.payload || action.error?.message || "Final submission failed";
+      });
   },
 });
 
@@ -517,3 +567,7 @@ export const selectSetUsersForForm = (state) => state.forms.SetUsersForForm;
 export const selectFileUploadStatus = (s) => s.forms.setFileStatus;
 export const selectFileUploadError = (s) => s.forms.setFileError;
 export const selectFileUpload = (s) => s.forms.setFile || [];
+
+export const selectFinalSubmitStatus = (state) => state.forms.finalSubmitStatus;
+export const selectFinalSubmitError = (state) => state.forms.finalSubmitError;
+export const selectLastFinalSubmit = (state) => state.forms.lastFinalSubmit;

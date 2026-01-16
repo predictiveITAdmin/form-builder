@@ -20,7 +20,7 @@ import {
 import { useNavigate, useParams, Link as RouterLink } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { FaSearch } from "react-icons/fa";
-import { FaEye } from "react-icons/fa6";
+import { getAllUsers, selectAllUser } from "@/features/auth/roleSlice";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
 import { notify } from "../ui/notifyStore";
 import DataTable from "../DataTable";
@@ -152,7 +152,7 @@ const WorkflowRunDetail = () => {
 
   const loading = useSelector(selectWorkflowLoading("fetchRunDashboard"));
   const error = useSelector(selectWorkflowError("fetchRunDashboard"));
-
+  const allUsers = useSelector(selectAllUser);
   const lockLoading = useSelector(selectWorkflowLoading("lockRun"));
   const cancelLoading = useSelector(selectWorkflowLoading("cancelRun"));
   const startLoading = useSelector(selectWorkflowLoading("startItem"));
@@ -167,6 +167,7 @@ const WorkflowRunDetail = () => {
   useEffect(() => {
     if (!Number.isFinite(rid)) return;
     dispatch(fetchWorkflowRunDashboard({ runId: rid }));
+    dispatch(getAllUsers());
   }, [dispatch, rid]);
 
   const run = dashboard || null;
@@ -422,6 +423,31 @@ const WorkflowRunDetail = () => {
     }
   };
 
+  const clearAssignment = async (item) => {
+    const v = assignByItem[item.workflow_item_id];
+
+    const res = await dispatch(
+      assignWorkflowItem({ itemId: item.workflow_item_id })
+    );
+
+    if (res?.meta?.requestStatus === "fulfilled") {
+      notify({
+        type: "success",
+        title: "Clear Assignment",
+        message: "Workflow item assignment updated.",
+        duration: 1500,
+      });
+      doRefresh();
+    } else {
+      notify({
+        type: "error",
+        title: "Assign failed",
+        message: res?.payload?.message || "Unable to assign workflow item.",
+        duration: 2200,
+      });
+    }
+  };
+
   const columns = [
     {
       key: "form_title",
@@ -465,32 +491,48 @@ const WorkflowRunDetail = () => {
           </Text>
 
           <Can any={["workflows.item.assign"]}>
-            <HStack>
-              <NativeSelect.Root
+            <NativeSelect.Root
+              size="sm"
+              width={44}
+              disabled={runIsCancelled || runIsLocked}
+            >
+              <NativeSelect.Field
+                placeholder="Assign user id..."
+                value={assignByItem[row.workflow_item_id] ?? ""}
+                onChange={(e) =>
+                  setAssignByItem((prev) => ({
+                    ...prev,
+                    [row.workflow_item_id]: e.target.value,
+                  }))
+                }
+              >
+                {row.assigned_user_id ? (
+                  <option value={row.assigned_user_id}>
+                    {row.assigned_user_id}
+                  </option>
+                ) : allUsers.length > 0 ? (
+                  allUsers.map((user) => (
+                    <option key={user.user_id} value={user.user_id}>
+                      {user.display_name}
+                    </option>
+                  ))
+                ) : null}
+              </NativeSelect.Field>
+
+              <NativeSelect.Indicator />
+            </NativeSelect.Root>
+
+            {row.assigned_user_id ? (
+              <Button
                 size="sm"
-                width={44}
+                variant="outline"
+                onClick={() => clearAssignment(row)}
+                isLoading={assignLoading}
                 disabled={runIsCancelled || runIsLocked}
               >
-                <NativeSelect.Field
-                  placeholder="Assign user id..."
-                  value={assignByItem[row.workflow_item_id] ?? ""}
-                  onChange={(e) =>
-                    setAssignByItem((prev) => ({
-                      ...prev,
-                      [row.workflow_item_id]: e.target.value,
-                    }))
-                  }
-                >
-                  {row.assigned_user_id ? (
-                    <option value={row.assigned_user_id}>
-                      {row.assigned_user_id}
-                    </option>
-                  ) : null}
-                </NativeSelect.Field>
-
-                <NativeSelect.Indicator />
-              </NativeSelect.Root>
-
+                Change Assignment
+              </Button>
+            ) : (
               <Button
                 size="sm"
                 variant="outline"
@@ -500,7 +542,7 @@ const WorkflowRunDetail = () => {
               >
                 Assign
               </Button>
-            </HStack>
+            )}
           </Can>
         </VStack>
       ),

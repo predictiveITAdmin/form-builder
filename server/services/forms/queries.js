@@ -250,7 +250,9 @@ async function updateFormByKey(
         owner_user_id,
         !!payload.is_anonymous,
         payload.rpa_webhook_url ?? null,
-        payload.rpa_secret_method ?? "authorization",
+        payload.rpa_secret_method == ""
+          ? "authorization"
+          : payload.rpa_secret_method,
         payload.rpa_secret ?? null,
         payload.rpa_timeout_ms ?? 8000,
         payload.rpa_retry_count ?? 0,
@@ -740,6 +742,32 @@ async function getDraftSessionsbyUser(user_id) {
   );
 }
 
+async function validateAccess(user_id, formKey) {
+  const res = await query(
+    `
+    SELECT 1
+    FROM form_access fa
+    JOIN forms f ON f.form_id = fa.form_id
+    WHERE fa.user_id = $1
+      AND f.form_key = $2
+    LIMIT 1
+    `,
+    [user_id, formKey]
+  );
+
+  const itemAccess = await query(
+    `SELECT 1
+      FROM workflow_items wi
+      JOIN workflow_forms wf ON wf.workflow_form_id = wi.workflow_form_id
+      JOIN forms f ON f.form_id = wf.form_id
+      WHERE wi.assigned_user_id = $1
+        AND f.form_key = $2
+      LIMIT 1;`,
+    [user_id, formKey]
+  );
+  return res.length > 0 || itemAccess.length > 0;
+}
+
 async function getSessionData(user_id, session_token) {
   return query(
     `WITH resolved AS (
@@ -788,7 +816,7 @@ async function selectFormIdByKey(formKey) {
     LIMIT 1;
   `;
   const result = await query(sql, [formKey]);
-  return result.rows[0]?.form_id ?? null;
+  return result[0]?.form_id ?? null;
 }
 
 async function getOrCreateOpenSession(userId, formId, sessionToken) {
@@ -911,11 +939,455 @@ async function setFormUsers(formId, userIds, grantedBy) {
   }
 }
 
+async function getRpaSubmissionBundleByResponseId(responseId) {
+  // 1) Base response + session + form (includes RPA settings)
+  const base = await query(
+    `
+    SELECT
+      r.response_id,
+      r.form_id,
+      r.user_id,
+      r.submitted_at,
+      r.client_ip,
+      r.user_agent,
+      r.meta_json,
+      r.session_id,
+
+      s.session_token,
+      s.current_step,
+      s.total_steps,
+      s.is_completed AS session_is_completed,
+      s.expires_at,
+      s.created_at AS session_created_at,
+      s.updated_at AS session_updated_at,
+      s.completed_at AS session_completed_at,
+      s.is_active AS session_is_active,
+      s.workflow_run_id AS session_workflow_run_id,
+      s.workflow_item_id AS session_workflow_item_id,
+
+      f.form_key,
+      f.title AS form_title,
+      f.description AS form_description,
+      f.status AS form_status,
+      f.usage_mode AS form_usage_mode,
+      f.owner_user_id AS form_owner_user_id,
+
+      f.rpa_webhook_url,
+      f.rpa_secret,
+      f.rpa_timeout_ms,
+      f.rpa_retry_count,
+      f.rpa_header_key
+    FROM public.responses r
+    JOIN public.formsessions s ON s.session_id = r.session_id
+    JOIN public.forms f ON f.form_id = r.form_id
+    WHERE r.response_id = $1
+    LIMIT 1;
+    `,
+    [responseId]
+  );
+
+  const head = base?.[0];
+  if (!head) return null;
+
+  // 2) Values + selected options + field metadata
+  const valueRows = await query(
+    `
+    SELECT
+  rv.response_value_id,
+  rv.response_id,
+  rv.form_field_id,
+
+  ff.key_name,
+  ff.label,
+  ff.field_type,
+  ff.required,
+  ff.sort_order,
+  ff.config_json,
+
+  rv.value_text,
+  rv.value_number,
+  rv.value_date,
+  rv.value_datetime,
+  rv.value_bool,
+
+  COALESCE(opt.selected_options, '[]'::jsonb) AS selected_options
+
+FROM public.responsevalues rv
+JOIN public.formfields ff
+  ON ff.field_id = rv.form_field_id
+
+LEFT JOIN LATERAL (
+  SELECT
+    COALESCE(
+      jsonb_agg(t.obj ORDER BY t.sort_order, t.option_id),
+      '[]'::jsonb
+    ) AS selected_options
+  FROM (
+    SELECT DISTINCT
+      fo.option_id,
+      fo.sort_order,
+      jsonb_build_object(
+        'option_id', fo.option_id,
+        'option_value', fo.value,
+        'option_label', fo.label,
+        'is_default', fo.is_default,
+        'sort_order', fo.sort_order,
+        'source', fo.source
+      ) AS obj
+    FROM public.fieldoptions fo
+    WHERE fo.form_field_id = ff.field_id
+      AND rv.value_text IS NOT NULL
+      AND btrim(rv.value_text) <> ''
+      AND (
+        -- Case A: value_text is a single selection (ex: "US" or "12")
+        (
+          left(btrim(rv.value_text), 1) <> '['
+          AND (fo.value = rv.value_text OR fo.option_id::text = rv.value_text)
+        )
+
+        OR
+
+        -- Case B: value_text is a JSON array string (ex: ["US","CA"] or ["12","14"])
+        (
+          left(btrim(rv.value_text), 1) = '['
+          AND (
+            fo.value IN (
+              SELECT jsonb_array_elements_text(rv.value_text::jsonb)
+            )
+            OR fo.option_id::text IN (
+              SELECT jsonb_array_elements_text(rv.value_text::jsonb)
+            )
+          )
+        )
+      )
+  ) t
+) opt ON TRUE
+
+WHERE rv.response_id = $1
+ORDER BY ff.sort_order, ff.field_id;
+    `,
+    [responseId]
+  );
+
+  // 3) File uploads linked to this response (and optionally by form_field_id)
+  const files = await query(
+    `
+    WITH file_field_ids AS (
+      SELECT DISTINCT rv.form_field_id
+      FROM public.responsevalues rv
+      JOIN public.formfields ff
+        ON ff.field_id = rv.form_field_id
+      WHERE rv.response_id = $1
+        AND ff.field_type = 'file'
+    ),
+    response_session AS (
+      SELECT s.session_token
+      FROM public.responses r
+      JOIN public.formsessions s ON s.session_id = r.session_id
+      WHERE r.response_id = $1
+      LIMIT 1
+    )
+    SELECT
+      fu.file_id,
+      fu.container,
+      fu.blob_name,
+      fu.original_name,
+      fu.mime_type,
+      fu.size_bytes,
+      fu.sha256,
+      fu.etag,
+      fu.status,
+      fu.created_at,
+      fu.uploaded_by,
+      fu.session_token,
+      fu.response_id,
+      fu.form_field_id
+    FROM public.file_uploads fu
+    WHERE fu.status = 'active'
+      AND fu.form_field_id IN (SELECT form_field_id FROM file_field_ids)
+      AND (
+        -- match this response's session when possible (prevents cross-session collisions)
+        fu.session_token IS NULL
+        OR fu.session_token = (SELECT session_token FROM response_session)
+      )
+    ORDER BY fu.created_at ASC;
+    `,
+    [responseId]
+  );
+
+  // 4) Optional workflow context (only if tied)
+  let workflow = null;
+
+  const workflowItemId = head.session_workflow_item_id;
+  const workflowRunId = head.session_workflow_run_id;
+
+  if (workflowItemId || workflowRunId) {
+    // Resolve by item if available, else run
+    const wfHeadRows = await query(
+      `
+      SELECT
+        w.workflow_id,
+        w.workflow_key,
+        w.title AS workflow_title,
+        w.description AS workflow_description,
+        w.status AS workflow_status,
+
+        wr.workflow_run_id,
+        wr.display_name AS workflow_run_display_name,
+        wr.status AS workflow_run_status,
+        wr.locked_at,
+        wr.locked_by,
+        wr.created_by AS workflow_run_created_by,
+        wr.cancelled_at,
+        wr.cancelled_reason,
+        wr.created_at AS workflow_run_created_at,
+        wr.updated_at AS workflow_run_updated_at,
+
+        wi.workflow_item_id,
+        wi.sequence_num,
+        wi.status AS workflow_item_status,
+        wi.assigned_user_id,
+        wi.skipped_reason,
+        wi.completed_at AS workflow_item_completed_at,
+        wi.created_at AS workflow_item_created_at,
+        wi.updated_at AS workflow_item_updated_at,
+
+        wf.workflow_form_id,
+        wf.required AS workflow_form_required,
+        wf.allow_multiple AS workflow_form_allow_multiple,
+        wf.sort_order AS workflow_form_sort_order,
+
+        f2.form_id AS workflow_form_form_id,
+        f2.form_key AS workflow_form_form_key,
+        f2.title AS workflow_form_title
+      FROM public.workflow_runs wr
+      JOIN public.workflows w ON w.workflow_id = wr.workflow_id
+      LEFT JOIN public.workflow_items wi
+        ON wi.workflow_run_id = wr.workflow_run_id
+        AND ($1::int IS NOT NULL AND wi.workflow_item_id = $1 OR $1::int IS NULL)
+      LEFT JOIN public.workflow_forms wf
+        ON wf.workflow_form_id = wi.workflow_form_id
+      LEFT JOIN public.forms f2
+        ON f2.form_id = wf.form_id
+      WHERE wr.workflow_run_id = COALESCE($2::int, wr.workflow_run_id)
+        AND (
+          ($1::int IS NOT NULL AND wi.workflow_item_id = $1)
+          OR ($1::int IS NULL AND wr.workflow_run_id = $2)
+        )
+      LIMIT 1;
+      `,
+      [workflowItemId ?? null, workflowRunId ?? null]
+    );
+
+    const wfHead = wfHeadRows?.[0] ?? null;
+
+    // Also include run items list (useful for orchestration UIs / RPA decisions)
+    let runItems = [];
+    if (wfHead?.workflow_run_id) {
+      runItems = await query(
+        `
+        SELECT
+          wi.workflow_item_id,
+          wi.sequence_num,
+          wi.status,
+          wi.assigned_user_id,
+          wi.skipped_reason,
+          wi.completed_at,
+          wi.created_at,
+          wi.updated_at,
+          wf.workflow_form_id,
+          wf.required,
+          wf.allow_multiple,
+          wf.sort_order,
+          f.form_id,
+          f.form_key,
+          f.title AS form_title
+        FROM public.workflow_items wi
+        JOIN public.workflow_forms wf ON wf.workflow_form_id = wi.workflow_form_id
+        JOIN public.forms f ON f.form_id = wf.form_id
+        WHERE wi.workflow_run_id = $1
+        ORDER BY wf.sort_order, wi.sequence_num, wi.workflow_item_id;
+        `,
+        [wfHead.workflow_run_id]
+      );
+    }
+
+    workflow = wfHead
+      ? {
+          workflow: {
+            id: wfHead.workflow_id,
+            key: wfHead.workflow_key,
+            title: wfHead.workflow_title,
+            description: wfHead.workflow_description,
+            status: wfHead.workflow_status,
+          },
+          run: {
+            id: wfHead.workflow_run_id,
+            display_name: wfHead.workflow_run_display_name,
+            status: wfHead.workflow_run_status,
+            locked_at: wfHead.locked_at,
+            locked_by: wfHead.locked_by,
+            created_by: wfHead.workflow_run_created_by,
+            cancelled_at: wfHead.cancelled_at,
+            cancelled_reason: wfHead.cancelled_reason,
+            created_at: wfHead.workflow_run_created_at,
+            updated_at: wfHead.workflow_run_updated_at,
+          },
+          item: wfHead.workflow_item_id
+            ? {
+                id: wfHead.workflow_item_id,
+                sequence_num: wfHead.sequence_num,
+                status: wfHead.workflow_item_status,
+                assigned_user_id: wfHead.assigned_user_id,
+                skipped_reason: wfHead.skipped_reason,
+                completed_at: wfHead.workflow_item_completed_at,
+                created_at: wfHead.workflow_item_created_at,
+                updated_at: wfHead.workflow_item_updated_at,
+              }
+            : null,
+          workflow_form: wfHead.workflow_form_id
+            ? {
+                id: wfHead.workflow_form_id,
+                required: wfHead.workflow_form_required,
+                allow_multiple: wfHead.workflow_form_allow_multiple,
+                sort_order: wfHead.workflow_form_sort_order,
+                form: wfHead.workflow_form_form_id
+                  ? {
+                      id: wfHead.workflow_form_form_id,
+                      key: wfHead.workflow_form_form_key,
+                      title: wfHead.workflow_form_title,
+                    }
+                  : null,
+              }
+            : null,
+          run_items: runItems,
+        }
+      : null;
+  }
+
+  // Build values + maps
+  const values = [];
+  const value_map = {};
+
+  for (const row of valueRows) {
+    const typedValue =
+      row.value_text ??
+      row.value_number ??
+      row.value_date ??
+      row.value_datetime ??
+      row.value_bool ??
+      null;
+
+    const vObj = {
+      response_value_id: row.response_value_id,
+      form_field_id: row.form_field_id,
+      key_name: row.key_name,
+      label: row.label,
+      field_type: row.field_type,
+      required: row.required,
+      sort_order: row.sort_order,
+      config_json: row.config_json,
+      value: typedValue,
+      selected_options: row.selected_options, // [] if none
+      files: files.filter((f) => f.form_field_id === row.form_field_id),
+    };
+
+    values.push(vObj);
+    value_map[row.key_name] = typedValue;
+  }
+
+  return {
+    form: {
+      id: head.form_id,
+      key: head.form_key,
+      title: head.form_title,
+      description: head.form_description,
+      status: head.form_status,
+      usage_mode: head.form_usage_mode,
+      owner_user_id: head.form_owner_user_id,
+      rpa: {
+        webhook_url: head.rpa_webhook_url,
+        header_key: head.rpa_header_key,
+        secret: head.rpa_secret,
+        timeout_ms: head.rpa_timeout_ms,
+        retry_count: head.rpa_retry_count,
+      },
+    },
+    session: {
+      id: head.session_id,
+      token: head.session_token,
+      current_step: head.current_step,
+      total_steps: head.total_steps,
+      is_completed: head.session_is_completed,
+      is_active: head.session_is_active,
+      expires_at: head.expires_at,
+      created_at: head.session_created_at,
+      updated_at: head.session_updated_at,
+      completed_at: head.session_completed_at,
+      workflow_run_id: head.session_workflow_run_id,
+      workflow_item_id: head.session_workflow_item_id,
+    },
+    response: {
+      id: head.response_id,
+      form_id: head.form_id,
+      user_id: head.user_id,
+      submitted_at: head.submitted_at,
+      client_ip: head.client_ip,
+      user_agent: head.user_agent,
+      meta_json: head.meta_json,
+      session_id: head.session_id,
+    },
+    values,
+    value_map,
+    files, // all files on the response (field-linked and general)
+    workflow, // null if standalone
+  };
+}
+
+async function markWorkflowItemSubmitted(workflowItemId) {
+  const res = await query(
+    `
+    UPDATE public.workflow_items
+    SET
+      status = 'submitted',
+      completed_at = COALESCE(completed_at, NOW()),
+      updated_at = NOW()
+    WHERE workflow_item_id = $1
+    RETURNING workflow_item_id, status, completed_at;
+    `,
+    [workflowItemId]
+  );
+  return res?.[0] ?? null;
+}
+
+// queries.js
+async function completeOpenSessionByFormAndUser(formId, userId) {
+  const res = await query(
+    `
+    UPDATE public.formsessions
+    SET
+      is_completed = TRUE,
+      completed_at = NOW(),
+      updated_at = NOW(),
+      is_active = FALSE
+    WHERE form_id = $1
+      AND user_id = $2
+      AND is_completed = FALSE
+    RETURNING session_id, session_token, form_id, user_id, completed_at;
+    `,
+    [formId, userId]
+  );
+
+  return res?.[0] ?? null;
+}
+
 module.exports = {
   listForms,
   listPublishedForms,
   createForm,
   getFormGraphByKey,
+  markWorkflowItemSubmitted,
+  getRpaSubmissionBundleByResponseId,
   getDynamicUrl,
   saveOptionsToDb,
   getDraftSessionsbyUser,
@@ -928,4 +1400,6 @@ module.exports = {
   fetchFormUsers,
   setFormUsers,
   listWorkFlowForms,
+  validateAccess,
+  completeOpenSessionByFormAndUser,
 };

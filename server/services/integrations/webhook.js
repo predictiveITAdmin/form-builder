@@ -56,16 +56,27 @@ function postJson(urlStr, payload, { timeoutMs = 8000, headers = {} } = {}) {
   });
 }
 
+// webhook.js
 async function deliverWithRetry(
-  { url, secret, timeoutMs, retryCount },
+  { url, secret, timeoutMs, retryCount, headerKey, headerValue },
   payload
 ) {
   const body = JSON.stringify(payload);
+
   const headers = {};
+
+  // Optional: keep existing signing behavior (still useful)
   const sig = sign(body, secret);
   if (sig) headers["X-RPA-Signature"] = sig;
-  headers["X-Form-Id"] = String(payload.form.id);
-  headers["X-Response-Id"] = String(payload.response.id);
+
+  if (payload?.form?.id != null) headers["X-Form-Id"] = String(payload.form.id);
+  if (payload?.response?.id != null)
+    headers["X-Response-Id"] = String(payload.response.id);
+
+  // Your rule: add caller-specified auth/custom header
+  if (headerKey && headerValue) {
+    headers[String(headerKey)] = String(headerValue);
+  }
 
   let attempt = 0;
   const max = Math.max(0, Number(retryCount ?? 3));
@@ -77,7 +88,7 @@ async function deliverWithRetry(
       return;
     } catch (err) {
       if (attempt >= max) throw err;
-      const sleep = baseDelay * Math.pow(2, attempt); // 0.75s, 1.5s, 3s, ...
+      const sleep = baseDelay * Math.pow(2, attempt);
       await new Promise((r) => setTimeout(r, sleep));
       attempt++;
     }

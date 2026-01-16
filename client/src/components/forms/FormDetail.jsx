@@ -37,6 +37,9 @@ import {
   selectSessionDataError,
   selectSessionDataStatus,
   uploadFile,
+  submitFinal,
+  selectFinalSubmitStatus,
+  selectFinalSubmitError,
 } from "@/features/forms/formsSlice";
 import { getForm } from "@/features/forms/formsSlice";
 import { selectUser } from "@/features/auth/authSlice";
@@ -73,6 +76,9 @@ const FormDetail = () => {
   const sessionError = useSelector(selectSessionDataError);
   const [uploading, setUploading] = useState({});
   const [stagedFiles, setStagedFiles] = useState({});
+
+  const finalSubmitStatus = useSelector(selectFinalSubmitStatus);
+  const finalSubmitError = useSelector(selectFinalSubmitError);
 
   const isFieldInvalid = (field) =>
     touchedFields[field.key_name] && fieldErrors[field.key_name];
@@ -449,11 +455,10 @@ const FormDetail = () => {
     }
   };
 
-  const handleFinalSubmit = () => {
+  const handleFinalSubmit = async () => {
     const { isValid, errors } = validateWholeForm(formData, formValues);
 
     if (!isValid) {
-      // mark all invalid fields as touched
       const touched = {};
       Object.keys(errors).forEach((key) => {
         touched[key] = true;
@@ -471,9 +476,33 @@ const FormDetail = () => {
       return;
     }
 
-    console.log("Submitting final response...");
-    const payload = buildResponsePayload();
-    console.log(payload);
+    try {
+      const payload = buildResponsePayload();
+
+      await dispatch(
+        submitFinal({
+          formKey,
+          response: payload.response,
+          response_values: payload.response_values,
+        })
+      ).unwrap();
+
+      notify({
+        type: "success",
+        title: "Form submitted",
+        message: "Your response has been successfully submitted.",
+      });
+      navigate(-1);
+    } catch (err) {
+      notify({
+        type: "error",
+        title: "Submission failed",
+        message:
+          typeof err === "string"
+            ? err
+            : "Something went wrong while submitting the form.",
+      });
+    }
   };
 
   const getUploadedFilesForField = (keyName) => {
