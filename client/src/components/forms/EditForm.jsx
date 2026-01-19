@@ -164,7 +164,7 @@ const EditForm = () => {
       { type: "url", label: "URL", icon: <FaLink /> },
       { type: "tel", label: "Phone", icon: <FaPhone /> },
     ],
-    []
+    [],
   );
 
   // ----------------------------
@@ -318,7 +318,7 @@ const EditForm = () => {
           cfg =
             typeof f.config_json === "string"
               ? JSON.parse(f.config_json)
-              : f.config_json ?? {};
+              : (f.config_json ?? {});
         } catch {
           cfg = {};
         }
@@ -360,7 +360,7 @@ const EditForm = () => {
               is_active: true,
               fields: [],
             },
-          ]
+          ],
     );
 
     setCurrentStepIndex(0);
@@ -485,7 +485,7 @@ const EditForm = () => {
   // DnD
   // ----------------------------
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
 
   const renumberSortOrder = (fields) =>
@@ -962,7 +962,7 @@ const EditForm = () => {
                       {currentFields
                         .slice()
                         .sort(
-                          (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
+                          (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
                         )
                         .map((field) => (
                           <SortableFieldCard key={field.id} field={field}>
@@ -1030,7 +1030,7 @@ const EditForm = () => {
                                                     {opt}
                                                     <Select.ItemIndicator />
                                                   </Select.Item>
-                                                )
+                                                ),
                                               )}
                                             </Select.Content>
                                           </Select.Positioner>
@@ -1058,7 +1058,7 @@ const EditForm = () => {
                                                     {opt}
                                                     <Select.ItemIndicator />
                                                   </Select.Item>
-                                                )
+                                                ),
                                               )}
                                             </Select.Content>
                                           </Select.Positioner>
@@ -1085,7 +1085,7 @@ const EditForm = () => {
                                                 {opt}
                                               </RadioGroup.ItemText>
                                             </RadioGroup.Item>
-                                          )
+                                          ),
                                         )}
                                       </RadioGroup.Root>
                                     ) : (
@@ -1288,28 +1288,28 @@ const EditForm = () => {
                                         newOptions[idx] = e.target.value;
                                         updateFieldOptions(
                                           selectedField.id,
-                                          newOptions
+                                          newOptions,
                                         );
                                       }}
                                     />
                                     <IconButton
                                       size="sm"
                                       variant="ghost"
-                                      colorScheme="red"
+                                      bgColor="red"
                                       onClick={() => {
                                         const newOptions = getFieldOptions(
-                                          selectedField
+                                          selectedField,
                                         ).filter((_, i) => i !== idx);
                                         updateFieldOptions(
                                           selectedField.id,
-                                          newOptions
+                                          newOptions,
                                         );
                                       }}
                                     >
                                       <FaTimes size={12} />
                                     </IconButton>
                                   </Flex>
-                                )
+                                ),
                               )}
 
                               <Button
@@ -1325,7 +1325,7 @@ const EditForm = () => {
                                   ];
                                   updateFieldOptions(
                                     selectedField.id,
-                                    newOptions
+                                    newOptions,
                                   );
                                 }}
                               >

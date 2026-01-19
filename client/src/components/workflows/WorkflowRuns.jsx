@@ -104,7 +104,7 @@ const WorkflowRuns = () => {
       [r.workflow_title, r.display_name, r.status, r.created_by_name]
         .join(" ")
         .toLowerCase()
-        .includes(term)
+        .includes(term),
     );
   }, [runs, searchTerm]);
 
@@ -116,7 +116,7 @@ const WorkflowRuns = () => {
       label: "Status",
       sortable: true,
       render: (value) => (
-        <Badge colorScheme={statusColor(value)} textTransform="capitalize">
+        <Badge bgColor={statusColor(value)} textTransform="capitalize">
           {String(value || "-").replaceAll("_", " ")}
         </Badge>
       ),
@@ -155,7 +155,7 @@ const WorkflowRuns = () => {
 
   const { page, setPage, pageSize, totalItems, pageData } = usePagination(
     filtered,
-    8
+    8,
   );
 
   const onOpenCreate = async () => {
@@ -188,7 +188,7 @@ const WorkflowRuns = () => {
     }
 
     const res = await dispatch(
-      createWorkflowRun({ workflow_id: wid, display_name: name })
+      createWorkflowRun({ workflow_id: wid, display_name: name }),
     );
 
     if (res?.meta?.requestStatus === "fulfilled") {

@@ -91,7 +91,7 @@ export default function Home() {
 
   const sortedSessions = useMemo(() => {
     return [...sessions].sort(
-      (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
+      (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt),
     );
   }, [sessions]);
 
@@ -101,7 +101,7 @@ export default function Home() {
 
   const sortedSubmissions = useMemo(() => {
     return [...recentSubmissions].sort(
-      (a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)
+      (a, b) => new Date(b.submittedAt) - new Date(a.submittedAt),
     );
   }, [recentSubmissions]);
 
@@ -176,7 +176,7 @@ export default function Home() {
 
                     <HStack>
                       <Button
-                        colorScheme="blue"
+                        bgColor="#2596be"
                         onClick={goFirstForm}
                         isDisabled={sortedForms.length === 0}
                       >
@@ -195,10 +195,10 @@ export default function Home() {
                         s.progressTotal > 0
                           ? clamp(
                               Math.round(
-                                (s.progressCurrent / s.progressTotal) * 100
+                                (s.progressCurrent / s.progressTotal) * 100,
                               ),
                               0,
-                              100
+                              100,
                             )
                           : 0;
 
@@ -210,7 +210,7 @@ export default function Home() {
                             <Box flex="1">
                               <HStack wrap="wrap" spacing={2}>
                                 <Heading size="sm">{s.formName}</Heading>
-                                <Badge variant="outline" colorScheme="gray">
+                                <Badge variant="outline">
                                   Updated {formatRelativeTime(s.updatedAt)}
                                 </Badge>
                               </HStack>
@@ -348,7 +348,7 @@ export default function Home() {
                               <HStack wrap="wrap" spacing={2}>
                                 <Heading size="sm">{f.name}</Heading>
                                 {Number.isFinite(f.estMinutes) && (
-                                  <Badge variant="subtle" colorScheme="gray">
+                                  <Badge variant="subtle">
                                     ~{f.estMinutes} min
                                   </Badge>
                                 )}

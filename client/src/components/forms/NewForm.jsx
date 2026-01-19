@@ -397,7 +397,7 @@ const NewForm = () => {
   }
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
 
   const renumberSortOrder = (fields) =>
@@ -787,7 +787,7 @@ const NewForm = () => {
                       {currentFields
                         .slice()
                         .sort(
-                          (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
+                          (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
                         )
                         .map((field) => (
                           <SortableFieldCard key={field.id} field={field}>
@@ -855,7 +855,7 @@ const NewForm = () => {
                                                     {opt}
                                                     <Select.ItemIndicator />
                                                   </Select.Item>
-                                                )
+                                                ),
                                               )}
                                             </Select.Content>
                                           </Select.Positioner>
@@ -883,7 +883,7 @@ const NewForm = () => {
                                                     {opt}
                                                     <Select.ItemIndicator />
                                                   </Select.Item>
-                                                )
+                                                ),
                                               )}
                                             </Select.Content>
                                           </Select.Positioner>
@@ -910,7 +910,7 @@ const NewForm = () => {
                                                 {opt}
                                               </RadioGroup.ItemText>
                                             </RadioGroup.Item>
-                                          )
+                                          ),
                                         )}
                                       </RadioGroup.Root>
                                     ) : (
@@ -1113,28 +1113,28 @@ const NewForm = () => {
                                         newOptions[idx] = e.target.value;
                                         updateFieldOptions(
                                           selectedField.id,
-                                          newOptions
+                                          newOptions,
                                         );
                                       }}
                                     />
                                     <IconButton
                                       size="sm"
                                       variant="ghost"
-                                      colorScheme="red"
+                                      bgColor="red"
                                       onClick={() => {
                                         const newOptions = getFieldOptions(
-                                          selectedField
+                                          selectedField,
                                         ).filter((_, i) => i !== idx);
                                         updateFieldOptions(
                                           selectedField.id,
-                                          newOptions
+                                          newOptions,
                                         );
                                       }}
                                     >
                                       <FaTimes size={12} />
                                     </IconButton>
                                   </Flex>
-                                )
+                                ),
                               )}
 
                               <Button
@@ -1150,7 +1150,7 @@ const NewForm = () => {
                                   ];
                                   updateFieldOptions(
                                     selectedField.id,
-                                    newOptions
+                                    newOptions,
                                   );
                                 }}
                               >

@@ -102,19 +102,19 @@ const FieldTypeBadge = ({ type }) => {
     t === "file"
       ? "purple"
       : t === "multiselect"
-      ? "blue"
-      : t === "select"
-      ? "cyan"
-      : t === "checkbox"
-      ? "green"
-      : t === "radio"
-      ? "orange"
-      : t === "email" || t === "url" || t === "tel"
-      ? "teal"
-      : "gray";
+        ? "blue"
+        : t === "select"
+          ? "cyan"
+          : t === "checkbox"
+            ? "green"
+            : t === "radio"
+              ? "orange"
+              : t === "email" || t === "url" || t === "tel"
+                ? "teal"
+                : "gray";
 
   return (
-    <Badge colorScheme={scheme} variant="subtle" textTransform="capitalize">
+    <Badge bgColor={scheme} variant="subtle" textTransform="capitalize">
       {t.replaceAll("_", " ")}
     </Badge>
   );
@@ -123,7 +123,7 @@ const FieldTypeBadge = ({ type }) => {
 const RequiredBadge = ({ required }) => {
   if (!required) return null;
   return (
-    <Badge colorScheme="red" variant="subtle">
+    <Badge bgColor="red" variant="subtle">
       Required
     </Badge>
   );
@@ -144,7 +144,7 @@ const ValueChips = ({ values }) => {
 
   if (!Array.isArray(values)) {
     return (
-      <Tag.Root size="md" variant="subtle" colorScheme="gray">
+      <Tag.Root size="md" variant="subtle" bgColor="gray">
         <Tag.Label>{String(values)}</Tag.Label>
       </Tag.Root>
     );
@@ -157,7 +157,7 @@ const ValueChips = ({ values }) => {
           key={`${String(v)}-${idx}`}
           size="md"
           variant="subtle"
-          colorScheme="gray"
+          bgColor="gray"
         >
           <Tag.Label>{String(v)}</Tag.Label>
         </Tag.Root>
@@ -274,7 +274,7 @@ const renderFieldValue = ({ field, filesById }) => {
                         <Badge variant="outline">
                           {formatBytes(f.size_bytes)}
                         </Badge>
-                        <Badge variant="outline" colorScheme="purple">
+                        <Badge variant="outline" bgColor="purple">
                           {f.file_id}
                         </Badge>
                       </HStack>
@@ -288,12 +288,12 @@ const renderFieldValue = ({ field, filesById }) => {
                       target="_blank"
                       rel="noreferrer"
                       size="sm"
-                      colorScheme="purple"
+                      bgColor="purple"
                     >
                       Preview
                     </Button>
                   ) : (
-                    <Badge colorScheme="gray" variant="subtle">
+                    <Badge bgColor="gray" variant="subtle">
                       No preview
                     </Badge>
                   )}
@@ -446,12 +446,12 @@ const ResponseDetail = () => {
               Response #{payload.response_id}
             </Text>
 
-            <Badge colorScheme={statusColor(payload.status)} variant="subtle">
+            <Badge bgColor={statusColor(payload.status)} variant="subtle">
               {payload.status || "Unknown"}
             </Badge>
 
             <Badge
-              colorScheme={payload.is_active ? "green" : "gray"}
+              bgColor={payload.is_active ? "green" : "gray"}
               variant="outline"
             >
               {payload.is_active ? "Active" : "Inactive"}
@@ -620,7 +620,7 @@ const ResponseDetail = () => {
                     <HStack spacing={2} wrap="wrap">
                       <FieldTypeBadge type={type} />
                       {field?.form_field_id ? (
-                        <Badge variant="outline" colorScheme="gray">
+                        <Badge variant="outline" bgColor="gray">
                           Field ID: {field.form_field_id}
                         </Badge>
                       ) : null}

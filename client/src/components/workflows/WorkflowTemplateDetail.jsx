@@ -95,24 +95,24 @@ const WorkflowTemplateDetail = () => {
 
   const assignableForms = useSelector(selectAssignableForms);
   const assignableFormsLoading = useSelector(
-    selectWorkflowLoading("fetchAssignableForms")
+    selectWorkflowLoading("fetchAssignableForms"),
   );
   const assignableFormsError = useSelector(
-    selectWorkflowError("fetchAssignableForms")
+    selectWorkflowError("fetchAssignableForms"),
   );
 
   // "assignableForms" => combobox options
   // "workflowForms"   => currently assigned forms in template setup
   const workflowForms = useSelector(selectWorkflowForms);
   const workflowFormsLoading = useSelector(
-    selectWorkflowLoading("fetchWorkflowForms")
+    selectWorkflowLoading("fetchWorkflowForms"),
   );
   const workflowFormsError = useSelector(
-    selectWorkflowError("fetchWorkflowForms")
+    selectWorkflowError("fetchWorkflowForms"),
   );
 
   const assignFormLoading = useSelector(
-    selectWorkflowLoading("assignFormToWorkflow")
+    selectWorkflowLoading("assignFormToWorkflow"),
   );
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -155,7 +155,7 @@ const WorkflowTemplateDetail = () => {
         required: Boolean(isRequired),
         allow_multiple: Boolean(allowMultiple),
         sort_order: Number(sortOrder) || 50,
-      })
+      }),
     );
 
     if (res?.meta?.requestStatus === "fulfilled") {
@@ -240,7 +240,7 @@ const WorkflowTemplateDetail = () => {
       label: "Status",
       sortable: true,
       render: (value) => (
-        <Badge colorScheme={runStatusColor(value)} textTransform="capitalize">
+        <Badge bgColor={runStatusColor(value)} textTransform="capitalize">
           {String(value || "-").replaceAll("_", " ")}
         </Badge>
       ),
@@ -281,7 +281,7 @@ const WorkflowTemplateDetail = () => {
 
   const { page, setPage, pageSize, totalItems, pageData } = usePagination(
     filteredRuns,
-    8
+    8,
   );
 
   const onCreateRun = async () => {
@@ -299,7 +299,7 @@ const WorkflowTemplateDetail = () => {
       createWorkflowRun({
         workflow_id: wid,
         display_name: name,
-      })
+      }),
     );
 
     if (res?.meta?.requestStatus === "fulfilled") {
@@ -352,7 +352,7 @@ const WorkflowTemplateDetail = () => {
       removeWorkflowFormFromWorkflow({
         workflowId: wid,
         workflowFormId: wfFormIdNum,
-      })
+      }),
     );
 
     if (res?.meta?.requestStatus === "fulfilled") {
@@ -385,7 +385,7 @@ const WorkflowTemplateDetail = () => {
       editingWorkflowForm?.workflow_form_id ||
         editingWorkflowForm?.workflowFormId ||
         editingWorkflowForm?.workflow_formId ||
-        editingWorkflowForm?.id
+        editingWorkflowForm?.id,
     );
 
     if (!Number.isFinite(wfFormIdNum)) {
@@ -403,7 +403,7 @@ const WorkflowTemplateDetail = () => {
         required: Boolean(isRequired),
         allow_multiple: Boolean(allowMultiple),
         sort_order: Number(sortOrder) || 50,
-      })
+      }),
     );
 
     if (res?.meta?.requestStatus === "fulfilled") {
@@ -455,7 +455,7 @@ const WorkflowTemplateDetail = () => {
               {workflow.title || "Workflow"}
             </Text>
 
-            <Badge colorScheme={statusColor(workflow.status)} variant="subtle">
+            <Badge bgColor={statusColor(workflow.status)} variant="subtle">
               {workflow.status || "-"}
             </Badge>
           </HStack>

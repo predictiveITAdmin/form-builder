@@ -60,7 +60,7 @@ export default function AppError({
           {showBack && (
             <Button
               variant="outline"
-              colorScheme="red"
+              bgColor="red"
               leftIcon={<FiArrowLeft />}
               onClick={() => navigate(-1)}
             >
@@ -69,11 +69,7 @@ export default function AppError({
           )}
 
           {showRetry && (
-            <Button
-              colorScheme="red"
-              leftIcon={<FiRefreshCw />}
-              onClick={onRetry}
-            >
+            <Button bgColor="red" leftIcon={<FiRefreshCw />} onClick={onRetry}>
               Retry
             </Button>
           )}
