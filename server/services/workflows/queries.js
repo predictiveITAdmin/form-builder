@@ -52,8 +52,6 @@ async function recomputeWorkflowRunStatus(runId, client = null) {
   if (requiredTotal === 0) nextStatus = "completed";
   else if (requiredDone >= requiredTotal) nextStatus = "completed";
 
-  // Optional: if nothing started yet and not completed, mark not_started.
-  // We’ll treat "not_started" as "no items touched yet".
   if (nextStatus !== "completed") {
     const touchedRes = await runner.query(
       `
@@ -68,7 +66,6 @@ async function recomputeWorkflowRunStatus(runId, client = null) {
     nextStatus = touched > 0 ? "in_progress" : "not_started";
   }
 
-  // Write only if changed (avoids noisy updates)
   if (nextStatus !== currentStatus) {
     await runner.query(
       `
