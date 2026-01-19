@@ -35,7 +35,7 @@ async function listForms() {
       f.updated_at,
       u.display_name,
       f.rpa_webhook_url
-    ORDER BY f.created_at DESC;`
+    ORDER BY f.created_at DESC;`,
   );
 }
 /**
@@ -66,7 +66,7 @@ async function listPublishedForms(userId) {
       AND fa.user_id = $1
       AND COALESCE(f.usage_mode, 'standalone') IN ('standalone', 'both')
     ORDER BY f.created_at DESC;`,
-    [userId]
+    [userId],
   );
 }
 
@@ -123,7 +123,7 @@ async function createForm(payload, { owner_user_id = null } = {}) {
         payload.rpa_secret ?? null,
         payload.rpa_timeout_ms ?? 8000,
         payload.rpa_retry_count ?? 0,
-      ]
+      ],
     );
 
     const formId = formRes.rows[0].form_id;
@@ -147,7 +147,7 @@ async function createForm(payload, { owner_user_id = null } = {}) {
           step.step_description ?? null,
           step.sort_order ?? 0,
           step.is_active !== undefined ? !!step.is_active : true,
-        ]
+        ],
       );
 
       const stepId = stepRes.rows[0].step_id;
@@ -176,7 +176,7 @@ async function createForm(payload, { owner_user_id = null } = {}) {
             field.config_json ?? "{}",
             field.active !== undefined ? !!field.active : true,
             stepId,
-          ]
+          ],
         );
 
         const fieldId = fieldRes.rows[0].field_id;
@@ -184,7 +184,7 @@ async function createForm(payload, { owner_user_id = null } = {}) {
         if (Array.isArray(field.options) && field.options.length) {
           const { sql, params } = buildBulkInsertFieldOptions(
             fieldId,
-            field.options
+            field.options,
           );
           await client.query(sql, params);
         }
@@ -204,7 +204,7 @@ async function createForm(payload, { owner_user_id = null } = {}) {
 async function updateFormByKey(
   formKey,
   payload,
-  { owner_user_id = null } = {}
+  { owner_user_id = null } = {},
 ) {
   const pool = await getPool();
   const client = await pool.connect();
@@ -215,7 +215,7 @@ async function updateFormByKey(
     // Resolve form_id
     const formRow = await client.query(
       `SELECT form_id FROM Forms WHERE form_key = $1 LIMIT 1`,
-      [formKey]
+      [formKey],
     );
     const formId = formRow.rows[0]?.form_id;
 
@@ -258,17 +258,17 @@ async function updateFormByKey(
         payload.rpa_retry_count ?? 0,
         formId,
         payload.usage_mode ?? "standalone",
-      ]
+      ],
     );
 
     // 2) Soft-deactivate everything (NO deletes, so FK is happy)
     await client.query(
       `UPDATE FormSteps SET is_active = false WHERE form_id = $1`,
-      [formId]
+      [formId],
     );
     await client.query(
       `UPDATE FormFields SET active = false WHERE form_id = $1`,
-      [formId]
+      [formId],
     );
 
     // 3) Upsert steps + fields
@@ -297,7 +297,7 @@ async function updateFormByKey(
           step.step_description ?? null,
           step.sort_order ?? 0,
           step.is_active !== undefined ? !!step.is_active : true,
-        ]
+        ],
       );
 
       const stepId = stepRes.rows[0].step_id;
@@ -336,7 +336,7 @@ async function updateFormByKey(
             field.config_json ?? "{}",
             field.active !== undefined ? !!field.active : true,
             stepId,
-          ]
+          ],
         );
 
         const fieldId = fieldRes.rows[0].field_id;
@@ -344,13 +344,13 @@ async function updateFormByKey(
         // Replace options for THIS field only
         await client.query(
           `DELETE FROM FieldOptions WHERE form_field_id = $1`,
-          [fieldId]
+          [fieldId],
         );
 
         if (Array.isArray(field.options) && field.options.length) {
           const { sql, params } = buildBulkInsertFieldOptions(
             fieldId,
-            field.options
+            field.options,
           );
           await client.query(sql, params);
         }
@@ -374,14 +374,14 @@ async function getDynamicUrl(fieldId) {
     FROM FormFields
     WHERE field_id = $1
     `,
-    [fieldId]
+    [fieldId],
   );
 
   const sql = await query(
     `SELECT key_name,label,help_text
     FROM FormFields
     WHERE field_id = $1`,
-    [fieldId]
+    [fieldId],
   );
   if (!result.length || !sql.length) {
     throw new Error(`Field with ID ${fieldId} not found`);
@@ -401,7 +401,7 @@ async function getDynamicUrl(fieldId) {
   }
 
   throw new Error(
-    `Dynamic options not enabled or URL not found for field ${fieldId}`
+    `Dynamic options not enabled or URL not found for field ${fieldId}`,
   );
 }
 
@@ -418,7 +418,7 @@ async function saveOptionsToDb(fieldId, options) {
       DELETE FROM FieldOptions
       WHERE form_field_id = $1
       `,
-      [fieldId]
+      [fieldId],
     );
 
     // 2) Insert new options
@@ -431,7 +431,7 @@ async function saveOptionsToDb(fieldId, options) {
         placeholders.push(
           `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${
             offset + 5
-          }, $${offset + 6})`
+          }, $${offset + 6})`,
         );
         valuesWithSource.push(
           fieldId,
@@ -439,7 +439,7 @@ async function saveOptionsToDb(fieldId, options) {
           option.label,
           option.is_default ?? false,
           option.sort_order ?? index,
-          "dynamic"
+          "dynamic",
         );
       });
 
@@ -481,7 +481,7 @@ function buildBulkInsertFieldOptions(fieldId, options) {
     rows.push(
       `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${
         base + 5
-      }, 'static')`
+      }, 'static')`,
     );
 
     params.push(
@@ -489,7 +489,7 @@ function buildBulkInsertFieldOptions(fieldId, options) {
       String(opt.value ?? ""),
       String(opt.label ?? ""),
       !!opt.is_default,
-      opt.sort_order ?? i
+      opt.sort_order ?? i,
     );
   });
 
@@ -582,7 +582,7 @@ async function getFormGraphByKey(form_key) {
     WHERE f.form_key = $1
     LIMIT 1
     `,
-    [form_key]
+    [form_key],
   );
 }
 
@@ -738,7 +738,7 @@ async function getDraftSessionsbyUser(user_id) {
     AND fs.is_completed = FALSE
     AND fs.expires_at > NOW()
   ORDER BY fs.updated_at DESC, r.submitted_at DESC NULLS LAST;`,
-    user_id
+    user_id,
   );
 }
 
@@ -752,7 +752,7 @@ async function validateAccess(user_id, formKey) {
       AND f.form_key = $2
     LIMIT 1
     `,
-    [user_id, formKey]
+    [user_id, formKey],
   );
 
   const itemAccess = await query(
@@ -763,8 +763,9 @@ async function validateAccess(user_id, formKey) {
       WHERE wi.assigned_user_id = $1
         AND f.form_key = $2
       LIMIT 1;`,
-    [user_id, formKey]
+    [user_id, formKey],
   );
+
   return res.length > 0 || itemAccess.length > 0;
 }
 
@@ -794,7 +795,7 @@ FROM resolved
 WHERE value IS NOT NULL;
 
 `,
-    [user_id, session_token]
+    [user_id, session_token],
   );
 }
 
@@ -837,7 +838,7 @@ async function getOrCreateOpenSession(userId, formId, sessionToken) {
         AND is_completed = FALSE
         AND expires_at <= NOW();
       `,
-      [userId, formId]
+      [userId, formId],
     );
 
     const totalSteps = await selectTotalSteps(formId);
@@ -898,7 +899,7 @@ async function setFormUsers(formId, userIds, grantedBy) {
 
   const cleanUserIds = [...new Set(userIds)]
     .filter(
-      (x) => Number.isInteger(x) || (typeof x === "string" && x.trim() !== "")
+      (x) => Number.isInteger(x) || (typeof x === "string" && x.trim() !== ""),
     )
     .map((x) => Number(x))
     .filter((x) => Number.isInteger(x));
@@ -909,7 +910,7 @@ async function setFormUsers(formId, userIds, grantedBy) {
 
     const delRes = await client.query(
       `DELETE FROM form_access WHERE form_id = $1`,
-      [formId]
+      [formId],
     );
 
     if (cleanUserIds.length === 0) {
@@ -923,7 +924,7 @@ async function setFormUsers(formId, userIds, grantedBy) {
       SELECT $1, u.user_id, NOW(), $2
       FROM UNNEST($3::int[]) AS u(user_id)
       `,
-      [formId, grantedBy, cleanUserIds]
+      [formId, grantedBy, cleanUserIds],
     );
 
     await client.query("COMMIT");
@@ -983,7 +984,7 @@ async function getRpaSubmissionBundleByResponseId(responseId) {
     WHERE r.response_id = $1
     LIMIT 1;
     `,
-    [responseId]
+    [responseId],
   );
 
   const head = base?.[0];
@@ -1066,7 +1067,7 @@ LEFT JOIN LATERAL (
 WHERE rv.response_id = $1
 ORDER BY ff.sort_order, ff.field_id;
     `,
-    [responseId]
+    [responseId],
   );
 
   // 3) File uploads linked to this response (and optionally by form_field_id)
@@ -1112,7 +1113,7 @@ ORDER BY ff.sort_order, ff.field_id;
       )
     ORDER BY fu.created_at ASC;
     `,
-    [responseId]
+    [responseId],
   );
 
   // 4) Optional workflow context (only if tied)
@@ -1176,7 +1177,7 @@ ORDER BY ff.sort_order, ff.field_id;
         )
       LIMIT 1;
       `,
-      [workflowItemId ?? null, workflowRunId ?? null]
+      [workflowItemId ?? null, workflowRunId ?? null],
     );
 
     const wfHead = wfHeadRows?.[0] ?? null;
@@ -1208,7 +1209,7 @@ ORDER BY ff.sort_order, ff.field_id;
         WHERE wi.workflow_run_id = $1
         ORDER BY wf.sort_order, wi.sequence_num, wi.workflow_item_id;
         `,
-        [wfHead.workflow_run_id]
+        [wfHead.workflow_run_id],
       );
     }
 
@@ -1355,7 +1356,7 @@ async function markWorkflowItemSubmitted(workflowItemId) {
     WHERE workflow_item_id = $1
     RETURNING workflow_item_id, status, completed_at;
     `,
-    [workflowItemId]
+    [workflowItemId],
   );
   return res?.[0] ?? null;
 }
@@ -1375,7 +1376,7 @@ async function completeOpenSessionByFormAndUser(formId, userId) {
       AND is_completed = FALSE
     RETURNING session_id, session_token, form_id, user_id, completed_at;
     `,
-    [formId, userId]
+    [formId, userId],
   );
 
   return res?.[0] ?? null;

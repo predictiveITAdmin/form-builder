@@ -25,6 +25,7 @@ import WorkflowRunDetail from "./components/workflows/WorkflowRunDetail";
 import Workflows from "./components/workflows/Workflows";
 import WorkflowRuns from "./components/workflows/WorkflowRuns";
 import WorkflowTemplateDetail from "./components/workflows/WorkflowTemplateDetail";
+import MyTasks from "./components/tasks/MyTasks";
 // Main App Component
 function App() {
   const dispatch = useDispatch();
@@ -88,7 +89,14 @@ function App() {
           <Route index element={<Responses />} />
           <Route path=":responseId" element={<ResponseDetail />} />
         </Route>
-
+        <Route
+          path="tasks"
+          element={
+            <Layout>
+              <MyTasks />
+            </Layout>
+          }
+        />
         <Route
           path="workflows"
           element={

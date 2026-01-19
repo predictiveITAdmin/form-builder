@@ -1,3 +1,4 @@
+const formQueries = require("../forms/queries");
 const workflowQueries = require("./queries");
 
 function getUserId(req) {
@@ -227,7 +228,7 @@ async function cancelWorkflowRun(req, res, next) {
     const result = await workflowQueries.cancelWorkflowRun(
       runId,
       userId,
-      reason ?? null
+      reason ?? null,
     );
 
     if (!result)
@@ -246,7 +247,7 @@ async function assignWorkflowItem(req, res, next) {
 
     const result = await workflowQueries.assignWorkflowItem(
       itemId,
-      assigned_user_id
+      assigned_user_id,
     );
 
     if (!result)
@@ -262,6 +263,14 @@ async function startWorkflowItem(req, res, next) {
   try {
     const userId = getUserId(req);
     const itemId = Number(req.params.itemId);
+
+    const hasAccess = await formQueries.validateAccess();
+
+    if (!hasAccess) {
+      return res(401).json({
+        message: "You do not have access to fill this form.",
+      });
+    }
 
     const result = await workflowQueries.startWorkflowItem(itemId, userId);
 
@@ -280,7 +289,7 @@ async function skipWorkflowItem(req, res, next) {
     const result = await workflowQueries.skipWorkflowItem(
       itemId,
       userId,
-      reason
+      reason,
     );
 
     return res.status(200).json(result);
@@ -322,6 +331,24 @@ async function markWorkflowItemSubmitted(req, res, next) {
   }
 }
 
+async function getTasks(req, res) {
+  try {
+    const user_id = getUserId(req);
+
+    if (!user_id) {
+      res.status(401).json({
+        message: "You are not authorized to view the resource.",
+      });
+    }
+
+    const result = await workflowQueries.getTasks(user_id);
+
+    return res.status(200).json(result);
+  } catch (err) {
+    return next(err);
+  }
+}
+
 module.exports = {
   getWorkflow,
   createWorkflow,
@@ -345,4 +372,5 @@ module.exports = {
   addRepeatWorkflowItem,
 
   markWorkflowItemSubmitted,
+  getTasks,
 };

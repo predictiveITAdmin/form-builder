@@ -27,14 +27,14 @@ export const fetchWorkflows = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 export const createWorkflow = createAsyncThunk(
   "workflows/createWorkflow",
   async (
     { title, workflow_key, description, status = "Active" },
-    { rejectWithValue }
+    { rejectWithValue },
   ) => {
     try {
       // routes: POST /workflows
@@ -48,7 +48,7 @@ export const createWorkflow = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 export const getWorkflow = createAsyncThunk(
@@ -61,7 +61,7 @@ export const getWorkflow = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 export const fetchAssignableForms = createAsyncThunk(
@@ -73,7 +73,7 @@ export const fetchAssignableForms = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 // -------------------------
@@ -89,7 +89,7 @@ export const fetchWorkflowForms = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 export const getWorkflowForm = createAsyncThunk(
@@ -98,13 +98,13 @@ export const getWorkflowForm = createAsyncThunk(
     try {
       // routes: GET /workflow-forms/:workflowFormId
       const res = await http.get(
-        `/api/workflows/workflow-forms/${workflowFormId}`
+        `/api/workflows/workflow-forms/${workflowFormId}`,
       );
       return res.data; // whatever controller returns (array/rows/etc)
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 export const assignFormToWorkflow = createAsyncThunk(
@@ -117,7 +117,7 @@ export const assignFormToWorkflow = createAsyncThunk(
       allow_multiple = false,
       sort_order = 50,
     },
-    { rejectWithValue }
+    { rejectWithValue },
   ) => {
     try {
       // routes: POST /workflows/:workflowId/forms
@@ -128,13 +128,13 @@ export const assignFormToWorkflow = createAsyncThunk(
           required,
           allow_multiple,
           sort_order,
-        }
+        },
       );
       return res.data; // workflow_form row
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 // This exists in controller.js, but routes.js currently has NO PUT/PATCH route.
@@ -148,19 +148,19 @@ export const updateWorkflowForm = createAsyncThunk(
       allow_multiple = false,
       sort_order = 50,
     },
-    { rejectWithValue }
+    { rejectWithValue },
   ) => {
     try {
       // Intended route: PUT /workflow-forms/:workflowFormId
       const res = await http.put(
         `/api/workflows/workflow-forms/${workflowFormId}`,
-        { required, allow_multiple, sort_order }
+        { required, allow_multiple, sort_order },
       );
       return res.data; // updated workflow_form row
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 export const removeWorkflowForm = createAsyncThunk(
@@ -173,7 +173,7 @@ export const removeWorkflowForm = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 // Alternate delete route also exists
@@ -183,13 +183,13 @@ export const removeWorkflowFormFromWorkflow = createAsyncThunk(
     try {
       // routes: DELETE /workflows/:workflowId/forms/:workflowFormId
       await http.delete(
-        `/api/workflows/workflows/${workflowId}/forms/${workflowFormId}`
+        `/api/workflows/workflows/${workflowId}/forms/${workflowFormId}`,
       );
       return { workflowId, workflowFormId };
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 // -------------------------
@@ -199,7 +199,7 @@ export const fetchWorkflowRuns = createAsyncThunk(
   "workflows/fetchRuns",
   async (
     { mine = false, workflow_id = null, status = null } = {},
-    { rejectWithValue }
+    { rejectWithValue },
   ) => {
     try {
       // routes: GET /workflow-runs?mine=true&workflow_id=...&status=...
@@ -210,13 +210,13 @@ export const fetchWorkflowRuns = createAsyncThunk(
 
       const qs = params.toString();
       const res = await http.get(
-        `/api/workflows/workflow-runs${qs ? `?${qs}` : ""}`
+        `/api/workflows/workflow-runs${qs ? `?${qs}` : ""}`,
       );
       return res.data; // array
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 export const createWorkflowRun = createAsyncThunk(
@@ -232,7 +232,7 @@ export const createWorkflowRun = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 export const fetchWorkflowRunDashboard = createAsyncThunk(
@@ -245,7 +245,7 @@ export const fetchWorkflowRunDashboard = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 export const lockWorkflowRun = createAsyncThunk(
@@ -258,7 +258,7 @@ export const lockWorkflowRun = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 export const cancelWorkflowRun = createAsyncThunk(
@@ -268,13 +268,13 @@ export const cancelWorkflowRun = createAsyncThunk(
       // routes: POST /workflow-runs/:runId/cancel
       const res = await http.post(
         `/api/workflows/workflow-runs/${runId}/cancel`,
-        { reason }
+        { reason },
       );
       return { runId, data: res.data };
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 // -------------------------
@@ -287,13 +287,13 @@ export const assignWorkflowItem = createAsyncThunk(
       // routes: POST /workflow-items/:itemId/assign
       const res = await http.post(
         `/api/workflows/workflow-items/${itemId}/assign`,
-        { assigned_user_id }
+        { assigned_user_id },
       );
       return res.data;
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 export const startWorkflowItem = createAsyncThunk(
@@ -302,13 +302,13 @@ export const startWorkflowItem = createAsyncThunk(
     try {
       // routes: POST /workflow-items/:itemId/start
       const res = await http.post(
-        `/api/workflows/workflow-items/${itemId}/start`
+        `/api/workflows/workflow-items/${itemId}/start`,
       );
       return res.data;
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 export const skipWorkflowItem = createAsyncThunk(
@@ -318,20 +318,20 @@ export const skipWorkflowItem = createAsyncThunk(
       // routes: POST /workflow-items/:itemId/skip
       const res = await http.post(
         `/api/workflows/workflow-items/${itemId}/skip`,
-        { reason }
+        { reason },
       );
       return res.data;
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 export const addRepeatWorkflowItem = createAsyncThunk(
   "workflows/addRepeatItem",
   async (
     { runId, workflowFormId, fromItemId, assigned_user_id },
-    { rejectWithValue }
+    { rejectWithValue },
   ) => {
     try {
       // routes: POST /workflow-items/add
@@ -345,7 +345,7 @@ export const addRepeatWorkflowItem = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
 );
 
 export const markWorkflowItemSubmitted = createAsyncThunk(
@@ -355,13 +355,26 @@ export const markWorkflowItemSubmitted = createAsyncThunk(
       // routes: POST /workflow-items/mark-submitted
       const res = await http.post(
         `/api/workflows/workflow-items/mark-submitted`,
-        { workflow_item_id, workflow_run_id }
+        { workflow_item_id, workflow_run_id },
       );
       return res.data;
     } catch (err) {
       return rejectWithValue(toErrorPayload(err));
     }
-  }
+  },
+);
+
+export const fetchMyWorkflowTasks = createAsyncThunk(
+  "workflows/fetchMyTasks",
+  async (_, { rejectWithValue }) => {
+    try {
+      // routes: GET /mytasks (base: /api/workflows)
+      const res = await http.get("/api/workflows/mytasks");
+      return res.data; // array of workflow task items
+    } catch (err) {
+      return rejectWithValue(toErrorPayload(err));
+    }
+  },
 );
 
 // -------------------------
@@ -411,6 +424,8 @@ const initialState = {
 
   assignableForms: [],
 
+  myTasks: [],
+
   loading: {
     fetchWorkflows: false,
     createWorkflow: false,
@@ -436,6 +451,7 @@ const initialState = {
     skipItem: false,
     addRepeatItem: false,
     markSubmitted: false,
+    fetchMyTasks: false,
   },
 
   error: {
@@ -463,6 +479,7 @@ const initialState = {
     skipItem: null,
     addRepeatItem: null,
     markSubmitted: null,
+    fetchMyTasks: null,
   },
 };
 
@@ -511,7 +528,7 @@ export const workflowSlice = createSlice({
         if (!wf) return;
 
         const idx = (state.workflows || []).findIndex(
-          (x) => x.workflow_id === wf.workflow_id
+          (x) => x.workflow_id === wf.workflow_id,
         );
         if (idx >= 0) state.workflows[idx] = wf;
         else state.workflows = [wf, ...(state.workflows || [])];
@@ -537,7 +554,7 @@ export const workflowSlice = createSlice({
         state.workflowById[wf.workflow_id] = wf;
 
         const idx = (state.workflows || []).findIndex(
-          (x) => x.workflow_id === wf.workflow_id
+          (x) => x.workflow_id === wf.workflow_id,
         );
         if (idx >= 0) state.workflows[idx] = wf;
       })
@@ -584,7 +601,7 @@ export const workflowSlice = createSlice({
         const payload = action.payload;
         const row = Array.isArray(payload)
           ? payload?.[0]
-          : payload?.rows?.[0] ?? payload;
+          : (payload?.rows?.[0] ?? payload);
 
         const id = row?.workflow_form_id;
         if (id != null) state.workflowFormById[Number(id)] = row;
@@ -614,7 +631,7 @@ export const workflowSlice = createSlice({
         setOpError(
           state,
           "assignFormToWorkflow",
-          action.payload || action.error
+          action.payload || action.error,
         );
       });
 
@@ -631,7 +648,7 @@ export const workflowSlice = createSlice({
         if (id != null) {
           state.workflowFormById[Number(id)] = row;
           state.workflowForms = (state.workflowForms || []).map((x) =>
-            Number(x.workflow_form_id) === Number(id) ? row : x
+            Number(x.workflow_form_id) === Number(id) ? row : x,
           );
         }
       })
@@ -652,7 +669,7 @@ export const workflowSlice = createSlice({
         if (!Number.isNaN(id)) {
           delete state.workflowFormById[id];
           state.workflowForms = (state.workflowForms || []).filter(
-            (x) => Number(x.workflow_form_id) !== id
+            (x) => Number(x.workflow_form_id) !== id,
           );
         }
       })
@@ -673,7 +690,7 @@ export const workflowSlice = createSlice({
         if (!Number.isNaN(id)) {
           delete state.workflowFormById[id];
           state.workflowForms = (state.workflowForms || []).filter(
-            (x) => Number(x.workflow_form_id) !== id
+            (x) => Number(x.workflow_form_id) !== id,
           );
         }
       })
@@ -682,7 +699,7 @@ export const workflowSlice = createSlice({
         setOpError(
           state,
           "removeWorkflowFormFromWorkflow",
-          action.payload || action.error
+          action.payload || action.error,
         );
       });
 
@@ -804,7 +821,7 @@ export const workflowSlice = createSlice({
           dash.items = dash.items.map((it) =>
             Number(it.workflow_item_id) === itemId
               ? { ...it, assigned_user_id: assignedUserId }
-              : it
+              : it,
           );
         });
       })
@@ -833,7 +850,7 @@ export const workflowSlice = createSlice({
           dash.items = dash.items.map((it) =>
             Number(it.workflow_item_id) === itemId
               ? { ...it, status: "in_progress" }
-              : it
+              : it,
           );
           if (dash.status === "not_started") dash.status = "in_progress";
         });
@@ -860,7 +877,7 @@ export const workflowSlice = createSlice({
           dash.items = dash.items.map((it) =>
             Number(it.workflow_item_id) === itemId
               ? { ...it, status: "skipped" }
-              : it
+              : it,
           );
 
           if (status?.status) dash.status = status.status;
@@ -929,7 +946,7 @@ export const workflowSlice = createSlice({
           dash.items = dash.items.map((it) =>
             Number(it.workflow_item_id) === itemId
               ? { ...it, status: "submitted" }
-              : it
+              : it,
           );
 
           if (status?.status) dash.status = status.status;
@@ -957,6 +974,20 @@ export const workflowSlice = createSlice({
       .addCase(fetchAssignableForms.rejected, (state, action) => {
         setOpLoading(state, "fetchAssignableForms", false);
         setOpError(state, "fetchAssignableForms", action.payload);
+      });
+
+    builder
+      .addCase(fetchMyWorkflowTasks.pending, (state) => {
+        setOpLoading(state, "fetchMyTasks", true);
+        clearOpError(state, "fetchMyTasks");
+      })
+      .addCase(fetchMyWorkflowTasks.fulfilled, (state, action) => {
+        setOpLoading(state, "fetchMyTasks", false);
+        state.myTasks = Array.isArray(action.payload) ? action.payload : [];
+      })
+      .addCase(fetchMyWorkflowTasks.rejected, (state, action) => {
+        setOpLoading(state, "fetchMyTasks", false);
+        setOpError(state, "fetchMyTasks", action.payload || action.error);
       });
   },
 });
@@ -1011,3 +1042,5 @@ export const selectWorkflowError = (op) => (state) =>
 // Kept from your original slice (unrelated to workflows router)
 export const selectWorkflowAssignableForms = (state) =>
   state.workflows?.assignableForms ?? [];
+
+export const selectMyWorkflowTasks = (state) => state.workflows?.myTasks ?? [];

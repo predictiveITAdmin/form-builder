@@ -52,7 +52,7 @@ const norm = (s) => String(s || "").toLowerCase();
 const statusColor = (s) => {
   const v = norm(s);
   if (v === "completed" || v === "submitted") return "green";
-  if (v === "in_progress") return "blue";
+  if (v === "in_progress") return "#2596be";
   if (v === "not_started") return "gray";
   if (v === "skipped") return "orange";
   if (v === "cancelled") return "red";
@@ -110,10 +110,10 @@ const WorkflowLifecycleChips = ({ run }) => {
           st.key === "not_started"
             ? true
             : st.key === "in_progress"
-            ? s !== "not_started"
-            : s === "completed";
+              ? s !== "not_started"
+              : s === "completed";
 
-        const scheme = active ? "blue" : passed ? "green" : "gray";
+        const scheme = active ? "#2596be" : passed ? "green" : "gray";
 
         return (
           <Tag.Root
@@ -173,7 +173,7 @@ const WorkflowRunDetail = () => {
   const run = dashboard || null;
   const items = useMemo(
     () => (run?.items && Array.isArray(run.items) ? run.items : []),
-    [run]
+    [run],
   );
 
   const progress = useMemo(() => {
@@ -250,7 +250,7 @@ const WorkflowRunDetail = () => {
 
   const { page, setPage, pageSize, totalItems, pageData } = usePagination(
     flatForTable,
-    8
+    8,
   );
 
   if (!Number.isFinite(rid))
@@ -350,7 +350,7 @@ const WorkflowRunDetail = () => {
     if (!reason || !reason.trim()) return;
 
     const res = await dispatch(
-      skipWorkflowItem({ itemId: item.workflow_item_id, reason })
+      skipWorkflowItem({ itemId: item.workflow_item_id, reason }),
     );
 
     if (res?.meta?.requestStatus === "fulfilled") {
@@ -376,7 +376,7 @@ const WorkflowRunDetail = () => {
       addRepeatWorkflowItem({
         fromItemId: item.workflow_item_id,
         assigned_user_id: item.assigned_user_id ?? null,
-      })
+      }),
     );
 
     if (res?.meta?.requestStatus === "fulfilled") {
@@ -402,7 +402,7 @@ const WorkflowRunDetail = () => {
     const assigned_user_id = v === "" ? null : Number(v);
 
     const res = await dispatch(
-      assignWorkflowItem({ itemId: item.workflow_item_id, assigned_user_id })
+      assignWorkflowItem({ itemId: item.workflow_item_id, assigned_user_id }),
     );
 
     if (res?.meta?.requestStatus === "fulfilled") {
@@ -427,7 +427,7 @@ const WorkflowRunDetail = () => {
     const v = assignByItem[item.workflow_item_id];
 
     const res = await dispatch(
-      assignWorkflowItem({ itemId: item.workflow_item_id })
+      assignWorkflowItem({ itemId: item.workflow_item_id }),
     );
 
     if (res?.meta?.requestStatus === "fulfilled") {
@@ -467,7 +467,7 @@ const WorkflowRunDetail = () => {
               </Badge>
             )}
             {row.allow_multiple ? (
-              <Badge bgColor="blue" variant="outline" color={"white"}>
+              <Badge bgColor="#2596be" variant="outline" color={"white"}>
                 Repeatable
               </Badge>
             ) : null}
@@ -507,10 +507,10 @@ const WorkflowRunDetail = () => {
                 }
               >
                 {row.assigned_user_id ? (
-                  <option value={row.assigned_user_id}>
+                  <option value={row.assigned_user_id} disabled>
                     {row.assigned_user_id}
                   </option>
-                ) : allUsers.length > 0 ? (
+                ) : allUsers?.length > 0 ? (
                   allUsers.map((user) => (
                     <option key={user.user_id} value={user.user_id}>
                       {user.display_name}
@@ -584,7 +584,7 @@ const WorkflowRunDetail = () => {
             <Can any={["workflows.item.start"]}>
               <Button
                 size="sm"
-                bgColor="blue"
+                bgColor="#2596be"
                 color={"white"}
                 variant={done ? "outline" : "solid"}
                 onClick={() => onStartItem(row.workflow_item_id)}
@@ -710,8 +710,8 @@ const WorkflowRunDetail = () => {
                     {run.status === "cancelled"
                       ? "This run is cancelled. No more work, no more progress, no more hope."
                       : run.locked_at
-                      ? "This run is locked. Existing submissions stay, new repeat items should be blocked."
-                      : "This run is active. Finish required items (submit or skip) to complete it."}
+                        ? "This run is locked. Existing submissions stay, new repeat items should be blocked."
+                        : "This run is active. Finish required items (submit or skip) to complete it."}
                   </Text>
                 </Splitter.Panel>
               </Splitter.Root>
@@ -721,8 +721,8 @@ const WorkflowRunDetail = () => {
                   {run.locked_by_name
                     ? `by ${run.locked_by_name}`
                     : run.locked_by
-                    ? `by user #${run.locked_by}`
-                    : ""}
+                      ? `by user #${run.locked_by}`
+                      : ""}
                 </Text>
               ) : null}
             </VStack>
@@ -742,7 +742,7 @@ const WorkflowRunDetail = () => {
                 </Text>
 
                 <Badge
-                  bgColor={progress.pct === 100 ? "green" : "blue"}
+                  bgColor={progress.pct === 100 ? "green" : "#2596be"}
                   color={"white"}
                   variant="subtle"
                 >

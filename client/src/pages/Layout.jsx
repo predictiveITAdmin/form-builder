@@ -27,6 +27,7 @@ import { IoIosLogOut } from "react-icons/io";
 import { selectUser } from "../features/auth/authSlice";
 import AppToast from "@/components/ui/AppToast";
 import { Can } from "@/auth/Can";
+import { TbSubtask } from "react-icons/tb";
 
 function Layout({ children }) {
   const navigate = useNavigate();
@@ -51,6 +52,12 @@ function Layout({ children }) {
       label: "Workflows",
       icon: <GoWorkflow />,
       any: ["workflows.read", "workflows.create"],
+    },
+    {
+      path: "/tasks",
+      label: "My Tasks",
+      icon: <TbSubtask />,
+      any: ["forms.read"],
     },
 
     // Forms

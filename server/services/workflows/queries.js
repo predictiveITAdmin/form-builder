@@ -20,7 +20,7 @@ async function recomputeWorkflowRunStatus(runId, client = null) {
     FROM workflow_runs
     WHERE workflow_run_id = $1
     `,
-    [runId]
+    [runId],
   );
 
   if (!runRes?.rows?.length) throw new Error(`Workflow run ${runId} not found`);
@@ -42,7 +42,7 @@ async function recomputeWorkflowRunStatus(runId, client = null) {
       ON wf.workflow_form_id = wi.workflow_form_id
     WHERE wi.workflow_run_id = $1
     `,
-    [runId]
+    [runId],
   );
 
   const requiredTotal = Number(reqRes.rows[0]?.required_total ?? 0);
@@ -62,7 +62,7 @@ async function recomputeWorkflowRunStatus(runId, client = null) {
       WHERE workflow_run_id = $1
         AND status <> 'not_started'
       `,
-      [runId]
+      [runId],
     );
     const touched = Number(touchedRes.rows[0]?.touched ?? 0);
     nextStatus = touched > 0 ? "in_progress" : "not_started";
@@ -76,7 +76,7 @@ async function recomputeWorkflowRunStatus(runId, client = null) {
       SET status = $2, updated_at = NOW()
       WHERE workflow_run_id = $1
       `,
-      [runId, nextStatus]
+      [runId, nextStatus],
     );
   }
 
@@ -377,7 +377,7 @@ async function createWorkflowRun({ workflow_id, display_name, created_by }) {
       VALUES ($1, $2, 'not_started', $3, NOW(), NOW())
       RETURNING workflow_run_id, workflow_id, display_name, status, created_at, updated_at
       `,
-      [workflow_id, String(display_name).trim(), created_by ?? null]
+      [workflow_id, String(display_name).trim(), created_by ?? null],
     );
 
     const run = runRes.rows[0];
@@ -390,7 +390,7 @@ async function createWorkflowRun({ workflow_id, display_name, created_by }) {
       WHERE workflow_id = $1
       ORDER BY sort_order ASC, workflow_form_id ASC
       `,
-      [workflow_id]
+      [workflow_id],
     );
 
     if (wfFormsRes.rows.length) {
@@ -400,7 +400,7 @@ async function createWorkflowRun({ workflow_id, display_name, created_by }) {
       wfFormsRes.rows.forEach((row, idx) => {
         const o = idx * 6;
         placeholders.push(
-          `($${o + 1}, $${o + 2}, $${o + 3}, $${o + 4}, $${o + 5}, $${o + 6})`
+          `($${o + 1}, $${o + 2}, $${o + 3}, $${o + 4}, $${o + 5}, $${o + 6})`,
         );
         values.push(
           run.workflow_run_id, // workflow_run_id
@@ -408,7 +408,7 @@ async function createWorkflowRun({ workflow_id, display_name, created_by }) {
           1, // sequence_num
           "not_started", // status
           null, // assigned_user_id
-          row.required ? null : null // skipped_reason
+          row.required ? null : null, // skipped_reason
         );
       });
 
@@ -418,14 +418,14 @@ async function createWorkflowRun({ workflow_id, display_name, created_by }) {
           (workflow_run_id, workflow_form_id, sequence_num, status, assigned_user_id, skipped_reason)
         VALUES ${placeholders.join(", ")}
         `,
-        values
+        values,
       );
     }
 
     // Recompute status after seeding
     const status = await recomputeWorkflowRunStatus(
       run.workflow_run_id,
-      client
+      client,
     );
 
     await client.query("COMMIT");
@@ -567,7 +567,7 @@ async function cancelWorkflowRun(runId, cancelledByUserId, reason = null) {
       WHERE workflow_run_id = $1
       RETURNING workflow_run_id, status, cancelled_at, cancelled_reason
       `,
-      [runId, reason ?? null]
+      [runId, reason ?? null],
     );
 
     await client.query("COMMIT");
@@ -632,7 +632,7 @@ async function startWorkflowItem(itemId, userId) {
         ON wf.workflow_form_id = wi.workflow_form_id
       WHERE wi.workflow_item_id = $1
       `,
-      [itemId]
+      [itemId],
     );
 
     if (!itemRes.rows.length)
@@ -651,7 +651,7 @@ async function startWorkflowItem(itemId, userId) {
         SET status = 'in_progress', updated_at = NOW()
         WHERE workflow_item_id = $1
         `,
-        [itemId]
+        [itemId],
       );
     }
 
@@ -669,7 +669,7 @@ async function startWorkflowItem(itemId, userId) {
       ORDER BY is_active DESC, updated_at DESC
       LIMIT 1
       `,
-      [itemId, item.workflow_run_id, userId]
+      [itemId, item.workflow_run_id, userId],
     );
 
     if (existingSession.rows.length) {
@@ -702,7 +702,7 @@ async function startWorkflowItem(itemId, userId) {
         item.total_steps,
         item.workflow_run_id,
         itemId,
-      ]
+      ],
     );
 
     await client.query("COMMIT");
@@ -738,7 +738,7 @@ async function skipWorkflowItem(itemId, skippedByUserId, reason) {
       JOIN workflow_runs wr ON wr.workflow_run_id = wi.workflow_run_id
       WHERE wi.workflow_item_id = $1
       `,
-      [itemId]
+      [itemId],
     );
 
     if (!itemRes.rows.length)
@@ -758,7 +758,7 @@ async function skipWorkflowItem(itemId, skippedByUserId, reason) {
           updated_at = NOW()
       WHERE workflow_item_id = $1
       `,
-      [itemId, String(reason).trim()]
+      [itemId, String(reason).trim()],
     );
 
     const status = await recomputeWorkflowRunStatus(workflow_run_id, client);
@@ -801,7 +801,7 @@ async function addRepeatWorkflowItem({
         FROM workflow_items
         WHERE workflow_item_id = $1
         `,
-        [fromItemId]
+        [fromItemId],
       );
       if (!baseRes.rows.length)
         throw new Error(`Workflow item ${fromItemId} not found`);
@@ -825,7 +825,7 @@ async function addRepeatWorkflowItem({
         ON wf.workflow_form_id = $2
       WHERE wr.workflow_run_id = $1
       `,
-      [resolvedRunId, resolvedWfFormId]
+      [resolvedRunId, resolvedWfFormId],
     );
 
     if (!gateRes.rows.length)
@@ -851,7 +851,7 @@ async function addRepeatWorkflowItem({
       WHERE workflow_run_id = $1
         AND workflow_form_id = $2
       `,
-      [resolvedRunId, resolvedWfFormId]
+      [resolvedRunId, resolvedWfFormId],
     );
 
     const nextSeq = Number(seqRes.rows[0]?.max_seq ?? 0) + 1;
@@ -864,7 +864,7 @@ async function addRepeatWorkflowItem({
         ($1, $2, $3, 'not_started', $4, NOW(), NOW())
       RETURNING workflow_item_id, workflow_run_id, workflow_form_id, sequence_num, status, assigned_user_id
       `,
-      [resolvedRunId, resolvedWfFormId, nextSeq, assigned_user_id ?? null]
+      [resolvedRunId, resolvedWfFormId, nextSeq, assigned_user_id ?? null],
     );
 
     // New item means run should not be completed anymore if it was
@@ -913,7 +913,7 @@ async function markWorkflowItemSubmitted({
       WHERE workflow_item_id = $1
         AND workflow_run_id = $2
       `,
-      [workflow_item_id, workflow_run_id]
+      [workflow_item_id, workflow_run_id],
     );
 
     const status = await recomputeWorkflowRunStatus(workflow_run_id, client);
@@ -926,6 +926,39 @@ async function markWorkflowItemSubmitted({
   } finally {
     client.release();
   }
+}
+
+async function getTasks(userId) {
+  const sql = `SELECT wi.workflow_item_id, 
+	wi.workflow_run_id, 
+	wi.workflow_form_id, 
+	wi.sequence_num, 
+	wi.status, 
+	wi.assigned_user_id, 
+	wi.skipped_reason, 
+	wi.completed_at, 
+	wi.created_at, 
+	wi.updated_at,
+	f.form_id,
+	f.title,
+  f.form_key,
+	f.description,
+	u.display_name,
+	wr.display_name,
+	wr.status,
+	wr.cancelled_at
+	FROM public.workflow_items wi
+	LEFT JOIN workflow_forms wf on wf.workflow_form_id = wi.workflow_form_id
+	LEFT JOIN Forms f on f.form_id = wf.form_id
+	LEFT JOIN Users u on u.user_id = wi.assigned_user_id
+	LEFT JOIN Workflow_runs wr on wr.workflow_run_id = wi.workflow_run_id
+	WHERE wi.status not ilike '%skipped%'
+	AND wr.cancelled_at is null
+	AND wr.status not ilike '%completed%'
+	AND wi.assigned_user_id = $1
+	ORDER BY sequence_num;`;
+
+  return await query(sql, [userId]);
 }
 
 module.exports = {
@@ -956,4 +989,5 @@ module.exports = {
 
   // shared
   recomputeWorkflowRunStatus,
+  getTasks,
 };

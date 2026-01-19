@@ -197,6 +197,7 @@ async function getFormForRender(req, res, next) {
     if (!formKey || typeof formKey !== "string") {
       return res.status(400).json({ error: "Missing formKey" });
     }
+
     const hasAccess = await svc.validateAccess(user_id, formKey);
 
     if (!hasAccess) {
@@ -527,7 +528,7 @@ async function handleFinalSubmit(req, res, next) {
     if (!hasAccess) {
       return res
         .status(403)
-        .json({ message: "You do not have access to this form" });
+        .json({ message: "You do not have access to fill this form" });
     }
 
     // We store the session_token in response.session_id in the frontend (yes, naming is cursed).
@@ -568,7 +569,7 @@ async function handleFinalSubmit(req, res, next) {
 
     // 2) Build aggregated payload (includes workflow context if present)
     const bundle = await svc.getRpaSubmissionBundleByResponseId(
-      upserted.response_id
+      upserted.response_id,
     );
     if (!bundle) {
       return res
@@ -605,14 +606,14 @@ async function handleFinalSubmit(req, res, next) {
           headerKey: finalHeaderKey,
           headerValue: finalHeaderValue,
         },
-        bundle
+        bundle,
       );
     }
 
     // 4) Mark session complete (validators: form_id + user_id)
     const completedSession = await svc.completeOpenSessionByFormAndUser(
       form_id,
-      user_id
+      user_id,
     );
 
     return res.status(200).json({
