@@ -81,7 +81,6 @@ async function create(req, res) {
         details: err.detail || String(err?.message || err),
       });
     }
-    console.log(err);
     return res.status(500).json({
       error: "Failed to create form",
       details: String(err?.message || err),
@@ -187,9 +186,9 @@ function isPgUniqueViolation(err) {
 async function getFormForRender(req, res, next) {
   try {
     const { formKey } = req.params;
+    const isEdit = req.query.isEdit === "true";
     const user = req.user;
     const user_id = user.userId;
-
     if (!user_id) {
       return res.status(401).json({ error: "Unauthorized: missing user_id" });
     }
@@ -197,7 +196,34 @@ async function getFormForRender(req, res, next) {
     if (!formKey || typeof formKey !== "string") {
       return res.status(400).json({ error: "Missing formKey" });
     }
+    const permissions =
+      user?.permissions instanceof Set ? user.permissions : new Set();
 
+    if (isEdit) {
+      const canEdit =
+        permissions.has("forms.update") || permissions.has("forms.create");
+      if (!canEdit) {
+        return res.status(403).json({
+          message:
+            "Forbidden: admin permissions required (forms.update/forms.create)",
+        });
+      }
+      const result = await svc.getFormGraphByKey(formKey);
+      if (!result.length || !result[0].form) {
+        return res.status(404).json({ error: "Form not found" });
+      }
+
+      const form = result[0].form;
+      const formId = form.form_id;
+      if (!formId) {
+        return res.status(500).json({ error: "Form graph missing form_id" });
+      }
+
+      const token = crypto.randomUUID();
+      const session = await svc.getOrCreateOpenSession(user_id, formId, token);
+
+      return res.json({ ...form, session });
+    }
     const hasAccess = await svc.validateAccess(user_id, formKey);
 
     if (!hasAccess) {
@@ -223,7 +249,6 @@ async function getFormForRender(req, res, next) {
       session,
     });
   } catch (err) {
-    console.log(err);
     return next(err);
   }
 }

@@ -40,7 +40,7 @@ export default function LoginPage() {
     e.preventDefault();
 
     const res = await dispatch(
-      loginExternal({ email: email.toLowerCase(), password })
+      loginExternal({ email: email.toLowerCase(), password }),
     );
 
     if (loginExternal.fulfilled.match(res)) {
@@ -223,7 +223,7 @@ export default function LoginPage() {
                   type="submit"
                   isLoading={status === "loading"}
                   variant={"solid"}
-                  colorPalette="blue"
+                  bgColor="blue"
                 >
                   Login
                 </Button>

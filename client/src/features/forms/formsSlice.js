@@ -25,27 +25,29 @@ export const fetchForms = createAsyncThunk(
       return rejectWithValue(
         err?.response?.data?.message ||
           err?.response?.data?.error ||
-          "Failed to load forms"
+          "Failed to load forms",
       );
     }
-  }
+  },
 );
 
 export const getForm = createAsyncThunk(
   "forms/getFormDetail",
-  async (formKey, { rejectWithValue }) => {
+  async ({ formKey, isEdit = false }, { rejectWithValue }) => {
     try {
-      const res = await http.get(`/api/forms/${formKey}`);
+      const res = await http.get(`/api/forms/${formKey}`, {
+        params: { isEdit },
+      });
       // backend should return the full form object
       return res.data;
     } catch (err) {
       return rejectWithValue(
         err?.response?.data?.message ||
           err?.response?.data?.error ||
-          "Failed to load form"
+          "Failed to load form",
       );
     }
-  }
+  },
 );
 
 export const getUserSessionData = createAsyncThunk(
@@ -58,10 +60,10 @@ export const getUserSessionData = createAsyncThunk(
       return rejectWithValue(
         err?.response?.data?.message ||
           err?.response?.data?.error ||
-          "Failed to load form"
+          "Failed to load form",
       );
     }
-  }
+  },
 );
 
 /**
@@ -79,10 +81,10 @@ export const fetchPublishedForms = createAsyncThunk(
       return rejectWithValue(
         err?.response?.data?.message ||
           err?.response?.data?.error ||
-          "Failed to load published forms"
+          "Failed to load published forms",
       );
     }
-  }
+  },
 );
 
 export const saveDraft = createAsyncThunk(
@@ -98,10 +100,10 @@ export const saveDraft = createAsyncThunk(
       return rejectWithValue(
         err?.response?.data?.message ||
           err?.response?.data?.error ||
-          "Failed to save draft"
+          "Failed to save draft",
       );
     }
-  }
+  },
 );
 
 export const submitFinal = createAsyncThunk(
@@ -120,10 +122,10 @@ export const submitFinal = createAsyncThunk(
       return rejectWithValue(
         err?.response?.data?.message ||
           err?.response?.data?.error ||
-          "Failed to submit form"
+          "Failed to submit form",
       );
     }
-  }
+  },
 );
 
 export const createForm = createAsyncThunk(
@@ -142,7 +144,7 @@ export const createForm = createAsyncThunk(
 
       return rejectWithValue(msg);
     }
-  }
+  },
 );
 
 export const getUsersForForm = createAsyncThunk(
@@ -155,7 +157,7 @@ export const getUsersForForm = createAsyncThunk(
     } catch (err) {
       rejectWithValue(err || "Could not find users assigned to form");
     }
-  }
+  },
 );
 
 export const assignUsersForForm = createAsyncThunk(
@@ -170,7 +172,7 @@ export const assignUsersForForm = createAsyncThunk(
     } catch (err) {
       rejectWithValue(err || "Could not assign users to Form");
     }
-  }
+  },
 );
 
 export const updateForm = createAsyncThunk(
@@ -189,7 +191,7 @@ export const updateForm = createAsyncThunk(
 
       return rejectWithValue(msg);
     }
-  }
+  },
 );
 
 export const uploadFile = createAsyncThunk(
@@ -205,15 +207,15 @@ export const uploadFile = createAsyncThunk(
 
       const res = await http.post(
         `/api/forms/${formKey}/fields/${fieldId}/files?sessionToken=${sessionToken}`,
-        fd
+        fd,
       );
       return res.data;
     } catch (err) {
       rejectWithValue(
-        err || "Something went wrong! Could not upload Files to server!"
+        err || "Something went wrong! Could not upload Files to server!",
       );
     }
-  }
+  },
 );
 
 // ------------------------------------------

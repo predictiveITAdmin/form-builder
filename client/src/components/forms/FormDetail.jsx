@@ -112,8 +112,8 @@ const FormDetail = () => {
           normalized[field.key_name] = Array.isArray(raw)
             ? raw
             : raw
-            ? [raw]
-            : [];
+              ? [raw]
+              : [];
           break;
 
         case "checkbox":
@@ -134,7 +134,7 @@ const FormDetail = () => {
 
   useEffect(() => {
     if (formKey) {
-      dispatch(getForm(formKey));
+      dispatch(getForm({ formKey }));
     }
   }, [formKey, dispatch]);
 
@@ -223,7 +223,7 @@ const FormDetail = () => {
           fieldId: field.field_id,
           files: file,
           sessionToken,
-        })
+        }),
       ).unwrap();
 
       const uploadedFiles = result?.files || [];
@@ -360,11 +360,11 @@ const FormDetail = () => {
         const arr = Array.isArray(raw)
           ? raw
           : typeof raw === "string"
-          ? raw
-              .split(",")
-              .map((s) => s.trim())
-              .filter(Boolean)
-          : [];
+            ? raw
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : [];
 
         return {
           value_text: JSON.stringify(arr),
@@ -484,7 +484,7 @@ const FormDetail = () => {
           formKey,
           response: payload.response,
           response_values: payload.response_values,
-        })
+        }),
       ).unwrap();
 
       notify({
@@ -1002,7 +1002,7 @@ const FormDetail = () => {
     stagedFiles?.[keyName]?.length || 0;
 
   const hasAnyStagedFiles = Object.values(stagedFiles || {}).some(
-    (arr) => Array.isArray(arr) && arr.length > 0
+    (arr) => Array.isArray(arr) && arr.length > 0,
   );
   return (
     <Box>

@@ -172,7 +172,8 @@ const EditForm = () => {
   // ----------------------------
   useEffect(() => {
     if (!formKey) return;
-    dispatch(getForm(formKey));
+    const isEdit = true;
+    dispatch(getForm({ formKey, isEdit }));
   }, [dispatch, formKey]);
 
   // ----------------------------
@@ -551,8 +552,6 @@ const EditForm = () => {
         }),
       })),
     };
-
-    console.log(payload);
 
     await dispatch(updateForm({ formKey: stableFormKey, payload })).unwrap();
     await dispatch(resetUpdateState());
