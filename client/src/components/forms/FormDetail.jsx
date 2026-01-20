@@ -1114,13 +1114,13 @@ const FormDetail = () => {
 
   const waitForJob = async (
     jobId,
-    { timeoutMs = 60000, intervalMs = 1500 } = {},
+    { timeoutMs = 60000, intervalMs = 5000 } = {},
   ) => {
     const started = Date.now();
 
     while (Date.now() - started < timeoutMs) {
       const s = await dispatch(getOptionsJobStatus({ jobId })).unwrap();
-
+      console.log(s);
       if (s?.status === "completed") return true;
       if (s?.status === "failed")
         throw new Error(`Options job failed (jobId=${jobId})`);
