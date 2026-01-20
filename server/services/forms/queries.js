@@ -1382,7 +1382,48 @@ async function completeOpenSessionByFormAndUser(formId, userId) {
   return res?.[0] ?? null;
 }
 
+async function createOptionsJob(job) {
+  await query(
+    `
+    INSERT INTO options_jobs
+      (job_id, form_key, field_id, requester_user_id, requester_email, requester_type, callback_token, status)
+    VALUES
+      ($1,$2,$3,$4,$5,$6,$7,'pending')
+    `,
+    [
+      job.job_id,
+      job.form_key,
+      job.field_id,
+      job.requester_user_id,
+      job.requester_email,
+      job.requester_type,
+      job.callback_token,
+    ],
+  );
+}
+
+async function getOptionsJob(jobId) {
+  const rows = await query(`SELECT * FROM options_jobs WHERE job_id = $1`, [
+    jobId,
+  ]);
+  return rows[0] || null;
+}
+
+async function completeOptionsJob(jobId) {
+  await query(
+    `
+    UPDATE options_jobs
+    SET status='completed', completed_at=(now() AT TIME ZONE 'UTC')
+    WHERE job_id = $1 AND status='pending'
+    `,
+    [jobId],
+  );
+}
+
 module.exports = {
+  createOptionsJob,
+  getOptionsJob,
+  completeOptionsJob,
   listForms,
   listPublishedForms,
   createForm,

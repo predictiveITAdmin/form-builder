@@ -2,6 +2,7 @@ const express = require("express");
 const ctrl = require("./controller");
 
 const { authMiddleware } = require("../../middlewares/authMiddleware");
+const { webhookAuthMiddleware } = require("../../middlewares/webhookAuth");
 const {
   hasPermissions,
   hasAnyPermission,
@@ -14,93 +15,93 @@ router.get(
   "/published",
   authMiddleware,
   hasAnyPermission(["forms.read"]),
-  ctrl.listPublished
+  ctrl.listPublished,
 );
 
 router.get(
   "/published/workflowForms",
   authMiddleware,
   hasPermissions(["forms.read", "workflows.read"]),
-  ctrl.listWorkflowForms
+  ctrl.listWorkflowForms,
 );
 
 router.get(
   "/",
   authMiddleware,
   hasAnyPermission(["forms.read", "forms.update"]),
-  ctrl.listAll
+  ctrl.listAll,
 );
 
 router.post(
   "/",
   authMiddleware,
   hasAnyPermission(["forms.create", "forms.update"]),
-  ctrl.create
+  ctrl.create,
 );
 
 router.put(
   "/:formId/assignUsers",
   authMiddleware,
   hasPermissions(["forms.create", "forms.update", "users.read"]),
-  ctrl.setUsersForForm
+  ctrl.setUsersForForm,
 );
 router.get(
   "/:formId/getUsers",
   authMiddleware,
   hasPermissions(["forms.create", "forms.update", "users.read"]),
-  ctrl.getUsersForForm
+  ctrl.getUsersForForm,
 );
 
 router.get(
   "/:formKey",
   authMiddleware,
   hasAnyPermission(["forms.read"]),
-  ctrl.getFormForRender
+  ctrl.getFormForRender,
 );
 router.put(
   "/:formKey",
   authMiddleware,
   hasPermissions(["forms.create", "forms.update"]),
-  ctrl.updateForm
+  ctrl.updateForm,
 );
 
 router.get(
   "/:formKey/:sessionToken",
   authMiddleware,
   hasPermissions(["forms.read"]),
-  ctrl.getSessionDataByUser
+  ctrl.getSessionDataByUser,
 );
 
 router.post(
   "/:formKey/fields/:fieldId/files",
   authMiddleware,
   upload.array("files", 10),
-  ctrl.uploadFiles
+  ctrl.uploadFiles,
 );
 
 router.post(
   "/:formKey/fields/:fieldId/options",
   authMiddleware,
-  ctrl.triggerOptionsProcessing
+  ctrl.triggerOptionsProcessing,
 );
 router.post(
   "/webhooks/options-callback",
-  authMiddleware,
-  ctrl.handleOptionsCallback
+  webhookAuthMiddleware,
+  ctrl.handleOptionsCallback,
 );
 
 router.post(
   "/draft",
   authMiddleware,
   hasPermissions(["responses.create", "responses.update"]),
-  ctrl.handleSaveDraft
+  ctrl.handleSaveDraft,
 );
 
 router.post(
   "/:formKey/submit",
   authMiddleware,
   hasPermissions(["responses.create", "responses.update"]),
-  ctrl.handleFinalSubmit
+  ctrl.handleFinalSubmit,
 );
 
 module.exports = router;

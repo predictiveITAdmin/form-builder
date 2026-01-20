@@ -25,6 +25,13 @@ app.set("trust proxy", 1);
 app.use(helmet());
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 app.use(express.json({ limit: "1mb" }));
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
@@ -43,7 +50,7 @@ const corsOrigins = new Set(
   )
     .split(",")
     .map((s) => s.trim())
-    .filter(Boolean)
+    .filter(Boolean),
 );
 
 const microsoftOrigins = [
@@ -65,7 +72,7 @@ app.use(
       return cb(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
-  })
+  }),
 );
 
 // --- Sessions ---
@@ -85,7 +92,7 @@ app.use(
       sameSite: isProd ? "none" : "lax", // "none" required if cross-site cookies; safe if you ever split domains
       maxAge: Number(process.env.SESSION_MAX_AGE_MS || 1000 * 60 * 60 * 24), // 1 day default
     },
-  })
+  }),
 );
 
 // --- Routes ---

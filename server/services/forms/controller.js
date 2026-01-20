@@ -2,6 +2,7 @@ const { uploadFilesToBlob } = require("./fileService");
 const { deliverWithRetry } = require("../integrations/webhook");
 const svc = require("./queries"); // same folder as controller.js
 const axios = require("axios");
+const { v4: uuidv4 } = require("uuid");
 /**
  * GET /forms
  * Admin/Manager/FormBuilder
@@ -362,9 +363,8 @@ async function uploadFiles(req, res) {
 
 async function triggerOptionsProcessing(req, res, next) {
   try {
-    const auth = req.headers.authorization;
-    const token = auth.split(" ")[1];
     const { formKey, fieldId } = req.params;
+
     if (!formKey || !fieldId) {
       return res
         .status(400)
@@ -373,42 +373,59 @@ async function triggerOptionsProcessing(req, res, next) {
 
     const field = await svc.getDynamicUrl(fieldId);
 
-    // Trigger the RPA process (fire and forget)
+    // Create job
+    const jobId = uuidv4();
+    const callbackToken = crypto.randomBytes(32).toString("hex");
+
+    await svc.createOptionsJob({
+      job_id: jobId,
+      form_key: formKey,
+      field_id: Number(fieldId),
+      requester_user_id: req.user?.userId ?? null,
+      requester_email: req.user?.email ?? null,
+      requester_type: req.user?.type ?? null,
+      callback_token: callbackToken,
+    });
+
+    // Fire RPA
     await axios.post(field.url, {
-      formKey: formKey,
-      fieldId: fieldId,
+      formKey,
+      fieldId,
+      jobId,
       callbackUrl: `${process.env.APP_BASE_URL}/api/forms/webhooks/options-callback`,
+      callbackAuth: {
+        jobId,
+        callbackToken,
+        headers: {
+          "X-Job-Id": jobId,
+          "X-Callback-Token": callbackToken,
+        },
+      },
       data: field.data,
-      token: token,
+      userContext: {
+        userId: req.user?.userId ?? null,
+        email: req.user?.email ?? null,
+        type: req.user?.type ?? null,
+      },
       message:
-        "Return a JSON payload to the callbackUrl with the following structure:\n" +
-        "{\n" +
-        "  formKey: string,\n" +
-        "  fieldId: string,\n" +
-        "  options: [\n" +
-        "    {\n" +
-        "      label: string,\n" +
-        "      value: string,\n" +
-        "      sort_order: number,\n" +
-        "      is_default: boolean\n" +
-        "    }\n" +
-        "  ]\n" +
-        "}\n" +
-        "The options array will be used to dynamically populate the field.",
+        "POST back to callbackUrl with headers X-Job-Id and X-Callback-Token and JSON body { formKey, fieldId, options:[...] }",
     });
 
     return res.status(202).json({
       message: "Processing queued successfully",
       formKey,
       fieldId,
+      jobId,
     });
   } catch (e) {
-    res.status(500).json(e?.message || e);
+    console.error("triggerOptionsProcessing error:", e);
+    return res.status(500).json({ message: e?.message || String(e) });
   }
 }
 
 async function handleOptionsCallback(req, res, next) {
   try {
+    const { job } = req.webhook; // set by webhookAuthMiddleware
     const { formKey, fieldId, options } = req.body;
 
     if (!formKey || !fieldId || !options) {
@@ -417,8 +434,18 @@ async function handleOptionsCallback(req, res, next) {
         .json({ message: "Bad Request. Missing required fields." });
     }
 
-    // Insert options into database
+    // Optional: sanity check matches job
+    if (
+      String(formKey) !== String(job.form_key) ||
+      Number(fieldId) !== Number(job.field_id)
+    ) {
+      return res
+        .status(409)
+        .json({ message: "Callback payload does not match job context" });
+    }
+
     await svc.saveOptionsToDb(fieldId, options);
+    await svc.completeOptionsJob(job.job_id);
 
     return res.status(200).json({
       message: "Options received and saved successfully",
