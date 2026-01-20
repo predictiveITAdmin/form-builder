@@ -240,7 +240,9 @@ export const getOptionsJobStatus = createAsyncThunk(
   async ({ jobId }, { rejectWithValue }) => {
     try {
       const res = await http.get(`/api/forms/options-jobs/${jobId}`);
+      console.log(res)
       return res.data;
+
     } catch (err) {
       return rejectWithValue(err?.response?.data || err);
     }

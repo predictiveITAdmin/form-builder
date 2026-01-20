@@ -429,8 +429,8 @@ async function optionsPolling(req, res) {
   const job = await svc.getOptionsJob(req.params.jobId);
   if (!job)
     return res.status(404).json({ success: false, message: "Job not found" });
-
-  res.json({
+  console.log(job)
+  res.status(200).json({
     success: true,
     jobId: job.job_id,
     status: job.status,
