@@ -4,6 +4,7 @@ const svc = require("./queries"); // same folder as controller.js
 const axios = require("axios");
 const { v4: uuidv4 } = require("uuid");
 const crypto = require("crypto");
+const { randomUUID } = require("crypto");
 /**
  * GET /forms
  * Admin/Manager/FormBuilder
@@ -375,7 +376,7 @@ async function triggerOptionsProcessing(req, res, next) {
     const field = await svc.getDynamicUrl(fieldId);
 
     // Create job
-    const jobId = uuidv4();
+    const jobId = randomUUID();
     const callbackToken = crypto.randomBytes(32).toString("hex");
 
     await svc.createOptionsJob({
@@ -426,16 +427,13 @@ async function triggerOptionsProcessing(req, res, next) {
 }
 
 async function optionsPolling(req, res) {
+  console.log(req.params);
   const job = await svc.getOptionsJob(req.params.jobId);
   if (!job)
     return res.status(404).json({ success: false, message: "Job not found" });
-  console.log(job)
   res.status(200).json({
     success: true,
-    jobId: job.job_id,
-    status: job.status,
-    fieldId: job.field_id,
-    formKey: job.form_key,
+    ...job,
   });
 }
 

@@ -64,6 +64,7 @@ router.put(
   hasPermissions(["forms.create", "forms.update"]),
   ctrl.updateForm,
 );
+router.get("/options-jobs/:jobId", authMiddleware, ctrl.optionsPolling);
 
 router.get(
   "/:formKey/:sessionToken",
@@ -89,8 +90,6 @@ router.post(
   webhookAuthMiddleware,
   ctrl.handleOptionsCallback,
 );
-
-router.get("/options-jobs/:jobId", authMiddleware, ctrl.optionsPolling);
 
 router.post(
   "/draft",
