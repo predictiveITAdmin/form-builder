@@ -90,6 +90,8 @@ router.post(
   ctrl.handleOptionsCallback,
 );
 
+router.get("/options-jobs/:jobId", authMiddleware, ctrl.optionsPolling);
+
 router.post(
   "/draft",
   authMiddleware,

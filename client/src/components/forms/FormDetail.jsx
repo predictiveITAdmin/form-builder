@@ -21,6 +21,8 @@ import {
   FileUpload,
 } from "@chakra-ui/react";
 import { useNavigate, useParams } from "react-router";
+import { FaArrowRotateRight } from "react-icons/fa6";
+
 import { SlRefresh } from "react-icons/sl";
 import { useSelector, useDispatch } from "react-redux";
 import { notify } from "../ui/notifyStore";
@@ -41,6 +43,7 @@ import {
   selectFinalSubmitStatus,
   selectFinalSubmitError,
   triggerOptionsProcessing,
+  getOptionsJobStatus,
 } from "@/features/forms/formsSlice";
 import { getForm } from "@/features/forms/formsSlice";
 import { selectUser } from "@/features/auth/authSlice";
@@ -179,6 +182,7 @@ const FormDetail = () => {
   const [isRotating, setIsRotating] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [touchedFields, setTouchedFields] = useState({});
+  const [fieldLoader, setFieldLoader] = useState({});
 
   const validationResult = useMemo(() => {
     return validateWholeForm(formData, formValues);
@@ -519,15 +523,47 @@ const FormDetail = () => {
       )}
     </Field.Label>
   );
+
+  function parseFieldConfig(configText) {
+    if (!configText || typeof configText !== "string") return null;
+
+    try {
+      const obj = JSON.parse(configText);
+      if (obj && typeof obj === "object") return obj;
+    } catch (_) {}
+
+    const fixed = configText.replace(/""/g, '"');
+
+    try {
+      const obj = JSON.parse(fixed);
+      if (obj && typeof obj === "object") return obj;
+    } catch (_) {}
+
+    const stripped = fixed.replace(/^"+|"+$/g, "");
+
+    try {
+      const obj = JSON.parse(stripped);
+      if (obj && typeof obj === "object") return obj;
+    } catch (_) {}
+
+    return null;
+  }
   const renderField = (field) => {
     const value = formValues[field.key_name];
+    const isThisFieldLoading = !!fieldLoader?.[field.key_name];
 
     const commonProps = {
       value: value ?? "",
       onChange: (e) => handleInputChange(field.key_name, e.target.value),
       required: field.required,
       name: field.key_name, // helpful for scroll-to-error later if you want
+      disabled: isThisFieldLoading,
     };
+
+    const cfg = parseFieldConfig(field.config_json); // adjust key name
+    const hasDynamicOptions = !!(
+      cfg?.dynamicOptions?.enabled && cfg?.dynamicOptions?.url
+    );
 
     switch (field.field_type) {
       case "text":
@@ -703,12 +739,32 @@ const FormDetail = () => {
             required={field.required}
             invalid={isFieldInvalid(field)}
           >
-            <HStack alignItems="baseline" gap={2}>
+            <HStack alignItems="center" gap={2}>
               <Field.Label>{field.label}</Field.Label>
               {field.required && (
                 <Text color={"red.500"} fontSize={18} fontWeight={"900"}>
                   *
                 </Text>
+              )}
+              {hasDynamicOptions && (
+                <Button
+                  size="xs"
+                  bgColor="#2596be"
+                  color="white"
+                  borderRadius="full"
+                  padding={1}
+                  minW="unset"
+                  onClick={() => handleRefreshForField(field)}
+                  disabled={isThisFieldLoading}
+                >
+                  <FaArrowRotateRight
+                    style={{
+                      animation: isThisFieldLoading
+                        ? "spin 1s linear infinite"
+                        : "none",
+                    }}
+                  />
+                </Button>
               )}
             </HStack>
 
@@ -719,6 +775,7 @@ const FormDetail = () => {
                 onValueChange={(e) =>
                   handleInputChange(field.key_name, e.value)
                 }
+                disabled={isThisFieldLoading}
               >
                 <HStack gap="6" wrap="wrap">
                   {field.options.map((item) => (
@@ -754,8 +811,9 @@ const FormDetail = () => {
               required={field.required}
               value={value || []} // Chakra expects array
               onValueChange={(e) => handleInputChange(field.key_name, e.value)}
+              disabled={isThisFieldLoading}
             >
-              <HStack>
+              <HStack alignItems="center" gap={2}>
                 <Select.Label width={"fit-content"}>{field.label}</Select.Label>
                 {field.required && (
                   <Text
@@ -766,6 +824,26 @@ const FormDetail = () => {
                   >
                     *
                   </Text>
+                )}
+                {hasDynamicOptions && (
+                  <Button
+                    size="xs"
+                    bgColor="#2596be"
+                    color="white"
+                    borderRadius="full"
+                    padding={1}
+                    minW="unset"
+                    onClick={() => handleRefreshForField(field)}
+                    disabled={isThisFieldLoading}
+                  >
+                    <FaArrowRotateRight
+                      style={{
+                        animation: isThisFieldLoading
+                          ? "spin 1s linear infinite"
+                          : "none",
+                      }}
+                    />
+                  </Button>
                 )}
               </HStack>
               <Select.Control>
@@ -814,8 +892,9 @@ const FormDetail = () => {
               value={value || []}
               onValueChange={(e) => handleInputChange(field.key_name, e.value)}
               multiple
+              disabled={isThisFieldLoading}
             >
-              <HStack>
+              <HStack alignItems="center" gap={2}>
                 <Select.Label width={"fit-content"}>{field.label}</Select.Label>
                 {field.required && (
                   <Text
@@ -826,6 +905,26 @@ const FormDetail = () => {
                   >
                     *
                   </Text>
+                )}
+                {hasDynamicOptions && (
+                  <Button
+                    size="xs"
+                    bgColor="#2596be"
+                    color="white"
+                    borderRadius="full"
+                    padding={1}
+                    minW="unset"
+                    onClick={() => handleRefreshForField(field)}
+                    disabled={isThisFieldLoading}
+                  >
+                    <FaArrowRotateRight
+                      style={{
+                        animation: isThisFieldLoading
+                          ? "spin 1s linear infinite"
+                          : "none",
+                      }}
+                    />
+                  </Button>
                 )}
               </HStack>
               <Select.Control>
@@ -1011,26 +1110,54 @@ const FormDetail = () => {
 
   const dynamicFields = getDynamicOptionFields(formData);
 
-  const handleRefresh = async () => {
-    setIsRotating(true);
-    try {
-      for (let i = 0; i < dynamicFields.length; i++) {
-        const data = await dispatch(
-          triggerOptionsProcessing({
-            formKey: formKey,
-            fieldId: dynamicFields[i].field_id,
-          }),
-        ).unwrap();
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-        console.log(data);
+  const waitForJob = async (
+    jobId,
+    { timeoutMs = 60000, intervalMs = 1500 } = {},
+  ) => {
+    const started = Date.now();
+
+    while (Date.now() - started < timeoutMs) {
+      const s = await dispatch(getOptionsJobStatus({ jobId })).unwrap();
+
+      if (s?.status === "completed") return true;
+      if (s?.status === "failed")
+        throw new Error(`Options job failed (jobId=${jobId})`);
+
+      await sleep(intervalMs);
+    }
+
+    throw new Error(`Timed out waiting for options job (jobId=${jobId})`);
+  };
+
+  const handleRefreshForField = async (field) => {
+    setFieldLoader((prev) => ({ ...prev, [field.key_name]: true }));
+    try {
+      const data = await dispatch(
+        triggerOptionsProcessing({
+          formKey,
+          fieldId: field.field_id,
+        }),
+      ).unwrap();
+
+      notify({
+        type: "info",
+        title: "Dynamic Options Processing",
+        message: `Fetching Dynamic Options for ${field.label}.`,
+      });
+      console.log(data);
+      if (data?.jobId) {
+        const jobId = data.jobId;
+        await waitForJob(jobId, { timeoutMs: 120000, intervalMs: 1500 });
+        await dispatch(getForm({ formKey })).unwrap();
+
         notify({
-          type: "info",
-          title: "Dynamic Options Processing",
-          message: `Request queued for Dynamic Options on ${dynamicFields[i].label}`,
+          type: "success",
+          title: "Options Updated",
+          message: `Dynamic options refreshed successfully for ${field.label}.`,
         });
       }
-
-      setIsRotating(false);
     } catch (err) {
       const msg =
         typeof err === "string"
@@ -1038,7 +1165,60 @@ const FormDetail = () => {
           : err?.message
             ? err.message
             : JSON.stringify(err);
-      notify({ type: "error", title: "Something went wrong!", message: msg });
+
+      notify({ type: "error", title: "Refresh failed", message: msg });
+    } finally {
+      setFieldLoader((prev) => ({ ...prev, [field.key_name]: false }));
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRotating(true);
+
+    try {
+      const jobIds = [];
+
+      for (let i = 0; i < dynamicFields.length; i++) {
+        const data = await dispatch(
+          triggerOptionsProcessing({
+            formKey,
+            fieldId: dynamicFields[i].field_id,
+          }),
+        ).unwrap();
+
+        // Expect backend to return { jobId }
+        if (data?.jobId) jobIds.push(data.jobId);
+
+        notify({
+          type: "info",
+          title: "Dynamic Options Processing",
+          message: `Request queued for Dynamic Options on ${dynamicFields[i].label}`,
+        });
+      }
+
+      // Wait for all jobs to complete
+      for (const jobId of jobIds) {
+        await waitForJob(jobId, { timeoutMs: 120000, intervalMs: 1500 });
+      }
+
+      // Refresh the form once options are updated
+      await dispatch(getForm({ formKey })).unwrap();
+
+      notify({
+        type: "success",
+        title: "Options Updated",
+        message: "Dynamic options refreshed successfully.",
+      });
+    } catch (err) {
+      const msg =
+        typeof err === "string"
+          ? err
+          : err?.message
+            ? err.message
+            : JSON.stringify(err);
+
+      notify({ type: "error", title: "Refresh failed", message: msg });
+    } finally {
       setIsRotating(false);
     }
   };

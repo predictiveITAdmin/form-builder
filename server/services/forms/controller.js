@@ -417,11 +417,26 @@ async function triggerOptionsProcessing(req, res, next) {
       formKey,
       fieldId,
       jobId,
+      status: "pending",
     });
   } catch (e) {
     console.error("triggerOptionsProcessing error:", e);
     return res.status(500).json({ message: e?.message || String(e) });
   }
+}
+
+async function optionsPolling(req, res) {
+  const job = await svc.getOptionsJob(req.params.jobId);
+  if (!job)
+    return res.status(404).json({ success: false, message: "Job not found" });
+
+  res.json({
+    success: true,
+    jobId: job.job_id,
+    status: job.status,
+    fieldId: job.field_id,
+    formKey: job.form_key,
+  });
 }
 
 async function handleOptionsCallback(req, res, next) {
@@ -690,6 +705,7 @@ module.exports = {
   getFormForRender,
   triggerOptionsProcessing,
   handleOptionsCallback,
+  optionsPolling,
   handleSaveDraft,
   allDraftSessionsByUser,
   getSessionDataByUser,

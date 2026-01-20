@@ -235,6 +235,18 @@ export const triggerOptionsProcessing = createAsyncThunk(
   },
 );
 
+export const getOptionsJobStatus = createAsyncThunk(
+  "forms/getOptionsJobStatus",
+  async ({ jobId }, { rejectWithValue }) => {
+    try {
+      const res = await http.get(`/api/forms/options-jobs/${jobId}`);
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(err?.response?.data || err);
+    }
+  },
+);
+
 // ------------------------------------------
 // Slice
 // ------------------------------------------
