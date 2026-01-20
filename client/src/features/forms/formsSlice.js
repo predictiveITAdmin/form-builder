@@ -218,6 +218,23 @@ export const uploadFile = createAsyncThunk(
   },
 );
 
+export const triggerOptionsProcessing = createAsyncThunk(
+  "forms/optionsProcessing",
+  async ({ formKey, fieldId }, { rejectWithValue }) => {
+    try {
+      console.log(formKey, fieldId);
+      const response = await http.post(
+        `/api/forms/${formKey}/fields/${fieldId}/options`,
+      );
+      console.log(response.data);
+      return response.data;
+    } catch (err) {
+      console.log(err);
+      return rejectWithValue(err);
+    }
+  },
+);
+
 // ------------------------------------------
 // Slice
 // ------------------------------------------

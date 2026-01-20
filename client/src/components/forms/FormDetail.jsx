@@ -40,6 +40,7 @@ import {
   submitFinal,
   selectFinalSubmitStatus,
   selectFinalSubmitError,
+  triggerOptionsProcessing,
 } from "@/features/forms/formsSlice";
 import { getForm } from "@/features/forms/formsSlice";
 import { selectUser } from "@/features/auth/authSlice";
@@ -192,14 +193,6 @@ const FormDetail = () => {
   useEffect(() => {
     setisComplete(formIsValid);
   }, [formIsValid]);
-
-  const handleRefresh = () => {
-    setIsRotating(true);
-
-    setTimeout(() => {
-      setIsRotating(false);
-    }, 1005);
-  };
 
   const handleFileUpload = async (field, file) => {
     if (!file) return;
@@ -998,8 +991,57 @@ const FormDetail = () => {
   const isLastStep = currentStep === formData.steps.length - 1;
   const isFirstStep = currentStep === 0;
 
-  const getStagedCountForField = (keyName) =>
-    stagedFiles?.[keyName]?.length || 0;
+  const getDynamicOptionFields = (form) => {
+    if (!form?.steps?.length) return [];
+
+    return form.steps.flatMap((step) =>
+      (step.fields || []).filter((field) => {
+        if (!field?.config_json) return false;
+
+        try {
+          const cfg = JSON.parse(field.config_json);
+
+          return !!(cfg?.dynamicOptions?.enabled && cfg?.dynamicOptions?.url);
+        } catch {
+          return false;
+        }
+      }),
+    );
+  };
+
+  const dynamicFields = getDynamicOptionFields(formData);
+
+  const handleRefresh = async () => {
+    setIsRotating(true);
+    try {
+      for (let i = 0; i < dynamicFields.length; i++) {
+        const data = await dispatch(
+          triggerOptionsProcessing({
+            formKey: formKey,
+            fieldId: dynamicFields[i].field_id,
+          }),
+        ).unwrap();
+
+        console.log(data);
+        notify({
+          type: "info",
+          title: "Dynamic Options Processing",
+          message: `Request queued for Dynamic Options on ${dynamicFields[i].label}`,
+        });
+      }
+
+      setIsRotating(false);
+    } catch (err) {
+      const msg =
+        typeof err === "string"
+          ? err
+          : err?.message
+            ? err.message
+            : JSON.stringify(err);
+      notify({ type: "error", title: "Something went wrong!", message: msg });
+      setIsRotating(false);
+    }
+  };
 
   const hasAnyStagedFiles = Object.values(stagedFiles || {}).some(
     (arr) => Array.isArray(arr) && arr.length > 0,
