@@ -105,8 +105,13 @@ export const validateFieldValue = (field, rawValue) => {
       return { valid: true };
     }
 
-    case "select":
     case "radio": {
+      if (field.required && isEmptyVal(value))
+        return { valid: false, error: `${field.label} is required.` };
+      return { valid: true };
+    }
+
+    case "select": {
       // array of 1 selection
       if (!Array.isArray(value))
         return { valid: false, error: "Invalid selection." };
