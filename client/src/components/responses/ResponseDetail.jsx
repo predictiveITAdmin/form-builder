@@ -114,7 +114,12 @@ const FieldTypeBadge = ({ type }) => {
                 : "gray";
 
   return (
-    <Badge bgColor={scheme} variant="subtle" textTransform="capitalize">
+    <Badge
+      bgColor={scheme}
+      color={"white"}
+      variant="subtle"
+      textTransform="capitalize"
+    >
       {t.replaceAll("_", " ")}
     </Badge>
   );
@@ -123,7 +128,7 @@ const FieldTypeBadge = ({ type }) => {
 const RequiredBadge = ({ required }) => {
   if (!required) return null;
   return (
-    <Badge bgColor="red" variant="subtle">
+    <Badge bgColor="red" color={"white"} variant="subtle">
       Required
     </Badge>
   );
@@ -144,7 +149,7 @@ const ValueChips = ({ values }) => {
 
   if (!Array.isArray(values)) {
     return (
-      <Tag.Root size="md" variant="subtle" bgColor="gray">
+      <Tag.Root size="md" variant="subtle" bgColor="gray.100">
         <Tag.Label>{String(values)}</Tag.Label>
       </Tag.Root>
     );
@@ -157,7 +162,7 @@ const ValueChips = ({ values }) => {
           key={`${String(v)}-${idx}`}
           size="md"
           variant="subtle"
-          bgColor="gray"
+          bgColor="gray.200"
         >
           <Tag.Label>{String(v)}</Tag.Label>
         </Tag.Root>
@@ -274,7 +279,11 @@ const renderFieldValue = ({ field, filesById }) => {
                         <Badge variant="outline">
                           {formatBytes(f.size_bytes)}
                         </Badge>
-                        <Badge variant="outline" bgColor="purple">
+                        <Badge
+                          variant="outline"
+                          bgColor="purple"
+                          color={"white"}
+                        >
                           {f.file_id}
                         </Badge>
                       </HStack>
@@ -293,7 +302,7 @@ const renderFieldValue = ({ field, filesById }) => {
                       Preview
                     </Button>
                   ) : (
-                    <Badge bgColor="gray" variant="subtle">
+                    <Badge bgColor="gray" color={"white"} variant="subtle">
                       No preview
                     </Badge>
                   )}
@@ -446,12 +455,17 @@ const ResponseDetail = () => {
               Response #{payload.response_id}
             </Text>
 
-            <Badge bgColor={statusColor(payload.status)} variant="subtle">
+            <Badge
+              bgColor={statusColor(payload.status)}
+              color={"white"}
+              variant="subtle"
+            >
               {payload.status || "Unknown"}
             </Badge>
 
             <Badge
               bgColor={payload.is_active ? "green" : "gray"}
+              color={"white"}
               variant="outline"
             >
               {payload.is_active ? "Active" : "Inactive"}
@@ -561,18 +575,10 @@ const ResponseDetail = () => {
                 <Text fontSize="sm" color="gray.600">
                   <b>RPA Webhook</b>
                 </Text>
-                <ChakraLink
-                  href={payload.rpa_webhook_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  color="teal.600"
-                  fontSize="sm"
-                  truncate
-                >
-                  <Text maxWidth={"80%"} truncate>
-                    {payload.rpa_webhook_url}
-                  </Text>
-                </ChakraLink>
+
+                <Text maxWidth={"100%"} truncate color={"teal.600"}>
+                  {payload.rpa_webhook_url && "Enabled"}
+                </Text>
               </Box>
             ) : null}
           </Card.Body>
@@ -620,7 +626,7 @@ const ResponseDetail = () => {
                     <HStack spacing={2} wrap="wrap">
                       <FieldTypeBadge type={type} />
                       {field?.form_field_id ? (
-                        <Badge variant="outline" bgColor="gray">
+                        <Badge variant="outline">
                           Field ID: {field.form_field_id}
                         </Badge>
                       ) : null}

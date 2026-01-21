@@ -288,7 +288,6 @@ const EditForm = () => {
     if (currentFormStatus !== "succeeded" || !currentForm) return;
 
     setStableFormKey(currentForm.form_key ?? formKey);
-    console.log(currentForm);
     setFormData({
       title: currentForm.title ?? "",
       description: currentForm.description ?? "",

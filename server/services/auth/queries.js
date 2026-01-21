@@ -10,7 +10,7 @@ async function ensureUser({ entraObjectId, email, displayName }) {
     // 1) Find existing user by entra_object_id
     const existingRes = await client.query(
       `SELECT user_id FROM public.users WHERE entra_object_id = $1 LIMIT 1`,
-      [entraObjectId]
+      [entraObjectId],
     );
 
     if (existingRes.rows.length > 0) {
@@ -25,7 +25,7 @@ async function ensureUser({ entraObjectId, email, displayName }) {
         VALUES ($1, $2, $3)
         RETURNING user_id
       `,
-      [entraObjectId, email, displayName ?? null]
+      [entraObjectId, email, displayName ?? null],
     );
 
     const userId = insertRes.rows[0].user_id;
@@ -33,7 +33,7 @@ async function ensureUser({ entraObjectId, email, displayName }) {
     // 3) If nobody has SUPER_ADMIN yet, give it to this first user
     //    This is safe + deterministic inside the transaction.
     const superRoleRes = await client.query(
-      `SELECT role_id FROM public.roles WHERE role_code = 'SUPER_ADMIN' LIMIT 1`
+      `SELECT role_id FROM public.roles WHERE role_code = 'SUPER_ADMIN' LIMIT 1`,
     );
 
     if (superRoleRes.rows.length === 0) {
@@ -50,7 +50,7 @@ async function ensureUser({ entraObjectId, email, displayName }) {
         JOIN public.roles r ON r.role_id = ur.role_id
         WHERE r.role_code = 'SUPER_ADMIN'
         LIMIT 1
-      `
+      `,
     );
 
     if (superAlreadyAssignedRes.rows.length === 0) {
@@ -61,13 +61,13 @@ async function ensureUser({ entraObjectId, email, displayName }) {
           VALUES ($1, $2, CURRENT_TIMESTAMP, NULL, NULL)
           ON CONFLICT DO NOTHING
         `,
-        [userId, superRoleId]
+        [userId, superRoleId],
       );
     } else {
       // Optional: assign USER role to everyone else (if you want default access)
       // If you already assign roles elsewhere, you can remove this block.
       const userRoleRes = await client.query(
-        `SELECT role_id FROM public.roles WHERE role_code = 'USER' LIMIT 1`
+        `SELECT role_id FROM public.roles WHERE role_code = 'USER' LIMIT 1`,
       );
 
       if (userRoleRes.rows.length > 0) {
@@ -77,7 +77,7 @@ async function ensureUser({ entraObjectId, email, displayName }) {
             VALUES ($1, $2, CURRENT_TIMESTAMP, NULL, NULL)
             ON CONFLICT DO NOTHING
           `,
-          [userId, userRoleRes.rows[0].role_id]
+          [userId, userRoleRes.rows[0].role_id],
         );
       }
     }
@@ -94,7 +94,7 @@ async function ensureUser({ entraObjectId, email, displayName }) {
 
 async function setInviteTokenForUserEmail(
   email,
-  { inviteToken, inviteTokenExpiresAt }
+  { inviteToken, inviteTokenExpiresAt },
 ) {
   const pool = await getPool();
 
@@ -107,7 +107,7 @@ async function setInviteTokenForUserEmail(
       WHERE email = $3
       RETURNING user_id, email, user_type
     `,
-    [inviteToken, inviteTokenExpiresAt, email]
+    [inviteToken, inviteTokenExpiresAt, email],
   );
 
   return result.rows[0] || null;
@@ -137,7 +137,7 @@ LEFT JOIN user_roles ur ON ur.user_id = u.user_id
 LEFT JOIN roles r ON r.role_id = ur.role_id
 WHERE u.user_id = $1
 GROUP BY u.user_id;`,
-    [userId]
+    [userId],
   );
 }
 
@@ -189,7 +189,7 @@ GROUP BY u.user_id;`);
 async function getUserByInviteToken(inviteToken) {
   const result = await query(
     `SELECT * FROM Public.Users WHERE invite_token = $1`,
-    [inviteToken]
+    [inviteToken],
   );
 
   return result[0];
@@ -207,7 +207,7 @@ async function updateUserCredentials(userId, { password_hash, password_salt }) {
         invite_token_expires_at = NULL
       WHERE user_id = $3
     `,
-    [password_hash, password_salt, userId]
+    [password_hash, password_salt, userId],
   );
 }
 
@@ -232,14 +232,13 @@ async function createExternalUser({
       VALUES ($1, $2, 'External', $3, $4)
       RETURNING user_id, email, invite_token
     `,
-    [email, displayName, inviteToken, inviteTokenExpiresAt]
+    [email, displayName, inviteToken, inviteTokenExpiresAt],
   );
 
   return result[0];
 }
 
 const getUserById = async (userId) => {
-  // Replace with your actual database query
   const query = `
     SELECT 
       user_id,
@@ -340,7 +339,7 @@ async function getRoleIdsByCodes(roleCodes = []) {
     `SELECT role_id, role_code
      FROM roles
      WHERE role_code = ANY($1::text[]) AND is_active = true`,
-    [roleCodes]
+    [roleCodes],
   );
 
   const map = new Map(rows.map((r) => [r.role_code, r.role_id]));
@@ -471,7 +470,7 @@ function rolesForUser(user_id, { includeExpired = false } = {}) {
 const editUserDetailsAndRoles = async (
   user_id,
   payload,
-  assigned_by = null
+  assigned_by = null,
 ) => {
   const pool = await getPool();
   const client = await pool.connect();
@@ -513,7 +512,7 @@ const editUserDetailsAndRoles = async (
     if (Array.isArray(payload.roles)) {
       const roleCodes = [
         ...new Set(
-          payload.roles.map((r) => (r?.role_code || "").trim()).filter(Boolean)
+          payload.roles.map((r) => (r?.role_code || "").trim()).filter(Boolean),
         ),
       ];
 
@@ -529,11 +528,11 @@ const editUserDetailsAndRoles = async (
           WHERE role_code = ANY($1::text[])
             AND is_active = true
           `,
-          [roleCodes]
+          [roleCodes],
         );
 
         const codeToId = new Map(
-          roleLookup.rows.map((r) => [r.role_code, r.role_id])
+          roleLookup.rows.map((r) => [r.role_code, r.role_id]),
         );
         const missing = roleCodes.filter((code) => !codeToId.has(code));
 
@@ -562,7 +561,7 @@ const editUserDetailsAndRoles = async (
           INSERT INTO user_roles (user_id, role_id, assigned_at, assigned_by, expires_at)
           VALUES ${values.join(", ")}
           `,
-          params
+          params,
         );
       }
 
@@ -574,7 +573,7 @@ const editUserDetailsAndRoles = async (
         WHERE ur.user_id = $1
         ORDER BY r.role_name ASC
         `,
-        [user_id]
+        [user_id],
       );
 
       updatedRoles = rolesResult.rows;
@@ -769,7 +768,7 @@ async function setPermissionsForRole({
       WHERE rp.role_id = $1
       ORDER BY p.resource ASC, p.action ASC
       `,
-      [role_id]
+      [role_id],
     );
 
     return rows;
