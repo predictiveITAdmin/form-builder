@@ -28,13 +28,14 @@ export const validateFieldValue = (field, rawValue) => {
           return { valid: false, error: `${field.label} is required.` };
         break;
 
-      case "multiselect":
-        if (!Array.isArray(value) || value.length === 0)
+      case "radio":
+        if (isEmptyVal(value))
           return { valid: false, error: `${field.label} is required.` };
         break;
 
       case "select":
-      case "radio": {
+      case "multiselect": {
+        console.log(field, value);
         // Chakra Select: [] or ["x"]
         if (!Array.isArray(value) || value.length === 0)
           return { valid: false, error: `${field.label} is required.` };
