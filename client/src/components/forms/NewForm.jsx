@@ -41,6 +41,7 @@ import {
   FaChevronUp,
   FaPlus,
   FaTimes,
+  FaCode,
 } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -138,6 +139,7 @@ const NewForm = () => {
     { type: "file", label: "File Upload", icon: <FaUpload /> },
     { type: "url", label: "URL", icon: <FaLink /> },
     { type: "tel", label: "Phone", icon: <FaPhone /> },
+    { type: "html", label: "HTML", icon: <FaCode /> },
   ];
 
   console.log(formData);
@@ -663,7 +665,7 @@ const NewForm = () => {
       </Card.Root>
 
       {/* Bottom Section - 3 Column Layout */}
-      <Grid templateColumns="280px 1fr 320px" gap={6} h="calc(100vh - 500px)">
+      <Grid templateColumns="280px 1fr 320px" gap={6}>
         {/* Left Panel - Field Toolbar */}
         <GridItem>
           <Card.Root h="full">
