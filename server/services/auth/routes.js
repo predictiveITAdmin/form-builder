@@ -17,7 +17,7 @@ router.get(
     scopes: [],
     redirectUri: REDIRECT_URI,
     successRedirect: process.env.FRONTEND_URL,
-  })
+  }),
 );
 
 router.get(
@@ -26,7 +26,7 @@ router.get(
     scopes: ["User.Read"],
     redirectUri: REDIRECT_URI,
     successRedirect: "/users/profile",
-  })
+  }),
 );
 
 router.post("/redirect", authProvider.handleRedirect());
@@ -35,14 +35,14 @@ router.get(
   "/signout",
   authProvider.logout({
     postLogoutRedirectUri: POST_LOGOUT_REDIRECT_URI,
-  })
+  }),
 );
 
 router.post(
   "/createUser",
   authMiddleware,
   hasPermissions(["users.create"]),
-  controller.createUser
+  controller.createUser,
 );
 
 router.post("/forgotPassword", controller.forgotPassword);
@@ -55,40 +55,40 @@ router.put(
   "/roles/permissions",
   authMiddleware,
   hasAnyPermission(["roles.create", "roles.update"]),
-  controller.setPermissionsForRole
+  controller.setPermissionsForRole,
 );
 
 router.get(
   "/roles/permissions/:roleId",
   authMiddleware,
   hasAnyPermission(["roles.create", "roles.read", "roles.update"]),
-  controller.getPermissionsForRole
+  controller.getPermissionsForRole,
 );
 
 router.get(
   "/permissions",
   authMiddleware,
   hasAnyPermission(["roles.create", "roles.read", "roles.update"]),
-  controller.getPermission
+  controller.getPermission,
 );
 
 router.post(
   "/roles",
   authMiddleware,
   hasAnyPermission(["roles.create", "roles.update"]),
-  controller.createRole
+  controller.createRole,
 );
 router.get(
   "/roles",
   authMiddleware,
   hasAnyPermission(["roles.create", "roles.read", "roles.update"]),
-  controller.getRoles
+  controller.getRoles,
 );
 router.put(
   "/roles/:roleId",
   authMiddleware,
   hasAnyPermission(["roles.create", "roles.read", "roles.update"]),
-  controller.updateRole
+  controller.updateRole,
 );
 router.delete(
   "/roles/:roleId",
@@ -99,33 +99,33 @@ router.delete(
     "roles.delete",
   ]),
   authMiddleware,
-  controller.removeRole
+  controller.removeRole,
 );
 
 router.get(
   "/users",
   authMiddleware,
   hasAnyPermission(["users.create", "users.read", "users.update"]),
-  controller.getAllUsers
+  controller.getAllUsers,
 );
 router.get(
   "/users/:user_id",
   authMiddleware,
   hasAnyPermission(["users.create", "users.read", "users.update"]),
-  controller.getUser
+  controller.getUser,
 );
 router.put(
   "/users/:user_id",
   authMiddleware,
   hasAnyPermission(["users.create", "users.update"]),
-  controller.editUser
+  controller.editUser,
 );
 
 router.get(
   "/users/:userId/roles",
   authMiddleware,
   hasPermissions(["users.read", "roles.read", "roles.update"]),
-  controller.getUserRoles
+  controller.getUserRoles,
 );
 router.post(
   "/users/:userId/roles",
@@ -137,7 +137,7 @@ router.post(
     "roles.create",
   ]),
   authMiddleware,
-  controller.assignUserRoles
+  controller.assignUserRoles,
 );
 
 module.exports = router;

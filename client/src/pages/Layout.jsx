@@ -22,7 +22,7 @@ import { FaWpforms } from "react-icons/fa6";
 import { LuTicketCheck } from "react-icons/lu";
 import { CiSettings } from "react-icons/ci";
 import { useState } from "react";
-import logo from "../assets/logo-predictiveIT.svg";
+import logo from "../assets/predictive_IT_Logo_Full_Color.png";
 import { IoIosLogOut } from "react-icons/io";
 import { selectUser } from "../features/auth/authSlice";
 import AppToast from "@/components/ui/AppToast";
@@ -107,7 +107,7 @@ function Layout({ children }) {
               fontSize="xl"
             >
               <NavLink to="/" className="flex items-center space-x-2">
-                <img src={logo} alt="PredictiveIT Logo" className="h-10" />
+                <img src={logo} alt="PredictiveIT Logo" className="w-72" />
               </NavLink>
             </Box>
             <Text

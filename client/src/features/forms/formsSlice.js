@@ -220,11 +220,11 @@ export const uploadFile = createAsyncThunk(
 
 export const triggerOptionsProcessing = createAsyncThunk(
   "forms/optionsProcessing",
-  async ({ formKey, fieldId }, { rejectWithValue }) => {
+  async ({ formKey, fieldId, dep_field, dep_value }, { rejectWithValue }) => {
     try {
       console.log(formKey, fieldId);
       const response = await http.post(
-        `/api/forms/${formKey}/fields/${fieldId}/options`,
+        `/api/forms/${formKey}/fields/${fieldId}/options?${dep_field}=${dep_value}`,
       );
       console.log(response.data);
       return response.data;

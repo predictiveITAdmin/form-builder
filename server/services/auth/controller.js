@@ -24,7 +24,7 @@ const verifyPassword = (password, storedHash, storedSalt) => {
       (err, derivedKey) => {
         if (err) reject(err);
         resolve(crypto.timingSafeEqual(storedHash, derivedKey));
-      }
+      },
     );
   });
 };
@@ -113,7 +113,7 @@ module.exports = {
       const isValid = await verifyPassword(
         password,
         user.password_hash,
-        user.password_salt
+        user.password_salt,
       );
 
       console.log("Password Matched? " + isValid);
@@ -129,7 +129,7 @@ module.exports = {
           displayName: user.display_name,
         },
         process.env.JWT_SECRET,
-        { expiresIn: "8h" }
+        { expiresIn: "8h" },
       );
 
       return res.status(200).json({
@@ -204,6 +204,7 @@ module.exports = {
       if (!email || String(email).trim() === "") return genericResponse();
 
       const user = await queries.getUserByEmail(email);
+      console.log(user);
       if (!user) return genericResponse();
 
       // Internal accounts should use Microsoft login, not local reset.
@@ -250,7 +251,7 @@ module.exports = {
       const result = await queries.editUserDetailsAndRoles(
         user_id,
         payload,
-        assigned_by
+        assigned_by,
       );
 
       return res.status(200).json({
@@ -271,13 +272,13 @@ module.exports = {
       let user = null;
 
       const permissions = await queries.getUserPermissionsByUserId(
-        req.user.userId
+        req.user.userId,
       );
 
       if (req.user.type === "internal") {
         if (req.user.idTokenClaims.oid) {
           user = await queries.getUserByEntraObjectId(
-            req.user.idTokenClaims.oid
+            req.user.idTokenClaims.oid,
           );
         }
         if (!user && req.user.email) {
@@ -293,7 +294,7 @@ module.exports = {
         }
 
         const internalPermission = await queries.getUserPermissionsByUserId(
-          user.user_id
+          user.user_id,
         );
 
         // Return Azure AD user data
@@ -509,7 +510,7 @@ module.exports = {
       if (!permission_name || !permission_code || !action || !resource) {
         return badRequest(
           res,
-          "permission_name, permission_code, action, and resource are required"
+          "permission_name, permission_code, action, and resource are required",
         );
       }
 
@@ -614,7 +615,7 @@ module.exports = {
     if (!role_id) {
       return badRequest(
         res,
-        "role id must be provided and should be an integer value"
+        "role id must be provided and should be an integer value",
       );
     }
     try {

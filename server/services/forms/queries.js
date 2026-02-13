@@ -940,6 +940,15 @@ async function setFormUsers(formId, userIds, grantedBy) {
   }
 }
 
+async function deleteForm(form_id) {
+  const pool = await getPool();
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+  } catch {}
+}
+
 async function getRpaSubmissionBundleByResponseId(responseId) {
   // 1) Base response + session + form (includes RPA settings)
   const base = await query(
@@ -948,6 +957,9 @@ async function getRpaSubmissionBundleByResponseId(responseId) {
       r.response_id,
       r.form_id,
       r.user_id,
+      u.display_name,
+      u.email,
+
       r.submitted_at,
       r.client_ip,
       r.user_agent,
@@ -981,6 +993,7 @@ async function getRpaSubmissionBundleByResponseId(responseId) {
     FROM public.responses r
     JOIN public.formsessions s ON s.session_id = r.session_id
     JOIN public.forms f ON f.form_id = r.form_id
+    JOIN public.users u on u.user_id = r.user_id
     WHERE r.response_id = $1
     LIMIT 1;
     `,

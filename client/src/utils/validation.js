@@ -35,8 +35,6 @@ export const validateFieldValue = (field, rawValue) => {
 
       case "select":
       case "multiselect": {
-        console.log(field, value);
-        // Chakra Select: [] or ["x"]
         if (!Array.isArray(value) || value.length === 0)
           return { valid: false, error: `${field.label} is required.` };
         break;

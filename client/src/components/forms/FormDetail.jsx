@@ -263,7 +263,6 @@ const FormDetail = () => {
   }
 
   const handleInputChange = (keyName, value) => {
-    console.log(value);
     setFormValues((prev) => ({
       ...prev,
       [keyName]: value,
@@ -430,7 +429,6 @@ const FormDetail = () => {
   const handleSaveDraft = async () => {
     try {
       const payload = buildResponsePayload();
-      console.log("Draft payload:", payload);
 
       const result = await dispatch(saveDraft(payload)).unwrap();
 
@@ -548,6 +546,48 @@ const FormDetail = () => {
 
     return null;
   }
+
+  const refreshDependentsForKey = (blurredKey) => {
+    const allFields = formData.steps
+      .flatMap((s) => s.fields)
+      .filter((f) => f.active);
+
+    if (!blurredKey) return;
+    if (!allFields?.length) return;
+
+    // Value of the field that just blurred (this is the dependency value)
+    const depValRaw = formValues?.[blurredKey];
+
+    const satisfied = Array.isArray(depValRaw)
+      ? depValRaw.length > 0
+      : typeof depValRaw === "string"
+        ? depValRaw.trim().length > 0
+        : Boolean(depValRaw);
+
+    if (!satisfied) return;
+
+    // Normalize dep value for backend (adjust if your backend expects arrays)
+    const dep_value = Array.isArray(depValRaw)
+      ? (depValRaw[0] ?? "") // or depValRaw.join(",") or depValRaw (see note below)
+      : typeof depValRaw === "string"
+        ? depValRaw.trim()
+        : depValRaw;
+
+    // Find fields that depend on blurredKey AND have dynamic options enabled
+    const dependents = allFields.filter((f) => {
+      const c = parseFieldConfig(f.config_json);
+      const dep =
+        typeof c?.dependant_value === "string" ? c.dependant_value.trim() : "";
+      return (
+        dep === blurredKey &&
+        c?.dynamicOptions?.enabled &&
+        c?.dynamicOptions?.url
+      );
+    });
+
+    dependents.forEach((f) => handleRefreshForField(f, blurredKey, dep_value));
+  };
+
   const renderField = (field) => {
     const value = formValues[field.key_name];
     const isThisFieldLoading = !!fieldLoader?.[field.key_name];
@@ -555,15 +595,47 @@ const FormDetail = () => {
     const commonProps = {
       value: value ?? "",
       onChange: (e) => handleInputChange(field.key_name, e.target.value),
+      onBlur: () => refreshDependentsForKey(field.key_name),
       required: field.required,
       name: field.key_name, // helpful for scroll-to-error later if you want
       disabled: isThisFieldLoading,
     };
 
     const cfg = parseFieldConfig(field.config_json); // adjust key name
+
+    const depKey =
+      typeof cfg?.dependant_value === "string"
+        ? cfg.dependant_value.trim()
+        : "";
+
+    const hasDependant = !!depKey;
+
+    // What value does the dependency field currently have?
+    const depValueRaw = hasDependant ? formValues?.[depKey] : undefined;
+
+    // Treat arrays (select/multiselect) and strings properly
+    const isDepSatisfied = hasDependant
+      ? Array.isArray(depValueRaw)
+        ? depValueRaw.length > 0
+        : typeof depValueRaw === "string"
+          ? depValueRaw.trim().length > 0
+          : Boolean(depValueRaw)
+      : true;
+
     const hasDynamicOptions = !!(
       cfg?.dynamicOptions?.enabled && cfg?.dynamicOptions?.url
     );
+
+    const depField =
+      typeof cfg?.dependant_value === "string"
+        ? cfg.dependant_value.trim()
+        : "";
+
+    const depValue = depField ? formValues?.[depField] : undefined;
+
+    const depValueNormalized = Array.isArray(depValue)
+      ? (depValue.join(",") ?? "") // or depValue.join(",") if you want multi
+      : (depValue ?? "");
 
     switch (field.field_type) {
       case "text":
@@ -754,8 +826,16 @@ const FormDetail = () => {
                   borderRadius="full"
                   padding={1}
                   minW="unset"
-                  onClick={() => handleRefreshForField(field)}
-                  disabled={isThisFieldLoading}
+                  onClick={() =>
+                    handleRefreshForField(
+                      field,
+                      depField || null,
+                      depValueNormalized,
+                    )
+                  }
+                  disabled={
+                    isThisFieldLoading || (hasDependant && !isDepSatisfied)
+                  }
                 >
                   <FaArrowRotateRight
                     style={{
@@ -775,7 +855,9 @@ const FormDetail = () => {
                 onValueChange={(e) =>
                   handleInputChange(field.key_name, e.value)
                 }
-                disabled={isThisFieldLoading}
+                disabled={
+                  isThisFieldLoading || (hasDependant && !isDepSatisfied)
+                }
               >
                 <HStack gap="6" wrap="wrap">
                   {field.options.map((item) => (
@@ -811,7 +893,7 @@ const FormDetail = () => {
               required={field.required}
               value={value || []} // Chakra expects array
               onValueChange={(e) => handleInputChange(field.key_name, e.value)}
-              disabled={isThisFieldLoading}
+              disabled={isThisFieldLoading || (hasDependant && !isDepSatisfied)}
             >
               <HStack alignItems="center" gap={2}>
                 <Select.Label width={"fit-content"}>{field.label}</Select.Label>
@@ -833,8 +915,16 @@ const FormDetail = () => {
                     borderRadius="full"
                     padding={1}
                     minW="unset"
-                    onClick={() => handleRefreshForField(field)}
-                    disabled={isThisFieldLoading}
+                    onClick={() =>
+                      handleRefreshForField(
+                        field,
+                        depField || null,
+                        depValueNormalized,
+                      )
+                    }
+                    disabled={
+                      isThisFieldLoading || (hasDependant && !isDepSatisfied)
+                    }
                   >
                     <FaArrowRotateRight
                       style={{
@@ -892,7 +982,7 @@ const FormDetail = () => {
               value={value || []}
               onValueChange={(e) => handleInputChange(field.key_name, e.value)}
               multiple
-              disabled={isThisFieldLoading}
+              disabled={isThisFieldLoading || (hasDependant && !isDepSatisfied)}
             >
               <HStack alignItems="center" gap={2}>
                 <Select.Label width={"fit-content"}>{field.label}</Select.Label>
@@ -914,8 +1004,16 @@ const FormDetail = () => {
                     borderRadius="full"
                     padding={1}
                     minW="unset"
-                    onClick={() => handleRefreshForField(field)}
-                    disabled={isThisFieldLoading}
+                    onClick={() =>
+                      handleRefreshForField(
+                        field,
+                        depField || null,
+                        depValueNormalized,
+                      )
+                    }
+                    disabled={
+                      isThisFieldLoading || (hasDependant && !isDepSatisfied)
+                    }
                   >
                     <FaArrowRotateRight
                       style={{
@@ -957,6 +1055,17 @@ const FormDetail = () => {
               <Field.HelperText>{field.help_text}</Field.HelperText>
             )}
           </Field.Root>
+        );
+      }
+
+      case "html": {
+        return (
+          <iframe
+            style={{ height: "fit-content" }}
+            title="HTML Preview"
+            sandbox=""
+            srcDoc={cfg?.value}
+          />
         );
       }
 
@@ -1120,7 +1229,6 @@ const FormDetail = () => {
 
     while (Date.now() - started < timeoutMs) {
       const s = await dispatch(getOptionsJobStatus({ jobId })).unwrap();
-      console.log(s);
       if (s?.status === "completed") return true;
       if (s?.status === "failed")
         throw new Error(`Options job failed (jobId=${jobId})`);
@@ -1131,13 +1239,15 @@ const FormDetail = () => {
     throw new Error(`Timed out waiting for options job (jobId=${jobId})`);
   };
 
-  const handleRefreshForField = async (field) => {
+  const handleRefreshForField = async (field, dep_field, dep_value) => {
     setFieldLoader((prev) => ({ ...prev, [field.key_name]: true }));
     try {
       const data = await dispatch(
         triggerOptionsProcessing({
           formKey,
           fieldId: field.field_id,
+          dep_field,
+          dep_value,
         }),
       ).unwrap();
 
@@ -1146,7 +1256,7 @@ const FormDetail = () => {
         title: "Dynamic Options Processing",
         message: `Fetching Dynamic Options for ${field.label}.`,
       });
-      console.log(data);
+
       if (data?.jobId) {
         const jobId = data.jobId;
         await waitForJob(jobId, { timeoutMs: 120000, intervalMs: 1500 });
@@ -1207,7 +1317,8 @@ const FormDetail = () => {
       notify({
         type: "success",
         title: "Options Updated",
-        message: "Dynamic options refreshed successfully.",
+        message:
+          "Dynamic options refreshed successfully. You will need to refresh the fields whose values depend on other fields again.",
       });
     } catch (err) {
       const msg =

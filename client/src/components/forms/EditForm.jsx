@@ -47,6 +47,8 @@ import {
   FaTimes,
   FaCode,
 } from "react-icons/fa";
+
+import { RiTimer2Line } from "react-icons/ri";
 import { GoMultiSelect } from "react-icons/go";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router";
@@ -118,7 +120,6 @@ const EditForm = () => {
   const updatedFormId = useSelector(selectUpdatedFormId);
   const updatedFormStatus = useSelector(selectUpdatedFormStatus);
   const updatedFormError = useSelector(selectUpdatedFormError);
-
   // Keep the original key stable (do NOT regenerate from title in edit)
   const [stableFormKey, setStableFormKey] = useState(formKey);
 
@@ -161,6 +162,7 @@ const EditForm = () => {
       { type: "email", label: "Email", icon: <FaEnvelope /> },
       { type: "number", label: "Number", icon: <FaHashtag /> },
       { type: "date", label: "Date", icon: <FaCalendarAlt /> },
+      { type: "datetime", label: "Date & Time", icon: <RiTimer2Line /> },
       { type: "multiselect", label: "Multi Select", icon: <GoMultiSelect /> },
       { type: "select", label: "Dropdown", icon: <FaListUl /> },
       { type: "checkbox", label: "Checkbox", icon: <FaCheckSquare /> },
@@ -1052,7 +1054,9 @@ const EditForm = () => {
                                                   height: "fit-content",
                                                   border: "1px solid #ccc",
                                                 }}
-                                                srcDoc={html}
+                                                srcDoc={
+                                                  safeParseConfig(field)?.value
+                                                }
                                               />
                                             </Stack>
                                           );
@@ -1363,6 +1367,27 @@ const EditForm = () => {
                               response
                             </Text>
                           </Field.Root>
+                          <Field.Root mt={4}>
+                            <Field.Label>
+                              Dependant Field (Optional)
+                            </Field.Label>
+                            <Input
+                              size="sm"
+                              placeholder="field_{field_id}:{step_id}"
+                              value={
+                                safeParseConfig(selectedField)?.dependant_value
+                              }
+                              onChange={(e) => {
+                                updateFieldConfig(selectedField.id, {
+                                  dependant_value: e.target.value,
+                                });
+                              }}
+                            />
+                            <Text fontSize="xs" color="gray.600" mt={1}>
+                              The dependant field should contain the exact field
+                              key from where the value has to be fetched.
+                            </Text>
+                          </Field.Root>
                         </Box>
                         {/* Static Options Section */}
                         {!isDynamicEnabled(selectedField) && (
@@ -1443,8 +1468,13 @@ const EditForm = () => {
                   {selectedField.field_type === "html" && (
                     <Stack>
                       <Textarea
-                        value={html}
-                        onChange={(e) => setHtml(e.target.value)}
+                        value={safeParseConfig(selectedField)?.value}
+                        onChange={(e) => {
+                          updateFieldConfig(selectedField.id, {
+                            value: e.target.value,
+                          });
+                          setHtml(e.target.value);
+                        }}
                         rows={12}
                         style={{ width: "100%" }}
                       />

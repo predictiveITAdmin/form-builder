@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import DOMPurify from "dompurify";
 import {
   Box,
   Button,
@@ -23,6 +24,9 @@ import {
   Portal,
   CloseButton,
   Dialog,
+  Checkbox,
+  VStack,
+  Code,
 } from "@chakra-ui/react";
 import {
   FaFont,
@@ -43,6 +47,8 @@ import {
   FaTimes,
   FaCode,
 } from "react-icons/fa";
+
+import { RiTimer2Line } from "react-icons/ri";
 import { useDispatch, useSelector } from "react-redux";
 import {
   createForm,
@@ -96,6 +102,7 @@ function SortableFieldCard({ field, children }) {
 const NewForm = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [html, setHtml] = useState("");
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -132,6 +139,7 @@ const NewForm = () => {
     { type: "email", label: "Email", icon: <FaEnvelope /> },
     { type: "number", label: "Number", icon: <FaHashtag /> },
     { type: "date", label: "Date", icon: <FaCalendarAlt /> },
+    { type: "datetime", label: "Date & Time", icon: <RiTimer2Line /> },
     { type: "multiselect", label: "Multi Select", icon: <GoMultiSelect /> },
     { type: "select", label: "Dropdown", icon: <FaListUl /> },
     { type: "checkbox", label: "Checkbox", icon: <FaCheckSquare /> },
@@ -142,7 +150,6 @@ const NewForm = () => {
     { type: "html", label: "HTML", icon: <FaCode /> },
   ];
 
-  console.log(formData);
   const error = useSelector(selectCreateFormError);
 
   const addStep = () => {
@@ -421,6 +428,9 @@ const NewForm = () => {
 
     setSteps(updatedSteps);
   };
+
+  const cleanHtml = DOMPurify.sanitize(html);
+
   return (
     <Box minH="100vh" p={6}>
       <Flex justify="space-between" align="center" mb={6}>
@@ -778,7 +788,6 @@ const NewForm = () => {
                   onDragEnd={handleDragEnd}
                 >
                   <SortableContext
-                    // IMPORTANT: must be the ids of the items in the list
                     items={currentFields
                       .slice()
                       .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
@@ -835,94 +844,191 @@ const NewForm = () => {
                                     </Flex>
 
                                     {/* Field Preview */}
-                                    {field.field_type === "select" ? (
-                                      <Select.Root disabled>
-                                        <Select.Control>
-                                          <Select.Trigger>
-                                            <Select.ValueText placeholder="Dropdown" />
-                                          </Select.Trigger>
-                                          <Select.IndicatorGroup>
-                                            <Select.Indicator />
-                                          </Select.IndicatorGroup>
-                                        </Select.Control>
-                                        <Portal>
-                                          <Select.Positioner>
-                                            <Select.Content>
-                                              {getFieldOptions(field).map(
-                                                (opt, idx) => (
-                                                  <Select.Item
-                                                    item={opt}
-                                                    key={idx}
-                                                  >
-                                                    {opt}
-                                                    <Select.ItemIndicator />
-                                                  </Select.Item>
-                                                ),
-                                              )}
-                                            </Select.Content>
-                                          </Select.Positioner>
-                                        </Portal>
-                                      </Select.Root>
-                                    ) : field.field_type === "multiselect" ? (
-                                      <Select.Root disabled>
-                                        <Select.Control>
-                                          <Select.Trigger>
-                                            <Select.ValueText placeholder="Multi Select" />
-                                          </Select.Trigger>
-                                          <Select.IndicatorGroup>
-                                            <Select.Indicator />
-                                          </Select.IndicatorGroup>
-                                        </Select.Control>
-                                        <Portal>
-                                          <Select.Positioner>
-                                            <Select.Content>
-                                              {getFieldOptions(field).map(
-                                                (opt, idx) => (
-                                                  <Select.Item
-                                                    item={opt}
-                                                    key={idx}
-                                                  >
-                                                    {opt}
-                                                    <Select.ItemIndicator />
-                                                  </Select.Item>
-                                                ),
-                                              )}
-                                            </Select.Content>
-                                          </Select.Positioner>
-                                        </Portal>
-                                      </Select.Root>
-                                    ) : field.field_type === "textarea" ? (
-                                      <Textarea
-                                        placeholder="Sample textarea"
-                                        size="sm"
-                                        rows={2}
-                                        disabled
-                                      />
-                                    ) : field.field_type === "radio" ? (
-                                      <RadioGroup.Root size="sm" disabled>
-                                        {getFieldOptions(field).map(
-                                          (opt, idx) => (
-                                            <RadioGroup.Item
-                                              key={idx}
-                                              value={opt}
-                                            >
-                                              <RadioGroup.ItemHiddenInput />
-                                              <RadioGroup.ItemIndicator />
-                                              <RadioGroup.ItemText>
-                                                {opt}
-                                              </RadioGroup.ItemText>
-                                            </RadioGroup.Item>
-                                          ),
-                                        )}
-                                      </RadioGroup.Root>
-                                    ) : (
-                                      <Input
-                                        placeholder={`Sample ${field.field_type} input`}
-                                        size="sm"
-                                        type={field.field_type}
-                                        disabled
-                                      />
-                                    )}
+                                    {(() => {
+                                      switch (field.field_type) {
+                                        case "select": {
+                                          return (
+                                            <Select.Root disabled>
+                                              <Select.Control>
+                                                <Select.Trigger>
+                                                  <Select.ValueText
+                                                    placeholder={
+                                                      "Select the best option"
+                                                    }
+                                                  />
+                                                </Select.Trigger>
+                                                <Select.IndicatorGroup>
+                                                  <Select.Indicator />
+                                                </Select.IndicatorGroup>
+                                              </Select.Control>
+
+                                              <Portal>
+                                                <Select.Positioner>
+                                                  <Select.Content></Select.Content>
+                                                </Select.Positioner>
+                                              </Portal>
+                                            </Select.Root>
+                                          );
+                                        }
+
+                                        case "html": {
+                                          return (
+                                            <Stack>
+                                              {" "}
+                                              <iframe
+                                                title="HTML Preview"
+                                                sandbox=""
+                                                style={{
+                                                  width: "100%",
+                                                  height: "fit-content",
+                                                  border: "1px solid #ccc",
+                                                }}
+                                                srcDoc={html}
+                                              />
+                                            </Stack>
+                                          );
+                                        }
+
+                                        case "multiselect": {
+                                          return (
+                                            <Stack gap={2}>
+                                              <Flex gap={2} wrap="wrap"></Flex>
+
+                                              <Select.Root disabled>
+                                                <Select.Control>
+                                                  <Select.Trigger>
+                                                    <Select.ValueText
+                                                      placeholder={
+                                                        "Select All that apply"
+                                                      }
+                                                    />
+                                                  </Select.Trigger>
+                                                  <Select.IndicatorGroup>
+                                                    <Select.Indicator />
+                                                  </Select.IndicatorGroup>
+                                                </Select.Control>
+                                              </Select.Root>
+                                            </Stack>
+                                          );
+                                        }
+
+                                        case "textarea":
+                                          return (
+                                            <Textarea
+                                              placeholder={"Enter Text"}
+                                              size="sm"
+                                              rows={3}
+                                              resize="none"
+                                              disabled
+                                            />
+                                          );
+
+                                        case "radio":
+                                          return (
+                                            <RadioGroup.Root size="sm" disabled>
+                                              <Stack gap={2}></Stack>
+                                            </RadioGroup.Root>
+                                          );
+
+                                        case "checkbox":
+                                          return (
+                                            <Checkbox.Root
+                                              isDisabled
+                                            ></Checkbox.Root>
+                                          );
+
+                                        case "number":
+                                        case "integer":
+                                          return (
+                                            <Input
+                                              placeholder={
+                                                "Enter a valid Number"
+                                              }
+                                              size="sm"
+                                              type="number"
+                                              disabled
+                                            />
+                                          );
+
+                                        case "date":
+                                          return (
+                                            <Input
+                                              placeholder={"Select Date"}
+                                              size="sm"
+                                              type="date"
+                                              disabled
+                                            />
+                                          );
+
+                                        case "datetime":
+                                          return (
+                                            <Input
+                                              placeholder={
+                                                "Select Date and Time"
+                                              }
+                                              size="sm"
+                                              type="datetime-local"
+                                              disabled
+                                            />
+                                          );
+
+                                        case "email":
+                                          return (
+                                            <Input
+                                              placeholder={
+                                                "Enter Email Address"
+                                              }
+                                              size="sm"
+                                              type="email"
+                                              disabled
+                                            />
+                                          );
+
+                                        case "url":
+                                          return (
+                                            <Input
+                                              placeholder={
+                                                "Enter a valid URL example@domain.com"
+                                              }
+                                              size="sm"
+                                              type="url"
+                                              disabled
+                                            />
+                                          );
+
+                                        case "phone":
+                                          return (
+                                            <Input
+                                              placeholder={"Enter Phone number"}
+                                              size="sm"
+                                              type="tel"
+                                              disabled
+                                            />
+                                          );
+
+                                        case "file":
+                                          return (
+                                            <Input
+                                              size="sm"
+                                              type="file"
+                                              disabled
+                                            />
+                                          );
+
+                                        default:
+                                          // Covers "text", and anything unknown
+                                          return (
+                                            <Input
+                                              placeholder={
+                                                "Enter a valid value"
+                                              }
+                                              size="sm"
+                                              type="text"
+                                              disabled
+                                            />
+                                          );
+                                      }
+                                    })()}
                                   </Box>
 
                                   <IconButton
@@ -1088,6 +1194,27 @@ const NewForm = () => {
                               response
                             </Text>
                           </Field.Root>
+                          <Field.Root mt={4}>
+                            <Field.Label>
+                              Dependant Field (Optional)
+                            </Field.Label>
+                            <Input
+                              size="sm"
+                              placeholder="field_{field_id}:{step_id}"
+                              value={
+                                safeParseConfig(selectedField)?.dependant_value
+                              }
+                              onChange={(e) => {
+                                updateFieldConfig(selectedField.id, {
+                                  dependant_value: e.target.value,
+                                });
+                              }}
+                            />
+                            <Text fontSize="xs" color="gray.600" mt={1}>
+                              The dependant field should contain the exact field
+                              key from where the value has to be fetched.
+                            </Text>
+                          </Field.Root>
                         </Box>
                         {/* Static Options Section */}
                         {!isDynamicEnabled(selectedField) && (
@@ -1163,6 +1290,17 @@ const NewForm = () => {
                         )}
                       </Stack>
                     </Field.Root>
+                  )}
+
+                  {selectedField.field_type === "html" && (
+                    <Stack>
+                      <Textarea
+                        value={html}
+                        onChange={(e) => setHtml(e.target.value)}
+                        rows={12}
+                        style={{ width: "100%" }}
+                      />
+                    </Stack>
                   )}
 
                   <Field.Root>

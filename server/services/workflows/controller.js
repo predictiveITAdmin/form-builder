@@ -71,7 +71,8 @@ async function listWorkflows(req, res, next) {
 async function assignFormToWorkflow(req, res, next) {
   try {
     const workflow_id = req.params.workflowId;
-    const { form_id, required, allow_multiple, sort_order } = req.body;
+    const { form_id, required, allow_multiple, sort_order, default_name } =
+      req.body;
 
     const result = await workflowQueries.createWorkflowForm({
       workflow_id,
@@ -79,6 +80,7 @@ async function assignFormToWorkflow(req, res, next) {
       required,
       allow_multiple,
       sort_order,
+      default_name,
     });
 
     return res.status(201).json(result);
@@ -90,13 +92,14 @@ async function assignFormToWorkflow(req, res, next) {
 async function updateWorkflowForm(req, res, next) {
   try {
     const workflow_form_id = req.params.workflowFormId;
-    const { required, allow_multiple, sort_order } = req.body;
+    const { required, allow_multiple, sort_order, default_name } = req.body;
 
     const result = await workflowQueries.updateWorkflowForm({
       workflow_form_id,
       required,
       allow_multiple,
       sort_order,
+      default_name,
     });
 
     if (!result) {
@@ -300,14 +303,20 @@ async function skipWorkflowItem(req, res, next) {
 
 async function addRepeatWorkflowItem(req, res, next) {
   try {
-    const { runId, workflowFormId, fromItemId, assigned_user_id } =
-      req.body || {};
+    const {
+      runId,
+      workflowFormId,
+      fromItemId,
+      assigned_user_id,
+      display_name,
+    } = req.body || {};
 
     const result = await workflowQueries.addRepeatWorkflowItem({
       runId,
       workflowFormId,
       fromItemId,
       assigned_user_id,
+      display_name,
     });
 
     return res.status(201).json(result);

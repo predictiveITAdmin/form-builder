@@ -245,19 +245,27 @@ async function createWorkflowForm({
   required = false,
   allow_multiple = false,
   sort_order = 50,
+  default_name = null,
 }) {
   const pool = await getPool();
   const client = await pool.connect();
 
   const sql = `
     INSERT INTO public.workflow_forms 
-      (workflow_id, form_id, required, allow_multiple, sort_order, created_at, updated_at)
+      (workflow_id, form_id, required, allow_multiple, sort_order, created_at, updated_at, default_name)
     VALUES 
-      ($1, $2, $3, $4, $5, NOW(), NOW())
-    RETURNING workflow_id, form_id, required, allow_multiple, sort_order, updated_at
+      ($1, $2, $3, $4, $5, NOW(), NOW(), $6)
+    RETURNING workflow_id, form_id, required, allow_multiple, sort_order, updated_at, default_name
   `;
 
-  const params = [workflow_id, form_id, required, allow_multiple, sort_order];
+  const params = [
+    workflow_id,
+    form_id,
+    required,
+    allow_multiple,
+    sort_order,
+    default_name,
+  ];
 
   try {
     const result = await client.query(sql, params);
@@ -289,6 +297,7 @@ async function updateWorkflowForm({
   required = false,
   allow_multiple = false,
   sort_order = 50,
+  default_name = null,
 }) {
   const pool = await getPool();
   const client = await pool.connect();
@@ -300,18 +309,26 @@ async function updateWorkflowForm({
       allow_multiple = $3,
       sort_order = $4,
       updated_at = NOW()
+      default_name = $5
     WHERE workflow_form_id = $1
     RETURNING
       workflow_form_id,
       workflow_id,
       form_id,
       required,
+      default_name,
       allow_multiple,
       sort_order,
       updated_at
   `;
 
-  const params = [workflow_form_id, required, allow_multiple, sort_order];
+  const params = [
+    workflow_form_id,
+    required,
+    allow_multiple,
+    sort_order,
+    default_name,
+  ];
 
   try {
     const result = await client.query(sql, params);
@@ -382,7 +399,7 @@ async function createWorkflowRun({ workflow_id, display_name, created_by }) {
     // Fetch workflow forms rules and seed items
     const wfFormsRes = await client.query(
       `
-      SELECT workflow_form_id, required, allow_multiple, sort_order
+      SELECT workflow_form_id, required, allow_multiple, sort_order, default_name
       FROM workflow_forms
       WHERE workflow_id = $1
       ORDER BY sort_order ASC, workflow_form_id ASC
@@ -397,7 +414,7 @@ async function createWorkflowRun({ workflow_id, display_name, created_by }) {
       wfFormsRes.rows.forEach((row, idx) => {
         const o = idx * 6;
         placeholders.push(
-          `($${o + 1}, $${o + 2}, $${o + 3}, $${o + 4}, $${o + 5}, $${o + 6})`,
+          `($${o + 1}, $${o + 2}, $${o + 3}, $${o + 4}, $${o + 5}, $${o + 6}, $${o + 7})`,
         );
         values.push(
           run.workflow_run_id, // workflow_run_id
@@ -405,14 +422,15 @@ async function createWorkflowRun({ workflow_id, display_name, created_by }) {
           1, // sequence_num
           "not_started", // status
           null, // assigned_user_id
-          row.required ? null : null, // skipped_reason
+          row.required ? null : null,
+          row.default_name ?? null, // skipped_reason
         );
       });
 
       await client.query(
         `
         INSERT INTO workflow_items
-          (workflow_run_id, workflow_form_id, sequence_num, status, assigned_user_id, skipped_reason)
+          (workflow_run_id, workflow_form_id, sequence_num, status, assigned_user_id, skipped_reason, display_name)
         VALUES ${placeholders.join(", ")}
         `,
         values,
@@ -451,6 +469,7 @@ async function getWorkflowRunDashboard(runId) {
         wi.sequence_num,
         wi.status AS item_status,
         wi.assigned_user_id,
+        wi.display_name,
         au.display_name AS assigned_user_name,
         wi.skipped_reason,
         wi.completed_at,
@@ -509,7 +528,8 @@ async function getWorkflowRunDashboard(runId) {
             'sort_order', sort_order,
             'form_id', form_id,
             'form_title', form_title,
-            'form_key', form_key
+            'form_key', form_key,
+            'display_name', id.display_name
           )
           ORDER BY sort_order ASC, workflow_form_id ASC, sequence_num ASC
         ) FILTER (WHERE workflow_item_id IS NOT NULL),
@@ -781,6 +801,7 @@ async function addRepeatWorkflowItem({
   workflowFormId,
   fromItemId = null,
   assigned_user_id = null,
+  display_name,
 }) {
   const pool = await getPool();
   const client = await pool.connect();
@@ -856,12 +877,18 @@ async function addRepeatWorkflowItem({
     const insRes = await client.query(
       `
       INSERT INTO workflow_items
-        (workflow_run_id, workflow_form_id, sequence_num, status, assigned_user_id, created_at, updated_at)
+        (workflow_run_id, workflow_form_id, sequence_num, status, assigned_user_id, created_at, updated_at, display_name)
       VALUES
-        ($1, $2, $3, 'not_started', $4, NOW(), NOW())
+        ($1, $2, $3, 'not_started', $4, NOW(), NOW(), $5)
       RETURNING workflow_item_id, workflow_run_id, workflow_form_id, sequence_num, status, assigned_user_id
       `,
-      [resolvedRunId, resolvedWfFormId, nextSeq, assigned_user_id ?? null],
+      [
+        resolvedRunId,
+        resolvedWfFormId,
+        nextSeq,
+        assigned_user_id ?? null,
+        display_name,
+      ],
     );
 
     // New item means run should not be completed anymore if it was

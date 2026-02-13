@@ -188,7 +188,8 @@ CREATE TABLE "public"."forms" (
   "rpa_timeout_ms" integer DEFAULT 8000 NOT NULL,
   "rpa_retry_count" integer DEFAULT 3 NOT NULL,
   "form_key" character varying(120),
-  "rpa_header_key" text NOT NULL
+  "rpa_header_key" text NOT NULL,
+  "usage_mode" character varying(20) DEFAULT 'standalone'::character varying NOT NULL
 );
 
 CREATE TABLE "public"."formsessions" (
@@ -205,7 +206,9 @@ CREATE TABLE "public"."formsessions" (
   "created_at" timestamp(3) without time zone DEFAULT (now() AT TIME ZONE 'UTC'::text) NOT NULL,
   "updated_at" timestamp(3) without time zone DEFAULT (now() AT TIME ZONE 'UTC'::text) NOT NULL,
   "completed_at" timestamp(3) without time zone,
-  "is_active" boolean DEFAULT true NOT NULL
+  "is_active" boolean DEFAULT true NOT NULL,
+  "workflow_run_id" integer,
+  "workflow_item_id" integer
 );
 
 CREATE TABLE "public"."formsteps" (
@@ -239,7 +242,9 @@ CREATE TABLE "public"."responses" (
   "client_ip" character varying(64),
   "user_agent" character varying(512),
   "meta_json" text,
-  "session_id" integer
+  "session_id" integer,
+  "workflow_run_id" integer,
+  "workflow_item_id" integer
 );
 
 CREATE TABLE "public"."responsevalueoptions" (
@@ -305,7 +310,91 @@ CREATE TABLE "public"."users" (
   "is_active" boolean DEFAULT true NOT NULL
 );
 
+CREATE TABLE "public"."file_uploads" (
+  "file_id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "container" text NOT NULL,
+  "blob_name" text NOT NULL UNIQUE,
+  "original_name" text NOT NULL,
+  "mime_type" text,
+  "size_bytes" bigint NOT NULL,
+  "sha256" text,
+  "etag" text,
+  "status" text NOT NULL DEFAULT 'active',
+  "created_at" timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "deleted_at" timestamptz,
+  "uploaded_by" integer NOT NULL,
+  "session_token" text,
+  "response_id" integer,
+  "form_field_id" integer,
+  CONSTRAINT "chk_file_uploads_status" CHECK (status IN ('active', 'replaced', 'deleted'))
+);
 
+CREATE TABLE "public"."workflows" (
+  "workflow_id" serial PRIMARY KEY,
+  "workflow_key" character varying(100) UNIQUE,
+  "title" character varying(255) NOT NULL,
+  "description" text,
+  "status" character varying(20) NOT NULL DEFAULT 'active',
+  "created_by" integer,
+  "created_at" timestamp without time zone NOT NULL DEFAULT NOW(),
+  "updated_at" timestamp without time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE "public"."workflow_forms" (
+  "workflow_form_id" serial PRIMARY KEY,
+  "workflow_id" integer NOT NULL,
+  "form_id" integer NOT NULL,
+  "required" boolean NOT NULL DEFAULT TRUE,
+  "default_name" TEXT,
+  "allow_multiple" boolean NOT NULL DEFAULT FALSE,
+  "sort_order" integer NOT NULL DEFAULT 0,
+  "created_at" timestamp without time zone NOT NULL DEFAULT NOW(),
+  "updated_at" timestamp without time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE "public"."workflow_runs" (
+  "workflow_run_id" serial PRIMARY KEY,
+  "workflow_id" integer NOT NULL,
+  "display_name" character varying(255) NOT NULL,
+  "status" character varying(20) NOT NULL DEFAULT 'not_started',
+  "locked_at" timestamp without time zone,
+  "locked_by" integer,
+  "created_by" integer,
+  "cancelled_at" timestamp without time zone,
+  "cancelled_reason" text,
+  "created_at" timestamp without time zone NOT NULL DEFAULT NOW(),
+  "updated_at" timestamp without time zone NOT NULL DEFAULT NOW(),
+  CONSTRAINT "workflow_runs_status_chk" CHECK (status IN ('not_started','in_progress','completed','cancelled'))
+);
+
+CREATE TABLE "public"."workflow_items" (
+  "workflow_item_id" serial PRIMARY KEY,
+  "workflow_run_id" integer NOT NULL,
+  "workflow_form_id" integer NOT NULL,
+  "display_name" text,
+  "sequence_num" integer NOT NULL DEFAULT 1,
+  "status" character varying(20) NOT NULL DEFAULT 'not_started',
+  "assigned_user_id" integer,
+  "skipped_reason" text,
+  "completed_at" timestamp without time zone,
+  "created_at" timestamp without time zone NOT NULL DEFAULT NOW(),
+  "updated_at" timestamp without time zone NOT NULL DEFAULT NOW(),
+  CONSTRAINT "workflow_items_status_chk" CHECK (status IN ('not_started','in_progress','submitted','skipped'))
+);
+
+CREATE TABLE IF NOT EXISTS "public"."options_jobs" (
+  "job_id" uuid PRIMARY KEY,
+  "form_key" character varying(120) NOT NULL,
+  "field_id" integer NOT NULL,
+  "requester_user_id" integer NULL,
+  "requester_email" character varying(400) NULL,
+  "requester_type" character varying(20) NULL,
+  "callback_token" character varying(128) NOT NULL,
+  "status" character varying(20) NOT NULL DEFAULT 'pending',
+  "created_at" timestamp without time zone DEFAULT (now() AT TIME ZONE 'UTC') NOT NULL,
+  "completed_at" timestamp without time zone NULL,
+  "last_error" text NULL
+);
 
 -- ------------------------------------------------------------------
 -- Link sequences to their owning columns
@@ -361,6 +450,10 @@ ALTER TABLE "public"."forms"
 ALTER TABLE "public"."forms"
   ADD CONSTRAINT "uq_forms_form_key" UNIQUE (form_key);
 
+ALTER TABLE "public"."forms"
+  ADD CONSTRAINT "forms_usage_mode_chk"
+  CHECK (usage_mode::text = ANY (ARRAY['standalone'::character varying, 'workflow_only'::character varying, 'both'::character varying]::text[]));
+
 ALTER TABLE "public"."formsteps"
   ADD CONSTRAINT "formsteps_pkey" PRIMARY KEY (step_id);
 
@@ -397,17 +490,42 @@ ALTER TABLE "public"."responsevalues"
 ALTER TABLE "public"."responsevalueoptions"
   ADD CONSTRAINT "responsevalueoptions_pkey" PRIMARY KEY (response_value_option_id);
 
--- FOREIGN KEYS
-ALTER TABLE "public"."fieldoptions"
-  ADD CONSTRAINT "fk_fieldoptions_formfields"
-  FOREIGN KEY (form_field_id)
-  REFERENCES "public"."formfields"(field_id);
+ALTER TABLE "public"."workflow_forms"
+  ADD CONSTRAINT "uq_workflow_forms" UNIQUE (workflow_id, form_id);
 
-ALTER TABLE "public"."form_access"
-  ADD CONSTRAINT "fk_form_access_form"
-  FOREIGN KEY (form_id)
-  REFERENCES "public"."forms"(form_id) ON DELETE CASCADE;
+ALTER TABLE "public"."workflow_items"
+  ADD CONSTRAINT "uq_workflow_item_sequence" UNIQUE (workflow_run_id, workflow_form_id, sequence_num);
 
+-- ============================================================================
+-- FOREIGN KEYS WITH CASCADE DELETE BEHAVIOR
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- USERS CASCADE CHAIN
+-- When a user is deleted:
+--   - CASCADE: responses, file_uploads, form_access, user_roles
+--   - SET NULL: forms (owner), formsessions, workflows, workflow_runs, etc.
+-- ----------------------------------------------------------------------------
+
+-- forms: SET NULL (form persists when owner deleted)
+ALTER TABLE "public"."forms"
+  ADD CONSTRAINT "fk_forms_owner"
+  FOREIGN KEY (owner_user_id)
+  REFERENCES "public"."users"(user_id) ON DELETE SET NULL;
+
+-- responses: CASCADE (user's submissions deleted)
+ALTER TABLE "public"."responses"
+  ADD CONSTRAINT "fk_responses_users"
+  FOREIGN KEY (user_id)
+  REFERENCES "public"."users"(user_id) ON DELETE CASCADE;
+
+-- formsessions: SET NULL (sessions continue to exist)
+ALTER TABLE "public"."formsessions"
+  ADD CONSTRAINT "fk_formsessions_users"
+  FOREIGN KEY (user_id)
+  REFERENCES "public"."users"(user_id) ON DELETE SET NULL;
+
+-- form_access: CASCADE (access grants removed)
 ALTER TABLE "public"."form_access"
   ADD CONSTRAINT "fk_form_access_user"
   FOREIGN KEY (user_id)
@@ -418,71 +536,137 @@ ALTER TABLE "public"."form_access"
   FOREIGN KEY (granted_by)
   REFERENCES "public"."users"(user_id) ON DELETE SET NULL;
 
+-- user_roles: CASCADE (role assignments removed)
+ALTER TABLE "public"."user_roles"
+  ADD CONSTRAINT "fk_user_roles_user"
+  FOREIGN KEY (user_id)
+  REFERENCES "public"."users"(user_id) ON DELETE CASCADE;
+
+ALTER TABLE "public"."user_roles"
+  ADD CONSTRAINT "fk_user_roles_assigned_by"
+  FOREIGN KEY (assigned_by)
+  REFERENCES "public"."users"(user_id) ON DELETE SET NULL;
+
+-- file_uploads: CASCADE (files uploaded by user deleted)
+ALTER TABLE "public"."file_uploads"
+  ADD CONSTRAINT "fk_file_uploads_uploaded_by"
+  FOREIGN KEY (uploaded_by)
+  REFERENCES "public"."users"(user_id) ON DELETE CASCADE;
+
+-- ----------------------------------------------------------------------------
+-- FORMS CASCADE CHAIN
+-- When a form is deleted, cascade to all dependent objects
+-- ----------------------------------------------------------------------------
+
+-- formfields: CASCADE (fields belong to form)
 ALTER TABLE "public"."formfields"
   ADD CONSTRAINT "fk_formfields_forms"
   FOREIGN KEY (form_id)
-  REFERENCES "public"."forms"(form_id);
-
-ALTER TABLE "public"."formfields"
-  ADD CONSTRAINT "fk_formfields_formsteps"
-  FOREIGN KEY (form_step_id)
-  REFERENCES "public"."formsteps"(step_id) ON DELETE SET NULL;
-
-ALTER TABLE "public"."forms"
-  ADD CONSTRAINT "fk_forms_owner"
-  FOREIGN KEY (owner_user_id)
-  REFERENCES "public"."users"(user_id);
-
-ALTER TABLE "public"."formsessions"
-  ADD CONSTRAINT "fk_formsessions_forms"
-  FOREIGN KEY (form_id)
   REFERENCES "public"."forms"(form_id) ON DELETE CASCADE;
 
-ALTER TABLE "public"."formsessions"
-  ADD CONSTRAINT "fk_formsessions_users"
-  FOREIGN KEY (user_id)
-  REFERENCES "public"."users"(user_id) ON DELETE SET NULL;
-
+-- formsteps: CASCADE (steps belong to form)
 ALTER TABLE "public"."formsteps"
   ADD CONSTRAINT "fk_formsteps_forms"
   FOREIGN KEY (form_id)
   REFERENCES "public"."forms"(form_id) ON DELETE CASCADE;
 
+-- form_access: CASCADE (access records deleted)
+ALTER TABLE "public"."form_access"
+  ADD CONSTRAINT "fk_form_access_form"
+  FOREIGN KEY (form_id)
+  REFERENCES "public"."forms"(form_id) ON DELETE CASCADE;
+
+-- formsessions: CASCADE (sessions deleted)
+ALTER TABLE "public"."formsessions"
+  ADD CONSTRAINT "fk_formsessions_forms"
+  FOREIGN KEY (form_id)
+  REFERENCES "public"."forms"(form_id) ON DELETE CASCADE;
+
+-- responses: CASCADE (all responses deleted)
 ALTER TABLE "public"."responses"
   ADD CONSTRAINT "fk_responses_forms"
   FOREIGN KEY (form_id)
-  REFERENCES "public"."forms"(form_id);
+  REFERENCES "public"."forms"(form_id) ON DELETE CASCADE;
 
+-- workflow_forms: CASCADE (workflow-form associations deleted)
+ALTER TABLE "public"."workflow_forms"
+  ADD CONSTRAINT "fk_workflow_forms_form"
+  FOREIGN KEY (form_id)
+  REFERENCES "public"."forms"(form_id) ON DELETE CASCADE;
+
+-- ----------------------------------------------------------------------------
+-- FORMFIELDS CASCADE CHAIN
+-- When a formfield is deleted, cascade to options and file uploads
+-- ----------------------------------------------------------------------------
+
+-- fieldoptions: CASCADE (options belong to formfield)
+ALTER TABLE "public"."fieldoptions"
+  ADD CONSTRAINT "fk_fieldoptions_formfields"
+  FOREIGN KEY (form_field_id)
+  REFERENCES "public"."formfields"(field_id) ON DELETE CASCADE;
+
+-- formfields -> formsteps: SET NULL (field can exist without step)
+ALTER TABLE "public"."formfields"
+  ADD CONSTRAINT "fk_formfields_formsteps"
+  FOREIGN KEY (form_step_id)
+  REFERENCES "public"."formsteps"(step_id) ON DELETE SET NULL;
+
+-- responsevalues -> formfields: CASCADE (response values deleted with field)
+ALTER TABLE "public"."responsevalues"
+  ADD CONSTRAINT "fk_responsevalues_formfields"
+  FOREIGN KEY (form_field_id)
+  REFERENCES "public"."formfields"(field_id) ON DELETE CASCADE;
+
+-- file_uploads -> formfields: CASCADE (files linked to field deleted)
+ALTER TABLE "public"."file_uploads"
+  ADD CONSTRAINT "fk_file_uploads_formfield"
+  FOREIGN KEY (form_field_id)
+  REFERENCES "public"."formfields"(field_id) ON DELETE CASCADE;
+
+-- ----------------------------------------------------------------------------
+-- RESPONSES CASCADE CHAIN
+-- When a response is deleted, cascade to values and options
+-- ----------------------------------------------------------------------------
+
+-- responsevalues: CASCADE (values belong to response)
+ALTER TABLE "public"."responsevalues"
+  ADD CONSTRAINT "fk_responsevalues_responses"
+  FOREIGN KEY (response_id)
+  REFERENCES "public"."responses"(response_id) ON DELETE CASCADE;
+
+-- responses -> sessions: SET NULL (response persists when session deleted)
 ALTER TABLE "public"."responses"
   ADD CONSTRAINT "fk_responses_sessions"
   FOREIGN KEY (session_id)
   REFERENCES "public"."formsessions"(session_id) ON DELETE SET NULL;
 
-ALTER TABLE "public"."responses"
-  ADD CONSTRAINT "fk_responses_users"
-  FOREIGN KEY (user_id)
-  REFERENCES "public"."users"(user_id);
-
-ALTER TABLE "public"."responsevalues"
-  ADD CONSTRAINT "fk_responsevalues_responses"
+-- file_uploads -> responses: CASCADE (files linked to response deleted)
+ALTER TABLE "public"."file_uploads"
+  ADD CONSTRAINT "fk_file_uploads_response"
   FOREIGN KEY (response_id)
-  REFERENCES "public"."responses"(response_id);
+  REFERENCES "public"."responses"(response_id) ON DELETE CASCADE;
 
-ALTER TABLE "public"."responsevalues"
-  ADD CONSTRAINT "fk_responsevalues_formfields"
-  FOREIGN KEY (form_field_id)
-  REFERENCES "public"."formfields"(field_id);
+-- ----------------------------------------------------------------------------
+-- RESPONSEVALUES CASCADE CHAIN
+-- ----------------------------------------------------------------------------
 
+-- responsevalueoptions: CASCADE (options belong to response value)
 ALTER TABLE "public"."responsevalueoptions"
   ADD CONSTRAINT "fk_rvo_responsevalues"
   FOREIGN KEY (response_value_id)
   REFERENCES "public"."responsevalues"(response_value_id) ON DELETE CASCADE;
 
+-- responsevalueoptions -> fieldoptions: SET NULL (option reference cleared)
 ALTER TABLE "public"."responsevalueoptions"
   ADD CONSTRAINT "fk_rvo_fieldoptions"
   FOREIGN KEY (field_option_id)
   REFERENCES "public"."fieldoptions"(option_id) ON DELETE SET NULL;
 
+-- ----------------------------------------------------------------------------
+-- ROLES & PERMISSIONS CASCADE CHAIN
+-- ----------------------------------------------------------------------------
+
+-- role_permissions: CASCADE (permissions removed with role)
 ALTER TABLE "public"."role_permissions"
   ADD CONSTRAINT "fk_role_permissions_role"
   FOREIGN KEY (role_id)
@@ -498,191 +682,115 @@ ALTER TABLE "public"."role_permissions"
   FOREIGN KEY (granted_by)
   REFERENCES "public"."users"(user_id) ON DELETE SET NULL;
 
-ALTER TABLE "public"."user_roles"
-  ADD CONSTRAINT "fk_user_roles_user"
-  FOREIGN KEY (user_id)
-  REFERENCES "public"."users"(user_id) ON DELETE CASCADE;
-
+-- user_roles: CASCADE (handled above in USERS section)
 ALTER TABLE "public"."user_roles"
   ADD CONSTRAINT "fk_user_roles_role"
   FOREIGN KEY (role_id)
   REFERENCES "public"."roles"(role_id) ON DELETE CASCADE;
 
-ALTER TABLE "public"."user_roles"
-  ADD CONSTRAINT "fk_user_roles_assigned_by"
-  FOREIGN KEY (assigned_by)
+-- ----------------------------------------------------------------------------
+-- WORKFLOWS CASCADE CHAIN
+-- When a workflow is deleted, cascade to runs and forms
+-- ----------------------------------------------------------------------------
+
+-- workflows: created_by SET NULL
+ALTER TABLE "public"."workflows"
+  ADD CONSTRAINT "fk_workflows_created_by"
+  FOREIGN KEY (created_by)
   REFERENCES "public"."users"(user_id) ON DELETE SET NULL;
 
-ALTER TABLE forms
-ADD COLUMN usage_mode VARCHAR(20) NOT NULL DEFAULT 'standalone';
+-- workflow_forms: CASCADE from workflow (handled above in FORMS section)
+ALTER TABLE "public"."workflow_forms"
+  ADD CONSTRAINT "fk_workflow_forms_workflow"
+  FOREIGN KEY (workflow_id)
+  REFERENCES "public"."workflows"(workflow_id) ON DELETE CASCADE;
 
--- Optional: enforce valid values (Postgres CHECK)
-ALTER TABLE forms
-ADD CONSTRAINT forms_usage_mode_chk
-CHECK (usage_mode IN ('standalone', 'workflow_only', 'both'));
+-- workflow_runs: CASCADE (runs deleted with workflow)
+ALTER TABLE "public"."workflow_runs"
+  ADD CONSTRAINT "fk_workflow_runs_workflow"
+  FOREIGN KEY (workflow_id)
+  REFERENCES "public"."workflows"(workflow_id) ON DELETE CASCADE;
 
-  
-CREATE TABLE "public"."file_uploads" (
-    file_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    container TEXT NOT NULL,
-    blob_name TEXT NOT NULL UNIQUE,
-    original_name TEXT NOT NULL,
-    mime_type TEXT,
-    size_bytes BIGINT NOT NULL,
-    sha256 TEXT,
-    etag TEXT,
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'replaced', 'deleted')),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMPTZ,
-    uploaded_by INT NOT NULL,
-    session_token text,
-    response_id bigint,
-    form_field_id integer,
-    
-    -- Foreign key to users table
-    CONSTRAINT fk_uploaded_by 
-        FOREIGN KEY (uploaded_by) 
-        REFERENCES users(user_id)
-        ON DELETE RESTRICT
-);
+ALTER TABLE "public"."workflow_runs"
+  ADD CONSTRAINT "fk_workflow_runs_locked_by"
+  FOREIGN KEY (locked_by)
+  REFERENCES "public"."users"(user_id) ON DELETE SET NULL;
 
-CREATE TABLE workflows (
-  workflow_id SERIAL PRIMARY KEY,
-  workflow_key VARCHAR(100) UNIQUE,
-  title VARCHAR(255) NOT NULL,
-  description TEXT,
-  status VARCHAR(20) NOT NULL DEFAULT 'active',
-  created_by INTEGER REFERENCES users(user_id),
-  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()
-);
+ALTER TABLE "public"."workflow_runs"
+  ADD CONSTRAINT "fk_workflow_runs_created_by"
+  FOREIGN KEY (created_by)
+  REFERENCES "public"."users"(user_id) ON DELETE SET NULL;
 
-CREATE INDEX idx_workflows_status ON workflows(status);
+-- ----------------------------------------------------------------------------
+-- WORKFLOW_RUNS CASCADE CHAIN
+-- When a workflow run is deleted, cascade to items
+-- ----------------------------------------------------------------------------
 
+-- workflow_items: CASCADE (items belong to run)
+ALTER TABLE "public"."workflow_items"
+  ADD CONSTRAINT "fk_workflow_items_run"
+  FOREIGN KEY (workflow_run_id)
+  REFERENCES "public"."workflow_runs"(workflow_run_id) ON DELETE CASCADE;
 
--- 3) workflow_forms (template -> forms with rules)
-CREATE TABLE workflow_forms (
-  workflow_form_id SERIAL PRIMARY KEY,
-  workflow_id INTEGER NOT NULL REFERENCES workflows(workflow_id) ON DELETE CASCADE,
-  form_id INTEGER NOT NULL REFERENCES forms(form_id),
-  required BOOLEAN NOT NULL DEFAULT TRUE,
-  allow_multiple BOOLEAN NOT NULL DEFAULT FALSE,
-  sort_order INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
-  CONSTRAINT uq_workflow_forms UNIQUE (workflow_id, form_id)
-);
+ALTER TABLE "public"."workflow_items"
+  ADD CONSTRAINT "fk_workflow_items_workflow_form"
+  FOREIGN KEY (workflow_form_id)
+  REFERENCES "public"."workflow_forms"(workflow_form_id) ON DELETE CASCADE;
 
-CREATE INDEX idx_workflow_forms_workflow ON workflow_forms(workflow_id);
-CREATE INDEX idx_workflow_forms_form ON workflow_forms(form_id);
+ALTER TABLE "public"."workflow_items"
+  ADD CONSTRAINT "fk_workflow_items_assigned_user"
+  FOREIGN KEY (assigned_user_id)
+  REFERENCES "public"."users"(user_id) ON DELETE SET NULL;
 
+-- ----------------------------------------------------------------------------
+-- WORKFLOW REFERENCES IN FORMSESSIONS AND RESPONSES
+-- These should SET NULL to preserve sessions/responses when workflow deleted
+-- ----------------------------------------------------------------------------
 
--- 4) workflow_runs (instances)
-CREATE TABLE workflow_runs (
-  workflow_run_id SERIAL PRIMARY KEY,
-  workflow_id INTEGER NOT NULL REFERENCES workflows(workflow_id),
-  display_name VARCHAR(255) NOT NULL,
-  status VARCHAR(20) NOT NULL DEFAULT 'not_started',
-  locked_at TIMESTAMP WITHOUT TIME ZONE,
-  locked_by INTEGER REFERENCES users(user_id),
-  created_by INTEGER REFERENCES users(user_id),
-  cancelled_at TIMESTAMP WITHOUT TIME ZONE,
-  cancelled_reason TEXT,
-  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
-  CONSTRAINT workflow_runs_status_chk
-    CHECK (status IN ('not_started','in_progress','completed','cancelled'))
-);
+ALTER TABLE "public"."formsessions"
+  ADD CONSTRAINT "fk_formsessions_workflow_run"
+  FOREIGN KEY (workflow_run_id)
+  REFERENCES "public"."workflow_runs"(workflow_run_id) ON DELETE SET NULL;
 
-CREATE INDEX idx_workflow_runs_workflow ON workflow_runs(workflow_id);
-CREATE INDEX idx_workflow_runs_status ON workflow_runs(status);
+ALTER TABLE "public"."formsessions"
+  ADD CONSTRAINT "fk_formsessions_workflow_item"
+  FOREIGN KEY (workflow_item_id)
+  REFERENCES "public"."workflow_items"(workflow_item_id) ON DELETE SET NULL;
 
+ALTER TABLE "public"."responses"
+  ADD CONSTRAINT "fk_responses_workflow_run"
+  FOREIGN KEY (workflow_run_id)
+  REFERENCES "public"."workflow_runs"(workflow_run_id) ON DELETE SET NULL;
 
--- 5) workflow_items (the actionable units)
-CREATE TABLE workflow_items (
-  workflow_item_id SERIAL PRIMARY KEY,
-  workflow_run_id INTEGER NOT NULL REFERENCES workflow_runs(workflow_run_id) ON DELETE CASCADE,
-  workflow_form_id INTEGER NOT NULL REFERENCES workflow_forms(workflow_form_id),
-  sequence_num INTEGER NOT NULL DEFAULT 1,
-  status VARCHAR(20) NOT NULL DEFAULT 'not_started',
-  assigned_user_id INTEGER REFERENCES users(user_id),
-  skipped_reason TEXT,
-  completed_at TIMESTAMP WITHOUT TIME ZONE,
-  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
-  CONSTRAINT workflow_items_status_chk
-    CHECK (status IN ('not_started','in_progress','submitted','skipped')),
-  CONSTRAINT uq_workflow_item_sequence UNIQUE (workflow_run_id, workflow_form_id, sequence_num)
-);
+ALTER TABLE "public"."responses"
+  ADD CONSTRAINT "fk_responses_workflow_item"
+  FOREIGN KEY (workflow_item_id)
+  REFERENCES "public"."workflow_items"(workflow_item_id) ON DELETE SET NULL;
 
-CREATE INDEX idx_workflow_items_run ON workflow_items(workflow_run_id);
-CREATE INDEX idx_workflow_items_assigned ON workflow_items(assigned_user_id);
-CREATE INDEX idx_workflow_items_status ON workflow_items(status);
-
-
--- 6) Link existing drafts/sessions to workflow context (nullable)
-ALTER TABLE formsessions
-ADD COLUMN workflow_run_id INTEGER REFERENCES workflow_runs(workflow_run_id),
-ADD COLUMN workflow_item_id INTEGER REFERENCES workflow_items(workflow_item_id);
-
-CREATE INDEX idx_formsessions_workflow_run ON formsessions(workflow_run_id);
-CREATE INDEX idx_formsessions_workflow_item ON formsessions(workflow_item_id);
-
-
--- 7) Link existing responses to workflow context (nullable)
-ALTER TABLE responses
-ADD COLUMN workflow_run_id INTEGER REFERENCES workflow_runs(workflow_run_id),
-ADD COLUMN workflow_item_id INTEGER REFERENCES workflow_items(workflow_item_id);
-
-CREATE INDEX idx_responses_workflow_run ON responses(workflow_run_id);
-CREATE INDEX idx_responses_workflow_item ON responses(workflow_item_id);
-
--- Indexes for common queries
-CREATE INDEX idx_file_uploads_uploaded_by ON file_uploads(uploaded_by);
-CREATE INDEX idx_file_uploads_status ON file_uploads(status);
-CREATE INDEX idx_file_uploads_created_at ON file_uploads(created_at DESC);
-CREATE INDEX idx_file_uploads_sha256 ON file_uploads(sha256) WHERE sha256 IS NOT NULL;
-
-CREATE TABLE IF NOT EXISTS public.options_jobs (
-  job_id uuid PRIMARY KEY,
-  form_key varchar(120) NOT NULL,
-  field_id integer NOT NULL,
-
-  requester_user_id integer NULL,     
-  requester_email varchar(400) NULL,
-  requester_type varchar(20) NULL,     
-
-  callback_token varchar(128) NOT NULL,
-  status varchar(20) NOT NULL DEFAULT 'pending',  
-
-  created_at timestamp without time zone DEFAULT (now() AT TIME ZONE 'UTC') NOT NULL,
-  completed_at timestamp without time zone NULL,
-
-  last_error text NULL
-);
-
-
-CREATE INDEX IF NOT EXISTS ix_options_jobs_field_status
-  ON public.options_jobs(field_id, status);
-
-CREATE INDEX IF NOT EXISTS ix_options_jobs_created
-  ON public.options_jobs(created_at);
 -- ------------------------------------------------------------------
 -- Indexes
 -- ------------------------------------------------------------------
-CREATE INDEX ix_fieldoptions_field_sort ON public.fieldoptions USING btree (form_field_id, sort_order, option_id);
-CREATE UNIQUE INDEX uq_fieldoptions_field_value ON public.fieldoptions USING btree (form_field_id, value);
-CREATE INDEX idx_form_access_form ON public.form_access USING btree (form_id);
-CREATE UNIQUE INDEX idx_form_access_unique ON public.form_access USING btree (form_id, user_id);
-CREATE INDEX idx_form_access_user ON public.form_access USING btree (user_id);
-CREATE INDEX ix_formfields_form_sort ON public.formfields USING btree (form_id, sort_order);
-CREATE INDEX ix_formfields_step ON public.formfields USING btree (form_step_id);
-CREATE INDEX ix_forms_status ON public.forms USING btree (status);
-CREATE INDEX ix_formsessions_completed ON public.formsessions USING btree (is_completed, form_id);
+CREATE INDEX idx_file_uploads_uploaded_by ON public.file_uploads USING btree (uploaded_by);
+CREATE INDEX idx_file_uploads_status ON public.file_uploads USING btree (status);
+CREATE INDEX idx_file_uploads_created_at ON public.file_uploads USING btree (created_at DESC);
+CREATE INDEX idx_file_uploads_sha256 ON public.file_uploads USING btree (sha256) WHERE (sha256 IS NOT NULL);
+CREATE INDEX idx_file_uploads_response ON public.file_uploads USING btree (response_id) WHERE (response_id IS NOT NULL);
+CREATE INDEX idx_file_uploads_formfield ON public.file_uploads USING btree (form_field_id) WHERE (form_field_id IS NOT NULL);
+
+CREATE INDEX ix_fieldoptions_field ON public.fieldoptions USING btree (form_field_id);
+CREATE INDEX ix_form_access_form ON public.form_access USING btree (form_id);
+CREATE INDEX ix_form_access_user ON public.form_access USING btree (user_id);
+CREATE INDEX ix_formfields_form ON public.formfields USING btree (form_id);
+CREATE INDEX ix_formfields_step ON public.formfields USING btree (form_step_id) WHERE (form_step_id IS NOT NULL);
+CREATE INDEX ix_forms_owner ON public.forms USING btree (owner_user_id) WHERE (owner_user_id IS NOT NULL);
+CREATE INDEX idx_forms_status ON public.forms USING btree (status);
+CREATE INDEX idx_forms_form_key ON public.forms USING btree (form_key) WHERE (form_key IS NOT NULL);
 CREATE INDEX ix_formsessions_expires ON public.formsessions USING btree (expires_at) WHERE (expires_at IS NOT NULL);
 CREATE INDEX ix_formsessions_form ON public.formsessions USING btree (form_id);
 CREATE INDEX ix_formsessions_token ON public.formsessions USING btree (session_token);
 CREATE INDEX ix_formsessions_user ON public.formsessions USING btree (user_id) WHERE (user_id IS NOT NULL);
+CREATE INDEX ix_formsessions_workflow_run ON public.formsessions USING btree (workflow_run_id) WHERE (workflow_run_id IS NOT NULL);
+CREATE INDEX ix_formsessions_workflow_item ON public.formsessions USING btree (workflow_item_id) WHERE (workflow_item_id IS NOT NULL);
 CREATE UNIQUE INDEX uq_active_session_user_form ON public.formsessions USING btree (user_id, form_id) WHERE (is_active = true);
 CREATE UNIQUE INDEX uq_formsessions_one_open_per_user_form ON public.formsessions USING btree (user_id, form_id) WHERE (is_completed = false);
 CREATE INDEX ix_formsteps_form_sort ON public.formsteps USING btree (form_id, sort_order);
@@ -690,6 +798,8 @@ CREATE UNIQUE INDEX idx_permissions_code ON public.permissions USING btree (perm
 CREATE INDEX idx_permissions_resource_action ON public.permissions USING btree (resource, action);
 CREATE INDEX ix_responses_form_time ON public.responses USING btree (form_id, submitted_at DESC);
 CREATE INDEX ix_responses_session ON public.responses USING btree (session_id);
+CREATE INDEX ix_responses_workflow_run ON public.responses USING btree (workflow_run_id) WHERE (workflow_run_id IS NOT NULL);
+CREATE INDEX ix_responses_workflow_item ON public.responses USING btree (workflow_item_id) WHERE (workflow_item_id IS NOT NULL);
 CREATE UNIQUE INDEX uq_responses_session_id ON public.responses USING btree (session_id);
 CREATE INDEX ix_rvo_fieldoption ON public.responsevalueoptions USING btree (field_option_id);
 CREATE UNIQUE INDEX uq_rvo_response_value ON public.responsevalueoptions USING btree (response_value_id, option_value);
@@ -713,6 +823,18 @@ CREATE INDEX idx_user_roles_user_active ON public.user_roles USING btree (user_i
 CREATE INDEX idx_users_active_created ON public.users USING btree (is_active, created_at DESC);
 CREATE UNIQUE INDEX idx_users_entra_object_id ON public.users USING btree (entra_object_id) WHERE (entra_object_id IS NOT NULL);
 CREATE INDEX idx_users_is_active ON public.users USING btree (is_active);
+
+CREATE INDEX idx_workflows_status ON public.workflows USING btree (status);
+CREATE INDEX idx_workflow_forms_workflow ON public.workflow_forms USING btree (workflow_id);
+CREATE INDEX idx_workflow_forms_form ON public.workflow_forms USING btree (form_id);
+CREATE INDEX idx_workflow_runs_workflow ON public.workflow_runs USING btree (workflow_id);
+CREATE INDEX idx_workflow_runs_status ON public.workflow_runs USING btree (status);
+CREATE INDEX idx_workflow_items_run ON public.workflow_items USING btree (workflow_run_id);
+CREATE INDEX idx_workflow_items_assigned ON public.workflow_items USING btree (assigned_user_id);
+CREATE INDEX idx_workflow_items_status ON public.workflow_items USING btree (status);
+
+CREATE INDEX IF NOT EXISTS ix_options_jobs_field_status ON public.options_jobs USING btree (field_id, status);
+CREATE INDEX IF NOT EXISTS ix_options_jobs_created ON public.options_jobs USING btree (created_at);
 
 -- ------------------------------------------------------------------
 -- RBAC Bootstrap Seed (idempotent inserts)
@@ -764,10 +886,7 @@ FROM (
     ('Update Reports', 'reports.update', 'Can update reports', 'reports', 'update'),
     ('Delete Reports', 'reports.delete', 'Can delete reports', 'reports', 'delete'),
 
-    -- ======================
-    -- WORKFLOWS (NEW)
-    -- ======================
-
+    -- WORKFLOWS
     ('Read Workflows', 'workflows.read', 'Can view workflow templates', 'workflows', 'read'),
     ('Create Workflows', 'workflows.create', 'Can create Workflows', 'workflows', 'create'),
 
