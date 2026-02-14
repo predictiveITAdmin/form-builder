@@ -31,6 +31,8 @@ const AssignableForms = ({
   workflowTitle,
   setManageFormsOpen,
   selectedFormId,
+  setDefaultName,
+  defaultName,
   setSelectedFormId,
   onAssignForm,
   assignFormLoading,
@@ -41,7 +43,7 @@ const AssignableForms = ({
       (form) => ({
         label: form.title,
         value: form.form_id,
-      })
+      }),
     ),
     filter: contains,
     limit: 10,
@@ -111,6 +113,16 @@ const AssignableForms = ({
                     </Field.Root>
                     <HStack justify="space-between" align="end" w="full">
                       <VStack spacing={3} align="start">
+                        <Field.Root>
+                          <Field.Label>
+                            Enter Default Name for Items created in Runs
+                          </Field.Label>
+                          <Input
+                            type="text"
+                            value={defaultName}
+                            onChange={(e) => setDefaultName(e.target.value)}
+                          />
+                        </Field.Root>
                         <Field.Root>
                           <Checkbox.Root
                             checked={isRequired}

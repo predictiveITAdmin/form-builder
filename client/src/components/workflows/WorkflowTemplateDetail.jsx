@@ -126,6 +126,7 @@ const WorkflowTemplateDetail = () => {
   const [selectedFormId, setSelectedFormId] = useState(null);
   const [isRequired, setIsRequired] = useState(false);
   const [allowMultiple, setAllowMultiple] = useState(false);
+  const [defaultName, setDefaultName] = useState("");
   const [sortOrder, setSortOrder] = useState(50);
 
   // Edit existing assigned form
@@ -153,6 +154,7 @@ const WorkflowTemplateDetail = () => {
         workflowId: wid,
         form_id: formIdNum,
         required: Boolean(isRequired),
+        default_name: defaultName,
         allow_multiple: Boolean(allowMultiple),
         sort_order: Number(sortOrder) || 50,
       }),
@@ -546,6 +548,8 @@ const WorkflowTemplateDetail = () => {
                       selectedFormId={selectedFormId}
                       setSelectedFormId={setSelectedFormId}
                       onAssignForm={onAssignForm}
+                      setDefaultName={setDefaultName}
+                      defaultName={defaultName}
                       assignFormLoading={assignFormLoading}
                     />
                   )}
@@ -797,6 +801,14 @@ const WorkflowTemplateDetail = () => {
                 </Text>
 
                 <VStack align="stretch" spacing={2}>
+                  <Field.Root>
+                    <Field.Label>Default Name</Field.Label>
+                    <Input
+                      type="text"
+                      onChange={(e) => setDefaultName(e.target.value)}
+                      value={defaultName}
+                    />
+                  </Field.Root>
                   <Checkbox.Root
                     checked={isRequired}
                     onCheckedChange={(e) => setIsRequired(!!e.checked)}
