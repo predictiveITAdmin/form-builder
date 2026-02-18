@@ -571,12 +571,13 @@ const WorkflowTemplateDetail = () => {
                         wfForm.id;
 
                       const title =
-                        wfForm?.form?.title ||
-                        wfForm?.title ||
-                        wfForm?.form_title ||
-                        wfForm?.form_name ||
-                        `Form #${wfForm.form_id ?? wfForm.formId ?? "-"}`;
-
+                        wfForm.default_name === ""
+                          ? wfForm?.form?.title ||
+                            wfForm?.title ||
+                            wfForm?.form_title ||
+                            wfForm?.form_name ||
+                            `Form #${wfForm.form_id ?? wfForm.formId ?? "-"}`
+                          : wfForm.default_name;
                       return (
                         <Card.Root
                           key={wfFormId ?? title}

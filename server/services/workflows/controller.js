@@ -358,6 +358,22 @@ async function getTasks(req, res) {
   }
 }
 
+async function changeItemDefaultName(req, res, next) {
+  try {
+    const itemId = req.params.itemId;
+    const { display_name } = req.body;
+
+    const result = await workflowQueries.changeItemDisplayName(
+      display_name,
+      itemId,
+    );
+
+    return res.status(200).json(result);
+  } catch (err) {
+    return next(err);
+  }
+}
+
 module.exports = {
   getWorkflow,
   createWorkflow,
@@ -382,4 +398,5 @@ module.exports = {
 
   markWorkflowItemSubmitted,
   getTasks,
+  changeItemDefaultName,
 };

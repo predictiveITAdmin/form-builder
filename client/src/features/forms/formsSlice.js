@@ -50,6 +50,22 @@ export const getForm = createAsyncThunk(
   },
 );
 
+export const removeForm = createAsyncThunk(
+  "forms/removeForm",
+  async (formId, { rejectWithValue }) => {
+    try {
+      const res = await http.delete(`api/forms/${formId}/delete`);
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          "Failed to Delete form",
+      );
+    }
+  },
+);
+
 export const getUserSessionData = createAsyncThunk(
   "forms/getUserSessionData",
   async ({ formKey, sessionToken }, { rejectWithValue }) => {
@@ -294,6 +310,10 @@ const initialState = {
   finalSubmitStatus: "idle",
   finalSubmitError: null,
   lastFinalSubmit: null,
+
+  deleteFormStatus: "idle",
+  deleteFormError: null,
+  deleteForm: null,
 };
 
 const formSlice = createSlice({
@@ -540,6 +560,23 @@ const formSlice = createSlice({
       .addCase(submitFinal.rejected, (state, action) => {
         state.finalSubmitStatus = "failed";
         state.finalSubmitError =
+          action.payload || action.error?.message || "Final submission failed";
+      });
+    builder
+      .addCase(removeForm.pending, (state) => {
+        state.deleteFormStatus = "loading";
+        state.deleteFormError = null;
+      })
+
+      .addCase(removeForm.fulfilled, (state, action) => {
+        state.deleteFormStatus = "succeeded";
+        state.deleteFormError = null;
+        state.deleteForm = action.payload;
+      })
+
+      .addCase(removeForm.rejected, (state, action) => {
+        state.deleteFormStatus = "failed";
+        state.deleteFormError =
           action.payload || action.error?.message || "Final submission failed";
       });
   },

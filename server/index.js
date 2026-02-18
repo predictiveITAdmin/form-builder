@@ -5,7 +5,7 @@ const morgan = require("morgan");
 const dotenv = require("dotenv");
 const session = require("express-session");
 const cookieParser = require("cookie-parser");
-
+const rateLimit = require("express-rate-limit");
 const errorHandler = require("./middlewares/errorHandler");
 const authRoutes = require("./services/auth/routes");
 const formsRoutes = require("./services/forms/routes");
@@ -13,15 +13,39 @@ const responseRoutes = require("./services/responses/routes");
 const analyticRoutes = require("./services/analytics/routes");
 const workflowRoutes = require("./services/workflows/routes");
 const { query } = require("./db/pool");
-
+const { auditLogger } = require("./middlewares/auditLogger");
 dotenv.config();
 
 const app = express();
 
-// If you're behind Caddy/Nginx/any reverse proxy, this matters for secure cookies + req.ip
-// In Docker on a VPS, you almost certainly are.
 app.set("trust proxy", 1);
 
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200, // limit each IP to 200 requests per window
+  standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  message: { error: "Too many requests, please try again later." },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // only 10 attempts per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "Too many authentication attempts, please try again later.",
+  },
+});
+
+// Moderate limiter for form submissions / responses
+const submitLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many submissions, please slow down." },
+});
 app.use(helmet());
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 app.use(express.json({ limit: "1mb" }));
@@ -95,6 +119,8 @@ app.use(
   }),
 );
 
+app.use(auditLogger);
+
 // --- Routes ---
 app.get("/api/health", async (req, res) => {
   try {
@@ -135,10 +161,12 @@ app.get("/api/verify", (req, res) => {
   });
 });
 
-app.use("/api/auth", authRoutes);
+app.use("/api", globalLimiter);
+
+app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/forms", formsRoutes);
 app.use("/api/analytics", analyticRoutes);
-app.use("/api/responses", responseRoutes);
+app.use("/api/responses", submitLimiter, responseRoutes);
 app.use("/api/workflows", workflowRoutes);
 
 // Optional: central error handler (keep if your project uses it)

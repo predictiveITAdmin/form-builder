@@ -116,6 +116,7 @@ export const assignFormToWorkflow = createAsyncThunk(
       required = false,
       allow_multiple = false,
       sort_order = 50,
+      default_name = "",
     },
     { rejectWithValue },
   ) => {
@@ -128,6 +129,7 @@ export const assignFormToWorkflow = createAsyncThunk(
           required,
           allow_multiple,
           sort_order,
+          default_name,
         },
       );
       return res.data; // workflow_form row
@@ -348,6 +350,23 @@ export const addRepeatWorkflowItem = createAsyncThunk(
   },
 );
 
+export const updateItemName = createAsyncThunk(
+  "workflows/changeDisplayName",
+  async ({ workflow_item_id, display_name }, { rejectWithValue }) => {
+    try {
+      const res = await http.post(
+        `/api/workflows/workflow-items/${workflow_item_id}/changeName`,
+        {
+          display_name,
+        },
+      );
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(toErrorPayload(err));
+    }
+  },
+);
+
 export const markWorkflowItemSubmitted = createAsyncThunk(
   "workflows/markSubmitted",
   async ({ workflow_item_id, workflow_run_id }, { rejectWithValue }) => {
@@ -421,6 +440,7 @@ const initialState = {
 
   // item start result cache (was missing before)
   itemStartByItemId: {},
+  changeDisplayName: null,
 
   assignableForms: [],
 
@@ -449,6 +469,7 @@ const initialState = {
     assignItem: false,
     startItem: false,
     skipItem: false,
+    changeDisplayName: null,
     addRepeatItem: false,
     markSubmitted: false,
     fetchMyTasks: false,
@@ -478,6 +499,7 @@ const initialState = {
     startItem: null,
     skipItem: null,
     addRepeatItem: null,
+    changeDisplayName: null,
     markSubmitted: null,
     fetchMyTasks: null,
   },
@@ -858,6 +880,25 @@ export const workflowSlice = createSlice({
       .addCase(startWorkflowItem.rejected, (state, action) => {
         setOpLoading(state, "startItem", false);
         setOpError(state, "startItem", action.payload);
+      });
+    builder
+      .addCase(updateItemName.pending, (state) => {
+        setOpLoading(state, "changeDisplayName", true);
+        clearOpError(state, "changeDisplayName");
+      })
+      .addCase(updateItemName.fulfilled, (state, action) => {
+        setOpLoading(state, "changeDisplayName", false);
+
+        const data = action.payload;
+        const display_name = data?.display_name;
+
+        if (display_name) {
+          state.changeDisplayName = display_name;
+        }
+      })
+      .addCase(updateItemName.rejected, (state, action) => {
+        setOpLoading(state, "changeDisplayName", false);
+        setOpError(state, "changeDisplayName", action.payload);
       });
 
     builder

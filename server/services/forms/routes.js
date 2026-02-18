@@ -98,6 +98,13 @@ router.post(
   ctrl.handleSaveDraft,
 );
 
+router.delete(
+  "/:formId/delete",
+  authMiddleware,
+  hasPermissions(["forms.create", "forms.update"]),
+  ctrl.removeForm,
+);
+
 router.post(
   "/:formKey/submit",
   authMiddleware,

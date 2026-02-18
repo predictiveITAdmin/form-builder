@@ -120,6 +120,13 @@ router.post(
   controller.cancelWorkflowRun,
 );
 
+router.post(
+  "/workflow-items/:itemId/changeName",
+  authMiddleware,
+  hasAnyPermission(["workflows.item.assign"]),
+  controller.changeItemDefaultName,
+);
+
 /**
  * Workflow Items
  * Items are the actionable task rows inside a run.

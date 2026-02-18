@@ -696,6 +696,16 @@ async function handleFinalSubmit(req, res, next) {
   }
 }
 
+async function removeForm(req, res, next) {
+  const formId = req.params.formId;
+  try {
+    const result = await svc.deleteForm(formId);
+    return res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   listAll,
   listPublished,
@@ -713,4 +723,5 @@ module.exports = {
   uploadFiles,
   listWorkflowForms,
   handleFinalSubmit,
+  removeForm,
 };

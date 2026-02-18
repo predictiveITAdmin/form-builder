@@ -943,10 +943,22 @@ async function setFormUsers(formId, userIds, grantedBy) {
 async function deleteForm(form_id) {
   const pool = await getPool();
   const client = await pool.connect();
-
+  console.log(form_id);
   try {
     await client.query("BEGIN");
-  } catch {}
+    const sql = `DELETE FROM forms where form_id = $1 RETURNING title, form_id, form_key `;
+    const result = await client.query(sql, [form_id]);
+    await client.query("COMMIT");
+    return {
+      result,
+      message: "Form Deleted Successfully",
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 async function getRpaSubmissionBundleByResponseId(responseId) {
@@ -1162,6 +1174,7 @@ ORDER BY ff.sort_order, ff.field_id;
         wi.status AS workflow_item_status,
         wi.assigned_user_id,
         wi.skipped_reason,
+        wi.display_name as item_display_name,
         wi.completed_at AS workflow_item_completed_at,
         wi.created_at AS workflow_item_created_at,
         wi.updated_at AS workflow_item_updated_at,
@@ -1457,4 +1470,5 @@ module.exports = {
   listWorkFlowForms,
   validateAccess,
   completeOpenSessionByFormAndUser,
+  deleteForm,
 };

@@ -396,6 +396,34 @@ CREATE TABLE IF NOT EXISTS "public"."options_jobs" (
   "last_error" text NULL
 );
 
+CREATE TABLE audit_logs (
+  id              BIGSERIAL PRIMARY KEY,
+  timestamp       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  user_id         TEXT,                        -- account.localAccountId (OID)
+  username        TEXT,                        -- account.username / UPN
+  user_name       TEXT,                        -- account.name (display name)
+  ip_address      INET,
+
+  http_method     TEXT NOT NULL,               -- POST, PUT, PATCH, DELETE
+  route           TEXT NOT NULL,               -- /api/forms/123
+  resource_type   TEXT,                        -- "forms", "responses", etc.
+  resource_id     TEXT,                        -- parsed from URL
+  sub_resource_id TEXT,
+  auth_source     TEXT,
+  request_body    JSONB,                       -- sanitized body (no passwords)
+  response_status INTEGER,
+  
+  session_id      TEXT,
+  user_agent      TEXT
+);
+
+-- Indexes for common query patterns
+CREATE INDEX idx_audit_user_id    ON audit_logs(user_id);
+CREATE INDEX idx_audit_timestamp  ON audit_logs(timestamp DESC);
+CREATE INDEX idx_audit_resource   ON audit_logs(resource_type, resource_id);
+CREATE INDEX idx_audit_route      ON audit_logs(route);
+
 -- ------------------------------------------------------------------
 -- Link sequences to their owning columns
 -- ------------------------------------------------------------------

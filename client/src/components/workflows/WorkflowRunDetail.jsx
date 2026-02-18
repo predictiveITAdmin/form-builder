@@ -27,7 +27,6 @@ import DataTable from "../DataTable";
 import AppLoader from "../ui/AppLoader";
 import AppError from "../ui/AppError";
 import { usePagination } from "@/utils/pagination";
-
 import { Can } from "@/auth/Can";
 import { selectUser } from "@/features/auth/authSlice";
 
@@ -42,6 +41,7 @@ import {
   selectWorkflowDashboardByRunId,
   selectWorkflowLoading,
   selectWorkflowError,
+  updateItemName,
 } from "@/features/workflows/workflowSlice";
 
 // -------------------------
@@ -157,12 +157,15 @@ const WorkflowRunDetail = () => {
   const cancelLoading = useSelector(selectWorkflowLoading("cancelRun"));
   const startLoading = useSelector(selectWorkflowLoading("startItem"));
   const skipLoading = useSelector(selectWorkflowLoading("skipItem"));
+  const editLoading = useSelector(selectWorkflowLoading("changeDisplayName"));
   const addRepeatLoading = useSelector(selectWorkflowLoading("addRepeatItem"));
   const assignLoading = useSelector(selectWorkflowLoading("assignItem"));
 
   const [searchTerm, setSearchTerm] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [assignByItem, setAssignByItem] = useState({}); // { [itemId]: assigned_user_id }
+  const [displayName, setDisplayName] = useState("");
+  const [editable, setEditable] = useState({});
 
   useEffect(() => {
     if (!Number.isFinite(rid)) return;
@@ -371,6 +374,34 @@ const WorkflowRunDetail = () => {
     }
   };
 
+  const updateDisplayName = async (item) => {
+    console.log(item);
+    const res = await dispatch(
+      updateItemName({
+        workflow_item_id: item.workflow_item_id,
+        display_name: displayName,
+      }),
+    );
+
+    if (res?.meta?.requestStatus === "fulfilled") {
+      setEditable({ [item.workflow_item_id]: false });
+      notify({
+        type: "success",
+        title: "Display Name Updated",
+        message: "Workflow item has been updated.",
+        duration: 1600,
+      });
+      doRefresh();
+    } else {
+      notify({
+        type: "error",
+        title: "Rename failed",
+        message: res?.payload?.message || "Unable to rename item.",
+        duration: 2200,
+      });
+    }
+  };
+
   const onAddAnother = async (item) => {
     const res = await dispatch(
       addRepeatWorkflowItem({
@@ -456,7 +487,24 @@ const WorkflowRunDetail = () => {
       render: (_, row) => (
         <VStack spacing={0.5} align="start">
           <HStack wrap="wrap">
-            <Text fontWeight="bold">{row.form_title || "-"}</Text>
+            {editable[row.workflow_item_id] ? (
+              <Input
+                size="sm"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") updateDisplayName(row);
+                  if (e.key === "Escape") setEditable({});
+                }}
+                autoFocus
+              />
+            ) : (
+              <Text fontWeight="bold">
+                {row.display_name === "" || row.display_name === null
+                  ? row.form_title || "-"
+                  : row.display_name || "-"}
+              </Text>
+            )}
             {row.required ? (
               <Badge bgColor="red" variant="subtle" color={"white"}>
                 Required
@@ -580,6 +628,37 @@ const WorkflowRunDetail = () => {
         return (
           <HStack spacing={1}>
             {/* View form template quickly */}
+            {/* Edit Name */}
+            <Can any={["workflows.item.assign"]}>
+              {editable[row.workflow_item_id] ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  bgColor="green"
+                  color="white"
+                  onClick={() => updateDisplayName(row)}
+                  isLoading={editLoading}
+                  disabled={disabled || done}
+                >
+                  Save
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  bgColor="#926EED"
+                  color="white"
+                  onClick={() => {
+                    setEditable({ [row.workflow_item_id]: true });
+                    setDisplayName(row.display_name || row.form_title || "");
+                  }}
+                  isLoading={editLoading}
+                  disabled={disabled || done}
+                >
+                  Edit Name
+                </Button>
+              )}
+            </Can>
             {/* Start / Continue */}
             <Can any={["workflows.item.start"]}>
               <Button
@@ -600,7 +679,7 @@ const WorkflowRunDetail = () => {
               <Button
                 size="sm"
                 variant="outline"
-                bgColor="orange"
+                bgColor="#E38C22"
                 color={"white"}
                 onClick={() => onSkipItem(row)}
                 isLoading={skipLoading}

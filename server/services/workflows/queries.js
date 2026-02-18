@@ -353,7 +353,7 @@ async function getWorkflowForm(workflow_form_id) {
 }
 
 async function listWorkflowForms() {
-  const sql = `SELECT workflow_form_id, workflow_id, wf.form_id, f.title, f.description, f.status, wf.required, wf.allow_multiple, wf.sort_order, wf.created_at, wf.updated_at
+  const sql = `SELECT workflow_form_id, workflow_id, wf.default_name, wf.form_id, f.title, f.description, f.status, wf.required, wf.allow_multiple, wf.sort_order, wf.created_at, wf.updated_at
 	FROM public.workflow_forms wf LEFT JOIN Forms f on f.form_id = wf.form_id;`;
   try {
     const result = await query(sql);
@@ -412,7 +412,7 @@ async function createWorkflowRun({ workflow_id, display_name, created_by }) {
       const placeholders = [];
 
       wfFormsRes.rows.forEach((row, idx) => {
-        const o = idx * 6;
+        const o = idx * 7;
         placeholders.push(
           `($${o + 1}, $${o + 2}, $${o + 3}, $${o + 4}, $${o + 5}, $${o + 6}, $${o + 7})`,
         );
@@ -985,6 +985,28 @@ async function getTasks(userId) {
   return await query(sql, [userId]);
 }
 
+async function changeItemDisplayName(display_name, item_id) {
+  const pool = await getPool();
+  const client = await pool.connect();
+  console.log(display_name, item_id);
+  const sql = `UPDATE public.workflow_items SET display_name = $1 WHERE workflow_item_id = $2`;
+  try {
+    await client.query("BEGIN");
+    client.query(sql, [display_name, item_id]);
+    await client.query("COMMIT");
+    return {
+      status: "Success",
+      message: "Successfully Updated the name",
+      display_name: display_name,
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   createWorkflow,
   getWorkflowById,
@@ -1010,6 +1032,7 @@ module.exports = {
   skipWorkflowItem,
   addRepeatWorkflowItem,
   markWorkflowItemSubmitted,
+  changeItemDisplayName,
 
   // shared
   recomputeWorkflowRunStatus,

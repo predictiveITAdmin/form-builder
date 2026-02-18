@@ -11,6 +11,7 @@ import {
   ButtonGroup,
   Pagination,
   InputGroup,
+  Dialog,
 } from "@chakra-ui/react";
 import DataTable from "../DataTable";
 import { FaRegEye, FaSearch, FaRegEdit, FaTrashAlt } from "react-icons/fa";
@@ -24,12 +25,14 @@ import {
   selectForms,
   selectFormsStatus,
   selectFormsError,
+  removeForm,
 } from "../../features/forms/formsSlice";
 import { Can } from "@/auth/Can";
 
 import { selectUser } from "@/features/auth/authSlice";
 import AppLoader from "../ui/AppLoader";
 import AppError from "../ui/AppError";
+import { notify } from "../ui/notifyStore";
 
 const Forms = () => {
   const dispatch = useDispatch();
@@ -45,7 +48,7 @@ const Forms = () => {
     if (!user) return;
 
     const hasNonReadPermission = user.permissions?.some(
-      (p) => p.action !== "read" && p.resource === "forms"
+      (p) => p.action !== "read" && p.resource === "forms",
     );
 
     setIsAdmin(!!hasNonReadPermission);
@@ -58,9 +61,21 @@ const Forms = () => {
     return (forms || []).filter((form) =>
       String(form.title || "")
         .toLowerCase()
-        .includes(term)
+        .includes(term),
     );
   }, [forms, searchTerm]);
+
+  const handleDelete = async (form_id) => {
+    try {
+      await dispatch(removeForm(form_id)).unwrap();
+      notify({ type: "success", message: "Form Removed Successfully" });
+    } catch (err) {
+      notify({
+        type: "error",
+        message: `Failed to remove Form: ${err?.message || err}`,
+      });
+    }
+  };
 
   const columns = useMemo(() => {
     const base = [
@@ -151,6 +166,63 @@ const Forms = () => {
                 <FaRegEdit size={16} />
               </IconButton>
             </Can>
+
+            {/* Delete */}
+            <Can any={["forms.create", "forms.update", "forms.delete"]}>
+              <Dialog.Root>
+                <Dialog.Trigger asChild>
+                  <IconButton
+                    size="sm"
+                    aria-label="Delete"
+                    variant="ghost"
+                    color={"red"}
+                  >
+                    <FaTrashAlt size={16} />
+                  </IconButton>
+                </Dialog.Trigger>
+
+                <Dialog.Backdrop />
+
+                <Dialog.Positioner>
+                  <Dialog.Content>
+                    <Dialog.CloseTrigger />
+
+                    <Dialog.Header>
+                      <Dialog.Title>Delete Form</Dialog.Title>
+                    </Dialog.Header>
+
+                    <Dialog.Body>
+                      Are you sure you want to delete{" "}
+                      <strong>{row.form_title || row.form_key}</strong>? This
+                      action cannot be undone.
+                      <br />
+                      <Text
+                        marginTop={4}
+                        fontSize="sm"
+                        color="red.700"
+                        fontWeight="medium"
+                      >
+                        This will permanently remove all related responses, file
+                        uploads, and remove the form from any workflows.{" "}
+                        <strong>This cannot be reversed.</strong>
+                      </Text>
+                    </Dialog.Body>
+
+                    <Dialog.Footer>
+                      <Dialog.CloseTrigger asChild></Dialog.CloseTrigger>
+                      <Button
+                        size="sm"
+                        bgColor="red"
+                        color="white"
+                        onClick={() => handleDelete(row.form_id)}
+                      >
+                        Delete
+                      </Button>
+                    </Dialog.Footer>
+                  </Dialog.Content>
+                </Dialog.Positioner>
+              </Dialog.Root>
+            </Can>
           </HStack>
         ),
       },
@@ -174,7 +246,7 @@ const Forms = () => {
 
   const { page, setPage, pageSize, totalItems, pageData } = usePagination(
     filteredForms,
-    5
+    5,
   );
 
   if (status === "loading") return <AppLoader />;
