@@ -53,7 +53,21 @@ export const editUserDetailsAndRoles = createAsyncThunk(
       return res.data;
     } catch (err) {
       return rejectWithValue(
-        err?.response?.data?.message || "Failed to get Roles"
+        err?.response?.data?.message || "Failed to Edit Roles"
+      );
+    }
+  }
+);
+
+export const deleteUser = createAsyncThunk(
+  "auth/deleteUser",
+  async (userId, { rejectWithValue }) => {
+    try {
+      const res = await http.delete(`/api/auth/users/${userId}`);
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err?.response?.data?.message || "Failed to delete user"
       );
     }
   }

@@ -90,5 +90,9 @@ WHERE r.response_id = $1;
 
   return await query(sql, [response_id]);
 };
+const removeResponse = async (response_id) => {
+  const sql = `DELETE FROM public.responses WHERE response_id = $1 RETURNING *`;
+  return await query(sql, [response_id]);
+};
 
-module.exports = { getResponses, getResponseById };
+module.exports = { getResponses, getResponseById, removeResponse };

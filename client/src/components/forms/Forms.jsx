@@ -69,6 +69,7 @@ const Forms = () => {
     try {
       await dispatch(removeForm(form_id)).unwrap();
       notify({ type: "success", message: "Form Removed Successfully" });
+      dispatch(fetchForms(isAdmin));
     } catch (err) {
       notify({
         type: "error",
@@ -214,7 +215,7 @@ const Forms = () => {
                         size="sm"
                         bgColor="red"
                         color="white"
-                        onClick={() => handleDelete(row.form_id)}
+                        onClick={() => {handleDelete(row.form_id); dialog.close()}}
                       >
                         Delete
                       </Button>

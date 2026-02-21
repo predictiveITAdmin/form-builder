@@ -37,7 +37,7 @@ function Layout({ children }) {
   const user = useSelector(selectUser);
   const handleLogout = async (e) => {
     e.preventDefault();
-    console.log("Logging out...");
+
     await dispatch(logoutUser());
     window.location.replace("/login");
   };

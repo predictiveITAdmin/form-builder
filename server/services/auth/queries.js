@@ -694,7 +694,7 @@ function getPermissionById(permission_id) {
     FROM permissions
     WHERE permission_id = $1
   `;
-  console.log(permission_id);
+
   return query(sql, [permission_id]);
 }
 
@@ -801,6 +801,24 @@ function getPermissionsFromRole(role_id) {
   return query(sql, [role_id]);
 }
 
+async function removeUser(user_id) {
+  const pool = await getPool();
+  // using a transaction to clear roles before deleting the user to avoid FK violations
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("DELETE FROM user_roles WHERE user_id = $1", [user_id]);
+    const res = await client.query("DELETE FROM users WHERE user_id = $1 RETURNING *", [user_id]);
+    await client.query("COMMIT");
+    return res.rows[0];
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   ensureUser,
   setInviteTokenForUserEmail,
@@ -816,6 +834,7 @@ module.exports = {
   getAllUsers,
   getUser,
   editUserDetails,
+  removeUser,
 
   addRole,
   getRoleIdsByCodes,

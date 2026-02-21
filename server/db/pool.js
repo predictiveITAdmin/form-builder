@@ -63,7 +63,7 @@ async function getPool() {
     let env = getEnv();
     let cfg = buildPgConfig(env);
     let cs = buildConnectionString(env);
-    console.log(`[db] Connecting with: ${cs}`);
+
 
     pool = new Pool(cfg);
 
@@ -74,7 +74,7 @@ async function getPool() {
     // Test the connection
     try {
       const client = await pool.connect();
-      console.log(`[pg]: Connected Successfully.`);
+
       client.release();
     } catch (err) {
       // If SSL was requested but the server doesn't support it, retry without SSL
@@ -89,13 +89,13 @@ async function getPool() {
         env.ssl = false;
         cfg = buildPgConfig(env);
         cs = buildConnectionString(env);
-        console.log(`[db] Reconnecting with: ${cs}`);
+
 
         // rebuild pool without SSL
         pool = new Pool(cfg);
 
         const client = await pool.connect();
-        console.log(`[pg]: Connected Successfully.`);
+
         client.release();
       } else {
         pool = undefined;

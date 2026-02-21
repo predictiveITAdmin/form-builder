@@ -988,7 +988,7 @@ async function getTasks(userId) {
 async function changeItemDisplayName(display_name, item_id) {
   const pool = await getPool();
   const client = await pool.connect();
-  console.log(display_name, item_id);
+
   const sql = `UPDATE public.workflow_items SET display_name = $1 WHERE workflow_item_id = $2`;
   try {
     await client.query("BEGIN");

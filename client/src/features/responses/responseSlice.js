@@ -31,6 +31,20 @@ export const getResponseById = createAsyncThunk(
   }
 );
 
+export const deleteResponse = createAsyncThunk(
+  "responses/deleteResponse",
+  async (responseId, { rejectWithValue }) => {
+    try {
+      const res = await http.delete(`/api/responses/${responseId}`);
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err?.response?.data || err?.message || "Could not delete Response."
+      );
+    }
+  }
+);
+
 const initialState = {
   responseList: null,
   responseListStatus: "idle",

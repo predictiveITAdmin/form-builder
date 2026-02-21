@@ -1,5 +1,15 @@
 var express = require("express");
+const rateLimit = require("express-rate-limit");
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per window for login endpoints
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "Too many authentication attempts, please try again later.",
+  },
+});
 const { authMiddleware } = require("../../middlewares/authMiddleware");
 const authProvider = require("./AuthProvider");
 const { REDIRECT_URI, POST_LOGOUT_REDIRECT_URI } = require("./authConfig");
@@ -45,10 +55,10 @@ router.post(
   controller.createUser,
 );
 
-router.post("/forgotPassword", controller.forgotPassword);
+router.post("/forgotPassword", authLimiter, controller.forgotPassword);
 
-router.post("/login", controller.login);
-router.post("/createPassword", controller.createPassword);
+router.post("/login", authLimiter, controller.login);
+router.post("/createPassword", authLimiter, controller.createPassword);
 router.get("/me", authMiddleware, controller.getMe);
 
 router.put(
@@ -119,6 +129,12 @@ router.put(
   authMiddleware,
   hasAnyPermission(["users.create", "users.update"]),
   controller.editUser,
+);
+router.delete(
+  "/users/:user_id",
+  authMiddleware,
+  hasAnyPermission(["users.delete"]),
+  controller.deleteUser,
 );
 
 router.get(

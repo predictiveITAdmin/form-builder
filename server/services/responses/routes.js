@@ -32,4 +32,18 @@ router.get(
   ctrl.getResponseGraph
 );
 
+router.delete(
+  "/:responseId",
+  authMiddleware,
+  hasAnyPermission(["responses.delete", "responses.update"]),
+  ctrl.deleteResponse
+);
+
+router.post(
+  "/:responseId/email",
+  authMiddleware,
+  hasAnyPermission(["forms.create", "forms.update"]),
+  ctrl.sendResponseEmail
+);
+
 module.exports = router;

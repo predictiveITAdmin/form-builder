@@ -10,8 +10,11 @@ import {
   ButtonGroup,
   Pagination,
   InputGroup,
+  Button,
+  Dialog,
+  Textarea,
 } from "@chakra-ui/react";
-import { FaSearch } from "react-icons/fa";
+import { FaSearch, FaTrashAlt, FaEnvelope } from "react-icons/fa";
 import { FaEye } from "react-icons/fa6";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
 import { useNavigate } from "react-router-dom";
@@ -21,21 +24,154 @@ import DataTable from "../DataTable";
 import { usePagination } from "@/utils/pagination";
 import AppLoader from "../ui/AppLoader";
 import AppError from "../ui/AppError";
+import { Can } from "@/auth/Can";
+import { notify } from "../ui/notifyStore";
+import { http } from "@/api/http";
+import ReactQuill from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
+import { selectUser } from "@/features/auth/authSlice";
 
 import {
   getResponses,
   selectResponseList,
   selectResponseListStatus,
   selectResponseListError,
+  deleteResponse,
 } from "@/features/responses/responseSlice";
+
+const SendEmailDialog = ({ responseId, submitterName, senderName }) => {
+  const [subject, setSubject] = useState("");
+  const [salutation, setSalutation] = useState(
+    submitterName ? `Dear ${submitterName},` : "Dear,"
+  );
+  const [message, setMessage] = useState("");
+  const [regards, setRegards] = useState(
+    `Best regards,\n${senderName || "Admin"}`
+  );
+  const [isSending, setIsSending] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const handleSend = async () => {
+    if (!subject.trim() || !message.trim()) {
+      notify({ type: "error", message: "Subject and message are required." });
+      return;
+    }
+
+    try {
+      setIsSending(true);
+      await http.post(`/api/responses/${responseId}/email`, {
+        subject,
+        salutation,
+        message,
+        regards,
+      });
+      notify({ type: "success", message: "Email dispatched successfully" });
+      setOpen(false);
+      setSubject("");
+      setSalutation(submitterName ? `Dear ${submitterName},` : "Dear,");
+      setMessage("");
+      setRegards(`Best regards,\n${senderName || "Admin"}`);
+    } catch (err) {
+      notify({
+        type: "error",
+        message: err.response?.data?.error || "Failed to send email",
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <Dialog.Root open={open} onOpenChange={(e) => setOpen(e.open)}>
+      <Dialog.Trigger asChild>
+        <IconButton
+          size="sm"
+          aria-label="Send email"
+          variant="ghost"
+          color="blue.500"
+        >
+          <FaEnvelope size={16} />
+        </IconButton>
+      </Dialog.Trigger>
+      <Dialog.Backdrop />
+      <Dialog.Positioner>
+        <Dialog.Content>
+          <Dialog.CloseTrigger />
+          <Dialog.Header>
+            <Dialog.Title>Send Custom Email</Dialog.Title>
+          </Dialog.Header>
+          <Dialog.Body>
+            <VStack spacing={4} align="stretch" mt={2}>
+              <Text fontSize="sm" color="gray.600">
+                Send an email directly to the submitter of this response.
+              </Text>
+              <Input
+                placeholder="Subject line..."
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+              />
+              <Input
+                placeholder="Salutation (e.g. Dear John,)"
+                value={salutation}
+                onChange={(e) => setSalutation(e.target.value)}
+              />
+              <ReactQuill
+                theme="snow"
+                value={message}
+                onChange={setMessage}
+                placeholder="Type your message here..."
+                style={{ height: "150px", marginBottom: "40px" }}
+              />
+              <Textarea
+                rows={3}
+                placeholder="Regards (e.g. Best regards, Admin)"
+                value={regards}
+                onChange={(e) => setRegards(e.target.value)}
+                p={2}
+              />
+            </VStack>
+          </Dialog.Body>
+          <Dialog.Footer>
+            <Dialog.CloseTrigger asChild>
+              <Button variant="ghost" mr={3}>
+                Cancel
+              </Button>
+            </Dialog.CloseTrigger>
+            <Button
+              bgColor="#2596be"
+              onClick={handleSend}
+              loading={isSending}
+            >
+              Send Email
+            </Button>
+          </Dialog.Footer>
+        </Dialog.Content>
+      </Dialog.Positioner>
+    </Dialog.Root>
+  );
+};
 
 const Responses = () => {
   const navigate = useNavigate();
 
   const dispatch = useDispatch();
+  const user = useSelector(selectUser);
   const responseList = useSelector(selectResponseList);
   const responseListStatus = useSelector(selectResponseListStatus);
   const responseListError = useSelector(selectResponseListError);
+
+  const handleDelete = async (responseId) => {
+    try {
+      await dispatch(deleteResponse(responseId)).unwrap();
+      notify({ type: "success", message: "Response deleted successfully" });
+      dispatch(getResponses());
+    } catch (err) {
+      notify({
+        type: "error",
+        message: err?.message || err?.error || "Failed to delete response",
+      });
+    }
+  };
 
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -117,6 +253,56 @@ const Responses = () => {
           >
             <FaEye size={16} />
           </IconButton>
+          <Can any={["forms.create", "forms.update"]}>
+            <SendEmailDialog
+              responseId={row.response_id}
+              submitterName={row.display_name}
+              senderName={user?.display_name}
+            />
+          </Can>
+          <Can any={["responses.delete"]}>
+            <Dialog.Root>
+              <Dialog.Trigger asChild>
+                <IconButton
+                  size="sm"
+                  aria-label="Delete response"
+                  variant="ghost"
+                  color={"red"}
+                >
+                  <FaTrashAlt size={16} />
+                </IconButton>
+              </Dialog.Trigger>
+              <Dialog.Backdrop />
+              <Dialog.Positioner>
+                <Dialog.Content>
+                  <Dialog.CloseTrigger />
+                  <Dialog.Header>
+                    <Dialog.Title>Delete Response</Dialog.Title>
+                  </Dialog.Header>
+                  <Dialog.Body>
+                    Are you sure you want to delete response #{row.response_id}?
+                    <br />
+                    <Text marginTop={4} fontSize="sm" color="red.700" fontWeight="medium">
+                      This action will permanently delete this submission. This cannot be reversed.
+                    </Text>
+                  </Dialog.Body>
+                  <Dialog.Footer>
+                    <Dialog.CloseTrigger asChild>
+                      <Button variant="outline" size="sm">Cancel</Button>
+                    </Dialog.CloseTrigger>
+                    <Button
+                      size="sm"
+                      bgColor="red"
+                      color="white"
+                      onClick={() => handleDelete(row.response_id)}
+                    >
+                      Delete Response
+                    </Button>
+                  </Dialog.Footer>
+                </Dialog.Content>
+              </Dialog.Positioner>
+            </Dialog.Root>
+          </Can>
         </HStack>
       ),
     },
@@ -133,7 +319,7 @@ const Responses = () => {
 
   return (
     <VStack spacing={6} align="stretch">
-      {console.log(responses)}
+
       <HStack>
         <Flex justify="space-between" align="center" gap={2} width="full">
           <Flex justify="space-around" align="center" gap={4}>

@@ -1,5 +1,7 @@
 const formQueries = require("../forms/queries");
 const workflowQueries = require("./queries");
+const { query } = require("../../db/pool");
+const { sendCustomEmail } = require("../auth/utils");
 
 function getUserId(req) {
   return req.user?.userId ?? req.user?.id ?? null;
@@ -374,6 +376,46 @@ async function changeItemDefaultName(req, res, next) {
   }
 }
 
+async function sendWorkflowRunEmail(req, res, next) {
+  try {
+    const runId = req.params.runId;
+    const { subject, salutation, message, regards } = req.body;
+
+    if (!subject || !message) {
+      return res.status(400).json({ error: "Subject and message are required" });
+    }
+
+    // Find the email of the person who created this workflow run
+    const result = await query(
+      `SELECT u.email 
+       FROM public.workflow_runs wr
+       JOIN public.users u ON wr.created_by = u.user_id
+       WHERE wr.workflow_run_id = $1`,
+      [runId]
+    );
+
+    if (result.length === 0 || !result[0].email) {
+      return res.status(404).json({ error: "Submitter email not found for this workflow run." });
+    }
+
+    const toEmail = result[0].email;
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        ${salutation ? `<p>${salutation}</p>` : ""}
+        <div>${message}</div>
+        ${regards ? `<p>${regards.replace(/\n/g, "<br>")}</p>` : ""}
+      </div>
+    `;
+
+    await sendCustomEmail(toEmail, subject, htmlBody);
+
+    return res.status(200).json({ message: "Email sent successfully" });
+  } catch (err) {
+    console.error("[Workflows] Error sending custom email:", err);
+    res.status(500).json({ error: "Failed to send email" });
+  }
+}
+
 module.exports = {
   getWorkflow,
   createWorkflow,
@@ -399,4 +441,5 @@ module.exports = {
   markWorkflowItemSubmitted,
   getTasks,
   changeItemDefaultName,
+  sendWorkflowRunEmail,
 };

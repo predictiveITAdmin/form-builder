@@ -12,8 +12,10 @@ const formsRoutes = require("./services/forms/routes");
 const responseRoutes = require("./services/responses/routes");
 const analyticRoutes = require("./services/analytics/routes");
 const workflowRoutes = require("./services/workflows/routes");
+const settingsRoutes = require("./services/settings/routes");
 const { query } = require("./db/pool");
 const { auditLogger } = require("./middlewares/auditLogger");
+const { initCronJobs } = require("./cron");
 dotenv.config();
 
 const app = express();
@@ -26,16 +28,6 @@ const globalLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   message: { error: "Too many requests, please try again later." },
-});
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // only 10 attempts per window
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    error: "Too many authentication attempts, please try again later.",
-  },
 });
 
 // Moderate limiter for form submissions / responses
@@ -92,7 +84,7 @@ app.use(
         return cb(null, true);
       }
 
-      console.log(`CORS blocked for origin: ${origin}`);
+
       return cb(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
@@ -163,11 +155,13 @@ app.get("/api/verify", (req, res) => {
 
 app.use("/api", globalLimiter);
 
-app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/forms", formsRoutes);
 app.use("/api/analytics", analyticRoutes);
 app.use("/api/responses", submitLimiter, responseRoutes);
 app.use("/api/workflows", workflowRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/audit", require("./services/audit/routes"));
 
 // Optional: central error handler (keep if your project uses it)
 app.use(errorHandler);
@@ -175,5 +169,8 @@ app.use(errorHandler);
 // --- Listen ---
 const port = Number(process.env.PORT || 3000);
 app.listen(port, "0.0.0.0", () => {
-  console.log(`Server running on ${port} (${isProd ? "prod" : "dev"})`);
+  console.log(`[server] Server running on port ${port}`);
+  
+  // Register Scheduled Tasks
+  initCronJobs();
 });

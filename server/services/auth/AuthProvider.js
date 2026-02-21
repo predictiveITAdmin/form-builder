@@ -129,7 +129,7 @@ class AuthProvider {
       if (!req.body || !req.body.state) {
         return next(new Error("Error: response not found"));
       }
-      console.log(req.session);
+
       const authCodeRequest = {
         ...req.session.authCodeRequest,
         code: req.body.code,
@@ -169,7 +169,7 @@ class AuthProvider {
             displayName,
           });
         } catch (error) {
-          console.log(error);
+
         }
 
         const state = JSON.parse(
@@ -297,7 +297,7 @@ class AuthProvider {
       const response = await axios.get(endpoint);
       return await response.data;
     } catch (error) {
-      console.log(error);
+
     }
   }
 }

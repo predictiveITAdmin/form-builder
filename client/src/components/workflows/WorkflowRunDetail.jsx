@@ -19,10 +19,11 @@ import {
 } from "@chakra-ui/react";
 import { useNavigate, useParams, Link as RouterLink } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { FaSearch } from "react-icons/fa";
+import { FaSearch, FaEnvelope } from "react-icons/fa";
 import { getAllUsers, selectAllUser } from "@/features/auth/roleSlice";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
 import { notify } from "../ui/notifyStore";
+import { http } from "@/api/http";
 import DataTable from "../DataTable";
 import AppLoader from "../ui/AppLoader";
 import AppError from "../ui/AppError";
@@ -134,6 +135,118 @@ const WorkflowLifecycleChips = ({ run }) => {
         </Tag.Root>
       ) : null}
     </HStack>
+  );
+};
+
+// -------------------------
+// Helpers
+// -------------------------
+
+const SendWorkflowEmailDialog = ({ runId, submitterName, senderName }) => {
+  const [subject, setSubject] = useState("");
+  const [salutation, setSalutation] = useState(
+    submitterName ? `Dear ${submitterName},` : "Dear,"
+  );
+  const [message, setMessage] = useState("");
+  const [regards, setRegards] = useState(
+    `Best regards,\n${senderName || "Admin"}`
+  );
+  const [isSending, setIsSending] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const handleSend = async () => {
+    if (!subject.trim() || !message.trim()) {
+      notify({ type: "error", message: "Subject and message are required." });
+      return;
+    }
+
+    try {
+      setIsSending(true);
+      await http.post(`/api/workflows/workflow-runs/${runId}/email`, {
+        subject,
+        salutation,
+        message,
+        regards,
+      });
+      notify({ type: "success", message: "Email dispatched successfully" });
+      setOpen(false);
+      setSubject("");
+      setSalutation(submitterName ? `Dear ${submitterName},` : "Dear,");
+      setMessage("");
+      setRegards(`Best regards,\n${senderName || "Admin"}`);
+    } catch (err) {
+      notify({
+        type: "error",
+        message: err.response?.data?.error || "Failed to send email",
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <Dialog.Root open={open} onOpenChange={(e) => setOpen(e.open)}>
+      <Dialog.Trigger asChild>
+        <Button size="sm" variant="outline" colorScheme="blue">
+          <FaEnvelope size={14} style={{ marginRight: "8px" }} /> Email Submitter
+        </Button>
+      </Dialog.Trigger>
+      <Dialog.Backdrop />
+      <Dialog.Positioner>
+        <Dialog.Content>
+          <Dialog.CloseTrigger />
+          <Dialog.Header>
+            <Dialog.Title>Send Custom Email</Dialog.Title>
+          </Dialog.Header>
+          <Dialog.Body>
+            <VStack spacing={4} align="stretch" mt={2}>
+              <Text fontSize="sm" color="gray.600">
+                Send an email directly to the submitter of this workflow run.
+              </Text>
+              <Input
+                placeholder="Subject line..."
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+              />
+              <Input
+                placeholder="Salutation (e.g. Dear John,)"
+                value={salutation}
+                onChange={(e) => setSalutation(e.target.value)}
+              />
+              <ReactQuill
+                theme="snow"
+                value={message}
+                onChange={setMessage}
+                placeholder="Type your message here..."
+                style={{ height: "150px", marginBottom: "40px" }}
+              />
+              <Input
+                as="textarea"
+                rows={3}
+                placeholder="Regards (e.g. Best regards, Admin)"
+                value={regards}
+                onChange={(e) => setRegards(e.target.value)}
+                p={2}
+              />
+            </VStack>
+          </Dialog.Body>
+          <Dialog.Footer>
+            <Dialog.CloseTrigger asChild>
+              <Button variant="ghost" mr={3}>
+                Cancel
+              </Button>
+            </Dialog.CloseTrigger>
+            <Button
+              colorScheme="blue"
+              onClick={handleSend}
+              loading={isSending}
+            >
+              Send Email
+            </Button>
+          </Dialog.Footer>
+        </Dialog.Content>
+      </Dialog.Positioner>
+    </Dialog.Root>
   );
 };
 
@@ -323,7 +436,7 @@ const WorkflowRunDetail = () => {
   };
 
   const onStartItem = async (item) => {
-    console.log(item);
+
     const res = await dispatch(startWorkflowItem({ itemId: item }));
 
     if (res?.meta?.requestStatus !== "fulfilled") {
@@ -375,7 +488,7 @@ const WorkflowRunDetail = () => {
   };
 
   const updateDisplayName = async (item) => {
-    console.log(item);
+
     const res = await dispatch(
       updateItemName({
         workflow_item_id: item.workflow_item_id,
@@ -754,10 +867,17 @@ const WorkflowRunDetail = () => {
         </VStack>
 
         <HStack>
-          <Button as={RouterLink} to="/workflows" variant="outline">
+          <Can any={["forms.create", "forms.update"]}>
+            <SendWorkflowEmailDialog 
+              runId={rid} 
+              submitterName={run?.created_by_name}
+              senderName={user?.display_name} 
+            />
+          </Can>
+          <Button as={RouterLink} to="/workflows" variant="outline" size="sm">
             Back
           </Button>
-          <Button onClick={doRefresh} variant="outline">
+          <Button onClick={doRefresh} variant="outline" size="sm">
             Refresh
           </Button>
         </HStack>

@@ -346,7 +346,7 @@ const WorkflowTemplateDetail = () => {
   const onRemoveAssignedForm = async (workflowFormId) => {
     const wfFormIdNum = Number(workflowFormId);
     if (!Number.isFinite(wfFormIdNum)) {
-      console.log(wfFormIdNum);
+
       return;
     }
 

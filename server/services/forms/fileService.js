@@ -38,7 +38,7 @@ async function uploadFilesToBlob(
     [formFieldId, sessionToken, uploaded_by]
   );
 
-  console.log("Existing DB Data: " + existingRes);
+
 
   // 2) Delete blobs + mark DB rows deleted (best-effort)
   for (const old of existingRes) {

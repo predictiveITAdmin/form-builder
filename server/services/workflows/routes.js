@@ -121,6 +121,13 @@ router.post(
 );
 
 router.post(
+  "/workflow-runs/:runId/email",
+  authMiddleware,
+  hasAnyPermission(["forms.create", "forms.update"]),
+  controller.sendWorkflowRunEmail,
+);
+
+router.post(
   "/workflow-items/:itemId/changeName",
   authMiddleware,
   hasAnyPermission(["workflows.item.assign"]),

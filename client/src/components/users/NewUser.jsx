@@ -38,12 +38,12 @@ const NewUser = ({ isOpen, onClose }) => {
   }, [email, displayNameTouched]);
 
   const handleInvite = async () => {
-    console.log("Inviting:", { email, displayName });
+
     try {
       const created = await dispatch(
         newUserInvitation({ displayName, email })
       ).unwrap();
-      console.log(created);
+
 
       notify({ type: "success", message: "User Created Successfully!" });
       setEmail("");

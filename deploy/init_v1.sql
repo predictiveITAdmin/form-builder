@@ -207,6 +207,7 @@ CREATE TABLE "public"."formsessions" (
   "updated_at" timestamp(3) without time zone DEFAULT (now() AT TIME ZONE 'UTC'::text) NOT NULL,
   "completed_at" timestamp(3) without time zone,
   "is_active" boolean DEFAULT true NOT NULL,
+  "reminder_sent_at" timestamp without time zone,
   "workflow_run_id" integer,
   "workflow_item_id" integer
 );
@@ -396,6 +397,14 @@ CREATE TABLE IF NOT EXISTS "public"."options_jobs" (
   "last_error" text NULL
 );
 
+CREATE TABLE "public"."settings" (
+  "property" character varying(100) PRIMARY KEY,
+  "value" text,
+  "meta" jsonb,
+  "last_updated" timestamp with time zone DEFAULT NOW(),
+  "updated_by" integer
+);
+
 CREATE TABLE audit_logs (
   id              BIGSERIAL PRIMARY KEY,
   timestamp       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -580,6 +589,12 @@ ALTER TABLE "public"."file_uploads"
   ADD CONSTRAINT "fk_file_uploads_uploaded_by"
   FOREIGN KEY (uploaded_by)
   REFERENCES "public"."users"(user_id) ON DELETE CASCADE;
+
+-- settings: SET NULL (settings persist when user is deleted)
+ALTER TABLE "public"."settings"
+  ADD CONSTRAINT "fk_settings_updated_by"
+  FOREIGN KEY (updated_by)
+  REFERENCES "public"."users"(user_id) ON DELETE SET NULL;
 
 -- ----------------------------------------------------------------------------
 -- FORMS CASCADE CHAIN
@@ -896,6 +911,11 @@ FROM (
     ('Update Roles', 'roles.update', 'Can update roles', 'roles', 'update'),
     ('Delete Roles', 'roles.delete', 'Can delete roles', 'roles', 'delete'),
 
+    -- SETTINGS
+    ('Read Settings', 'settings.read', 'Can view application settings', 'settings', 'read'),
+    ('Update Settings', 'settings.update', 'Can update application settings', 'settings', 'update'),
+    ('Execute Raw SQL', 'settings.query', 'Can execute raw SQL queries against the DB', 'settings', 'query'),
+
     -- FORMS
     ('Create Forms', 'forms.create', 'Can create forms', 'forms', 'create'),
     ('Read Forms',   'forms.read',   'Can view forms',   'forms', 'read'),
@@ -1016,6 +1036,13 @@ END $$;
 
 -- mark migration applied
 INSERT INTO public.schema_migrations (id) VALUES ('init_v1')
+ON CONFLICT DO NOTHING;
+
+-- Seed default Settings
+INSERT INTO public.settings (property, value, meta) VALUES
+  ('log_retention', '30', null),
+  ('session_retention', '30', null),
+  ('responses_retention', '30', null)
 ON CONFLICT DO NOTHING;
 
 COMMIT;

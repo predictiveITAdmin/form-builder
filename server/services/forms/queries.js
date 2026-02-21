@@ -636,7 +636,7 @@ async function upsertDraftWithValues({ response, response_values }) {
     ]);
 
     const session_id = sessionResult.rows[0].session_id;
-    console.log(sessionResult.rows[0].session_id);
+
     // 2) Upsert response by DB session_id
     // Requires UNIQUE on responses(session_id)
     const responseSql = `
@@ -943,7 +943,7 @@ async function setFormUsers(formId, userIds, grantedBy) {
 async function deleteForm(form_id) {
   const pool = await getPool();
   const client = await pool.connect();
-  console.log(form_id);
+
   try {
     await client.query("BEGIN");
     const sql = `DELETE FROM forms where form_id = $1 RETURNING title, form_id, form_key `;

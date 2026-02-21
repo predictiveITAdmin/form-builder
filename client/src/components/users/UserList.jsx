@@ -17,6 +17,7 @@ import {
   createListCollection,
   Portal,
   Field,
+  Dialog,
 } from "@chakra-ui/react";
 import DataTable from "../DataTable";
 import AppLoader from "../ui/AppLoader";
@@ -25,11 +26,13 @@ import {
   selectUsersStatus,
   selectUsersError,
   getAllUsers,
+  deleteUser,
 } from "@/features/auth/roleSlice";
 import { useDispatch, useSelector } from "react-redux";
 import AppError from "../ui/AppError";
 import { usePagination } from "@/utils/pagination";
 import NewUser from "./NewUser";
+import { notify } from "../ui/notifyStore";
 
 const norm = (v) => (v ?? "").toString().trim().toLowerCase();
 
@@ -142,6 +145,58 @@ const UserList = () => {
               >
                 <FaRegEdit size={16} />
               </IconButton>
+              <Dialog.Root>
+                <Dialog.Trigger asChild>
+                  <IconButton
+                    size="sm"
+                    aria-label="Delete"
+                    variant="ghost"
+                    color={"red"}
+                  >
+                    <FaTrashAlt size={16} />
+                  </IconButton>
+                </Dialog.Trigger>
+
+                <Dialog.Backdrop />
+                <Dialog.Positioner>
+                  <Dialog.Content>
+                    <Dialog.CloseTrigger />
+
+                    <Dialog.Header>
+                      <Dialog.Title>Delete User</Dialog.Title>
+                    </Dialog.Header>
+
+                    <Dialog.Body>
+                      Are you sure you want to delete{" "}
+                      <strong>{row.display_name || row.email}</strong>?
+                      <br />
+                      <Text
+                        marginTop={4}
+                        fontSize="sm"
+                        color="red.700"
+                        fontWeight="medium"
+                      >
+                        This action will permanently delete the user's account and revoke all access.{" "}
+                        <strong>This cannot be reversed.</strong>
+                      </Text>
+                    </Dialog.Body>
+
+                    <Dialog.Footer>
+                      <Dialog.CloseTrigger asChild>
+                        <Button variant="outline" size="sm">Cancel</Button>
+                      </Dialog.CloseTrigger>
+                      <Button
+                        size="sm"
+                        bgColor="red"
+                        color="white"
+                        onClick={() => handleDelete(row.user_id)}
+                      >
+                        Delete User
+                      </Button>
+                    </Dialog.Footer>
+                  </Dialog.Content>
+                </Dialog.Positioner>
+              </Dialog.Root>
             </HStack>
           </Can>
         ),
@@ -151,7 +206,7 @@ const UserList = () => {
   );
 
   const handleEditClick = (row) => {
-    console.log(row);
+
     setSelectedUser(row);
     setEditOpen(true);
   };
@@ -159,6 +214,19 @@ const UserList = () => {
   const handleEditClose = () => {
     setEditOpen(false);
     setSelectedUser(null);
+  };
+
+  const handleDelete = async (userId) => {
+    try {
+      await dispatch(deleteUser(userId)).unwrap();
+      notify({ type: "success", message: "User Removed Successfully" });
+      dispatch(getAllUsers());
+    } catch (err) {
+      notify({
+        type: "error",
+        message: err || "Failed to remove user",
+      });
+    }
   };
 
   const types = createListCollection({
@@ -265,7 +333,7 @@ const UserList = () => {
           value={isActive}
           onValueChange={(e) => {
             setIsActive(e.value);
-            console.log(e.value);
+
           }}
         >
           <Select.HiddenSelect />

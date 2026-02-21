@@ -101,4 +101,18 @@ const sendPortalEmail = async (toEmail, link, mode = "invite") => {
   await graphClient.api(`/users/${FROM_EMAIL}/sendMail`).post(message);
 };
 
-module.exports = sendPortalEmail;
+const sendCustomEmail = async (toEmail, subject, htmlBody) => {
+  const message = {
+    message: {
+      subject,
+      body: { contentType: "HTML", content: htmlBody },
+      toRecipients: [{ emailAddress: { address: toEmail } }],
+      from: { emailAddress: { address: FROM_EMAIL } },
+    },
+    saveToSentItems: "true",
+  };
+
+  await graphClient.api(`/users/${FROM_EMAIL}/sendMail`).post(message);
+};
+
+module.exports = { sendPortalEmail, sendCustomEmail };

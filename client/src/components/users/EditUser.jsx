@@ -77,7 +77,7 @@ const EditUser = ({ isOpen, onClose, user }) => {
 
   const updateField = (key, value) => {
     setUserDetails((prev) => ({ ...prev, [key]: value }));
-    console.log(userDetails);
+
   };
 
   const handleSave = async () => {
@@ -106,7 +106,7 @@ const EditUser = ({ isOpen, onClose, user }) => {
       onClose();
       window.location.reload();
     } catch (err) {
-      console.log(err);
+
       notify({
         type: "error",
         title: "Update failed",

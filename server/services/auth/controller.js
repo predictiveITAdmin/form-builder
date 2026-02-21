@@ -1,7 +1,7 @@
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const queries = require("./queries");
-const sendPortalEmail = require("./utils");
+const { sendPortalEmail } = require("./utils");
 
 const hashPassword = (password) => {
   return new Promise((resolve, reject) => {
@@ -116,7 +116,7 @@ module.exports = {
         user.password_salt,
       );
 
-      console.log("Password Matched? " + isValid);
+
 
       if (!isValid) {
         return res.status(401).json({ message: "Invalid credentials." });
@@ -191,7 +191,7 @@ module.exports = {
   forgotPassword: async (req, res) => {
     const { email } = req.body;
 
-    console.log(email);
+
 
     // Always respond success (don’t leak user existence)
     const genericResponse = () =>
@@ -204,7 +204,7 @@ module.exports = {
       if (!email || String(email).trim() === "") return genericResponse();
 
       const user = await queries.getUserByEmail(email);
-      console.log(user);
+
       if (!user) return genericResponse();
 
       // Internal accounts should use Microsoft login, not local reset.
@@ -218,12 +218,12 @@ module.exports = {
         inviteTokenExpiresAt,
       });
 
-      console.log(updated);
+
 
       if (!updated) return genericResponse();
 
       const resetLink = `${process.env.FRONTEND_URL}/create-password?token=${inviteToken}`;
-      console.log(resetLink);
+
       // Send reset email
       await sendPortalEmail(email, resetLink, "reset");
 
@@ -264,6 +264,30 @@ module.exports = {
         message: err.message || "Internal Server Error",
         ...(err.details ? { details: err.details } : {}),
       });
+    }
+  },
+
+  deleteUser: async (req, res) => {
+    try {
+      const user_id = Number(req.params.user_id);
+      if (!user_id) {
+        return badRequest(res, "User ID is required");
+      }
+
+      const roles = await queries.rolesForUser(user_id);
+      const isSuperAdmin = roles.some((r) => r.role_code === 'SUPER_ADMIN');
+
+      if (isSuperAdmin) {
+        return res.status(403).json({ message: "Cannot delete a Super Admin. Please demote the user to Admin or User first." });
+      }
+
+      await queries.removeUser(user_id);
+      return res.status(200).json({ message: "User deleted successfully" });
+    } catch (err) {
+      if (err?.code === "23503") {
+        return res.status(409).json({ message: "Cannot delete user. They are referenced by other records (e.g. audit logs, forms, workflows)." });
+      }
+      return serverError(res, err);
     }
   },
 
@@ -592,7 +616,7 @@ module.exports = {
           return badRequest(res, "permissionId param must be a number");
 
         const result = await queries.getPermissionById(permissionIdParam);
-        console.log(result);
+
         const row = result[0];
         if (!row)
           return res
