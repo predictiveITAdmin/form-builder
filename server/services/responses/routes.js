@@ -46,4 +46,11 @@ router.post(
   ctrl.sendResponseEmail
 );
 
+router.post(
+  "/:responseId/decrypt",
+  authMiddleware,
+  hasAnyPermission(["responses.read", "responses.update"]),
+  ctrl.decryptResponseField
+);
+
 module.exports = router;

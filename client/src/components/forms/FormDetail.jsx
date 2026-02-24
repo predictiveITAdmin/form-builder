@@ -22,6 +22,7 @@ import {
 } from "@chakra-ui/react";
 import { useNavigate, useParams } from "react-router";
 import { FaArrowRotateRight } from "react-icons/fa6";
+import { PasswordInput } from "@/components/ui/password-input";
 
 import { SlRefresh } from "react-icons/sl";
 import { useSelector, useDispatch } from "react-redux";
@@ -656,6 +657,24 @@ const FormDetail = () => {
           </Field.Root>
         );
 
+      case "password":
+        return (
+          <Field.Root
+            key={field.field_id}
+            required={field.required}
+            invalid={isFieldInvalid(field)}
+          >
+            <RequiredLabel label={field.label} required={field.required} />
+            <PasswordInput {...commonProps} />
+            {isFieldInvalid(field) && (
+              <Field.ErrorText>{fieldErrors[field.key_name]}</Field.ErrorText>
+            )}
+            {field.help_text && (
+              <Field.HelperText>{field.help_text}</Field.HelperText>
+            )}
+          </Field.Root>
+        );
+
       case "textarea":
         return (
           <Field.Root
@@ -734,6 +753,29 @@ const FormDetail = () => {
             )}
           </Field.Root>
         );
+
+      case "datetime": {
+        const datetimeVal = commonProps.value ? new Date(commonProps.value) : null;
+        const formattedVal = datetimeVal && !Number.isNaN(datetimeVal.getTime()) 
+          ? new Date(datetimeVal.getTime() - datetimeVal.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+          : commonProps.value;
+        return (
+          <Field.Root
+            key={field.field_id}
+            required={field.required}
+            invalid={isFieldInvalid(field)}
+          >
+            <RequiredLabel label={field.label} required={field.required} />
+            <Input {...commonProps} value={formattedVal} type="datetime-local" />
+            {isFieldInvalid(field) && (
+              <Field.ErrorText>{fieldErrors[field.key_name]}</Field.ErrorText>
+            )}
+            {field.help_text && (
+              <Field.HelperText>{field.help_text}</Field.HelperText>
+            )}
+          </Field.Root>
+        );
+      }
 
       case "url":
         return (

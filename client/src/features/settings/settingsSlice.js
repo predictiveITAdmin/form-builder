@@ -13,6 +13,16 @@ export const fetchSettings = createAsyncThunk('settings/fetchSettings', async (_
   }
 });
 
+export const fetchMailboxes = createAsyncThunk('settings/fetchMailboxes', async (_, { rejectWithValue }) => {
+  try {
+    const response = await http.get('/api/graph/mailboxes');
+    // Assuming backend returns { mailboxes: [...] } directly based on our controller
+    return response.data.mailboxes; 
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.error || err.message);
+  }
+});
+
 export const saveSettings = createAsyncThunk('settings/saveSettings', async (payload, { rejectWithValue }) => {
   try {
     const response = await http.post('/api/settings', payload);
@@ -68,6 +78,11 @@ const settingsSlice = createSlice({
     auditLogs: {
       data: [],
       pagination: { page: 1, limit: 20, total: 0, totalPages: 1 },
+      status: 'idle',
+      error: null
+    },
+    mailboxes: {
+      data: [],
       status: 'idle',
       error: null
     }
@@ -144,6 +159,19 @@ const settingsSlice = createSlice({
       .addCase(fetchAuditLogs.rejected, (state, action) => {
         state.auditLogs.status = 'failed';
         state.auditLogs.error = action.payload;
+      })
+      // Fetch Mailboxes
+      .addCase(fetchMailboxes.pending, (state) => {
+        state.mailboxes.status = 'loading';
+      })
+      .addCase(fetchMailboxes.fulfilled, (state, action) => {
+        state.mailboxes.status = 'succeeded';
+        state.mailboxes.data = action.payload;
+        state.mailboxes.error = null;
+      })
+      .addCase(fetchMailboxes.rejected, (state, action) => {
+        state.mailboxes.status = 'failed';
+        state.mailboxes.error = action.payload;
       });
   },
 });
@@ -161,5 +189,8 @@ export const selectSqlState = (state) => ({
 
 export const selectAuditLogs = (state) => state.settings.auditLogs;
 export const selectAuditLogsStatus = (state) => state.settings.auditLogs.status;
+
+export const selectMailboxes = (state) => state.settings.mailboxes.data;
+export const selectMailboxesStatus = (state) => state.settings.mailboxes.status;
 
 export default settingsSlice.reducer;

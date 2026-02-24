@@ -1,9 +1,10 @@
 const { Client } = require("@microsoft/microsoft-graph-client");
 const { ClientSecretCredential } = require("@azure/identity");
+const { query } = require("../../db/pool");
+
 const CLIENT_ID = process.env.AZURE_CLIENT_ID;
 const CLIENT_SECRET = process.env.AZURE_CLIENT_SECRET;
 const TENANT_ID = process.env.AZURE_TENANT_ID;
-const FROM_EMAIL = "predictiveITConsultationScheduling@predictiveit.com";
 
 const credential = new ClientSecretCredential(
   TENANT_ID,
@@ -86,26 +87,46 @@ const buildHTML = (link, mode = "invite") => {
 const sendPortalEmail = async (toEmail, link, mode = "invite") => {
   const { subject, html } = buildHTML(link, mode);
 
+  let sender = "predictiveITConsultationScheduling@predictiveit.com";
+  try {
+    const settingsRes = await query(`SELECT value FROM public.settings WHERE property = 'default_from_email'`);
+    if (settingsRes.length > 0 && settingsRes[0].value) {
+      sender = settingsRes[0].value;
+    }
+  } catch (err) {
+    console.error("Failed to fetch default_from_email for portal email", err);
+  }
+
   const message = {
     message: {
       subject,
       body: { contentType: "HTML", content: html },
       toRecipients: [{ emailAddress: { address: toEmail } }],
-      from: { emailAddress: { address: FROM_EMAIL } },
+      from: { emailAddress: { address: sender } },
     },
     saveToSentItems: "true",
   };
 
-  await graphClient.api(`/users/${FROM_EMAIL}/sendMail`).post(message);
+  await graphClient.api(`/users/${sender}/sendMail`).post(message);
 };
 
-const sendCustomEmail = async (toEmail, subject, htmlBody, ccEmails = []) => {
+const sendCustomEmail = async (toEmail, subject, htmlBody, ccEmails = [], fromEmail = null) => {
+  let sender = fromEmail;
+  if (!sender) {
+    const settingsRes = await query(`SELECT value FROM public.settings WHERE property = 'default_from_email'`);
+    if (settingsRes.length > 0 && settingsRes[0].value) {
+      sender = settingsRes[0].value;
+    } else {
+      sender = "predictiveITConsultationScheduling@predictiveit.com"; // ultimate fallback
+    }
+  }
+
   const message = {
     message: {
       subject,
       body: { contentType: "HTML", content: htmlBody },
       toRecipients: [{ emailAddress: { address: toEmail } }],
-      from: { emailAddress: { address: FROM_EMAIL } },
+      from: { emailAddress: { address: sender } },
     },
     saveToSentItems: "true",
   };
@@ -126,7 +147,7 @@ const sendCustomEmail = async (toEmail, subject, htmlBody, ccEmails = []) => {
     }
   }
 
-  await graphClient.api(`/users/${FROM_EMAIL}/sendMail`).post(message);
+  await graphClient.api(`/users/${sender}/sendMail`).post(message);
 };
 
-module.exports = { sendPortalEmail, sendCustomEmail };
+module.exports = { sendPortalEmail, sendCustomEmail, graphClient };

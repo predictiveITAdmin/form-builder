@@ -1,24 +1,27 @@
 const express = require("express");
+const dotenv = require("dotenv");
+dotenv.config(); // Must be called before anything else that relies on process.env
+
 const helmet = require("helmet");
 const cors = require("cors");
 const morgan = require("morgan");
-const dotenv = require("dotenv");
 const session = require("express-session");
 const cookieParser = require("cookie-parser");
 const rateLimit = require("express-rate-limit");
 const errorHandler = require("./middlewares/errorHandler");
+const maintenanceMiddleware = require("./middlewares/maintenanceMiddleware");
 const authRoutes = require("./services/auth/routes");
 const formsRoutes = require("./services/forms/routes");
 const responseRoutes = require("./services/responses/routes");
 const analyticRoutes = require("./services/analytics/routes");
 const workflowRoutes = require("./services/workflows/routes");
 const settingsRoutes = require("./services/settings/routes");
+const graphRoutes = require("./services/graph/routes");
 const { query } = require("./db/pool");
 const { auditLogger } = require("./middlewares/auditLogger");
 const { initCronJobs } = require("./cron");
 const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./swagger_output.json");
-dotenv.config();
 
 const app = express();
 
@@ -156,6 +159,7 @@ app.get("/api/verify", (req, res) => {
 });
 
 app.use("/api", globalLimiter);
+app.use("/api", maintenanceMiddleware);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/forms", formsRoutes);
@@ -163,6 +167,7 @@ app.use("/api/analytics", analyticRoutes);
 app.use("/api/responses", submitLimiter, responseRoutes);
 app.use("/api/workflows", workflowRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/graph", graphRoutes);
 app.use("/api/audit", require("./services/audit/routes"));
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));

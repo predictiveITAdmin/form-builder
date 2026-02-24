@@ -46,6 +46,7 @@ import {
   FaPlus,
   FaTimes,
   FaCode,
+  FaKey,
 } from "react-icons/fa";
 
 import { RiTimer2Line } from "react-icons/ri";
@@ -135,6 +136,7 @@ const NewForm = () => {
 
   const fieldTypeOptions = [
     { type: "text", label: "Text Input", icon: <FaFont /> },
+    { type: "password", label: "Password", icon: <FaKey /> },
     { type: "textarea", label: "Text Area", icon: <FaAlignLeft /> },
     { type: "email", label: "Email", icon: <FaEnvelope /> },
     { type: "number", label: "Number", icon: <FaHashtag /> },
@@ -911,6 +913,15 @@ const NewForm = () => {
                                             </Stack>
                                           );
                                         }
+                                        case "password":
+                                          return (
+                                              <Input
+                                                  type="password"
+                                                  value="********"
+                                                  size="sm"
+                                                  disabled
+                                              />
+                                          );
 
                                         case "textarea":
                                           return (

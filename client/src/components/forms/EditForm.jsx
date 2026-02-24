@@ -46,6 +46,7 @@ import {
   FaPlus,
   FaTimes,
   FaCode,
+  FaKey,
 } from "react-icons/fa";
 
 import { RiTimer2Line } from "react-icons/ri";
@@ -56,7 +57,7 @@ import { notify } from "../ui/notifyStore";
 import { resetUpdateState } from "../../features/forms/formsSlice";
 import AppLoader from "../ui/AppLoader";
 import AppError from "../ui/AppError";
-
+import { TbLockPassword } from "react-icons/tb";
 import {
   getForm,
   updateForm,
@@ -171,6 +172,7 @@ const EditForm = () => {
       { type: "url", label: "URL", icon: <FaLink /> },
       { type: "tel", label: "Phone", icon: <FaPhone /> },
       { type: "html", label: "HTML", icon: <FaCode /> },
+      { type: "password", label: "Password", icon: <TbLockPassword /> },
     ],
     [],
   );
@@ -1084,6 +1086,15 @@ const EditForm = () => {
                                             </Stack>
                                           );
                                         }
+                                        case "password":
+                                          return (
+                                              <Input
+                                                  type="password"
+                                                  value="********"
+                                                  size="sm"
+                                                  disabled
+                                              />
+                                          );
 
                                         case "textarea":
                                           return (

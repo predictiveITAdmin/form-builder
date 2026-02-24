@@ -2,6 +2,7 @@ const queries = require("./queries");
 const { query } = require("../../db/pool");
 const { generateSasUrl } = require("../integrations/blobClient");
 const { sendCustomEmail } = require("../auth/utils");
+const { decrypt } = require("../../utils/encryption");
 
 module.exports = {
   listResponses: async (req, res) => {
@@ -147,6 +148,7 @@ module.exports = {
         description: 'Email details',
         schema: {
           to: 'submitter@example.com',
+          from: 'support@example.com',
           subject: 'Your request update',
           salutation: 'Hello John,',
           message: 'Your laptop is ready.',
@@ -160,7 +162,7 @@ module.exports = {
       }
     */
     const response_id = req.params.responseId;
-    const { subject, salutation, message, regards, cc, to } = req.body;
+    const { subject, salutation, message, regards, cc, to, from } = req.body;
 
     if (!subject || !message) {
       return res.status(400).json({ error: "Subject and message are required" });
@@ -201,12 +203,63 @@ module.exports = {
         </div>
       `;
 
-      await sendCustomEmail(toEmail, subject, htmlBody, cc);
+      await sendCustomEmail(toEmail, subject, htmlBody, cc, from);
 
       return res.status(200).json({ message: "Email sent successfully" });
     } catch (err) {
       console.error("[Responses] Error sending custom email:", err);
       res.status(500).json({ error: "Failed to send email" });
+    }
+  },
+
+  decryptResponseField: async (req, res) => {
+    /*
+      #swagger.tags = ['Responses']
+      #swagger.summary = 'Decrypt a specific password field for a response'
+      #swagger.parameters['body'] = {
+        in: 'body',
+        schema: { field_id: 123 }
+      }
+    */
+    const response_id = req.params.responseId;
+    const { field_id } = req.body;
+
+    if (!field_id) {
+      return res.status(400).json({ error: "field_id is required" });
+    }
+
+    try {
+      const result = await query(
+        `SELECT rv.value_text, ff.field_type
+         FROM public.responsevalues rv
+         JOIN public.formfields ff ON ff.field_id = rv.form_field_id
+         WHERE rv.response_id = $1 AND rv.form_field_id = $2`,
+        [response_id, field_id]
+      );
+
+      if (result.length === 0) {
+        return res.status(404).json({ error: "Value not found" });
+      }
+
+      const { value_text, field_type } = result[0];
+
+      if (field_type !== "password") {
+        return res.status(400).json({ error: "Field is not a password type" });
+      }
+
+      if (!value_text) {
+        return res.status(200).json({ decryptedValue: "" });
+      }
+
+      const decrypted = decrypt(value_text);
+      if (decrypted === null) {
+        return res.status(500).json({ error: "Decryption failed. Invalid hash or missing master key." });
+      }
+
+      return res.status(200).json({ decryptedValue: decrypted });
+    } catch (err) {
+      console.error("[Responses] Error decrypting field:", err);
+      res.status(500).json({ error: "Failed to decrypt field" });
     }
   },
 };

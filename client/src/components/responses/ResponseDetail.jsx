@@ -1,5 +1,5 @@
 // ResponseDetail.jsx
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   VStack,
   HStack,
@@ -14,8 +14,12 @@ import {
   Link as ChakraLink,
   Code,
   Card,
+  Dialog,
+  Portal,
+  CloseButton,
 } from "@chakra-ui/react";
 import { Link, useParams } from "react-router-dom";
+import {http} from "@/api/http";
 import { useDispatch, useSelector } from "react-redux";
 
 import {
@@ -24,6 +28,7 @@ import {
   FaWpforms,
   FaGlobe,
   FaFileAlt,
+  FaEnvelope,
 } from "react-icons/fa";
 import {
   MdEmail,
@@ -42,6 +47,9 @@ import {
   selectResponseStatus,
   selectResponseError,
 } from "@/features/responses/responseSlice";
+import { selectUser } from "@/features/auth/authSlice";
+import { Can } from "@/auth/Can";
+import SendEmailDialog from "./SendEmailDialog";
 
 const formatBytes = (bytes) => {
   if (bytes === null || bytes === undefined || Number.isNaN(Number(bytes)))
@@ -171,12 +179,85 @@ const ValueChips = ({ values }) => {
   );
 };
 
-const renderFieldValue = ({ field, filesById }) => {
+const PasswordReveal = ({ responseId, fieldId }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [decryptedValue, setDecryptedValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleReveal = async () => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const res = await http.post(`/api/responses/${responseId}/decrypt`, {
+        field_id: fieldId,
+      });
+      setDecryptedValue(res.data.decryptedValue);
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to decrypt password.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <HStack>
+      <Text>********</Text>
+      <Can I="responses.read" a="Responses">
+        <Dialog.Root open={isOpen} onOpenChange={(e) => setIsOpen(e.open)}>
+          <Dialog.Trigger asChild>
+            <Button
+              size="xs"
+              variant="outline"
+              bgColor="gray.100"
+              onClick={handleReveal}
+            >
+              Reveal
+            </Button>
+          </Dialog.Trigger>
+          <Portal>
+            <Dialog.Backdrop />
+            <Dialog.Positioner>
+              <Dialog.Content>
+                <Dialog.Header>
+                  <Dialog.Title>Decrypted Password</Dialog.Title>
+                </Dialog.Header>
+                <Dialog.Body>
+                  {isLoading ? (
+                    <Text>Decrypting...</Text>
+                  ) : error ? (
+                    <Text color="red.500">{error}</Text>
+                  ) : (
+                    <Code width="full" p={3} fontSize="lg" wordBreak="break-all">
+                      {decryptedValue}
+                    </Code>
+                  )}
+                </Dialog.Body>
+                <Dialog.Footer>
+                  <Dialog.CloseTrigger asChild>
+                  </Dialog.CloseTrigger>
+                </Dialog.Footer>
+                <CloseButton position="absolute" top="2" right="2" />
+              </Dialog.Content>
+            </Dialog.Positioner>
+          </Portal>
+        </Dialog.Root>
+      </Can>
+    </HStack>
+  );
+};
+
+const renderFieldValue = ({ field, filesById, responseId }) => {
+
   const type = String(field.field_type || "unknown").toLowerCase();
   const raw = getTypedValue(field);
 
   if (raw === null || raw === undefined || raw === "") {
     return <Text color="gray.500">-</Text>;
+  }
+
+  if (type === "password") {
+    return <PasswordReveal responseId={responseId} fieldId={field.form_field_id} />;
   }
 
   if (type === "checkbox") {
@@ -403,6 +484,7 @@ const ResponseDetail = () => {
   const payload = useSelector(selectResponse);
   const status = useSelector(selectResponseStatus);
   const error = useSelector(selectResponseError);
+  const user = useSelector(selectUser);
 
   useEffect(() => {
     if (!Number.isFinite(rid)) return;
@@ -500,9 +582,25 @@ const ResponseDetail = () => {
           </HStack>
         </VStack>
 
-        <Button as={Link} to="/responses" variant="outline">
-          Back
-        </Button>
+        <HStack spacing={2}>
+          <Can any={["forms.create", "forms.update"]}>
+            <SendEmailDialog
+              responseId={payload.response_id}
+              submitterName={payload.display_name}
+              senderName={user?.display_name}
+              defaultToEmail={payload.email}
+              trigger={
+                <Button variant="outline" color="blue.500">
+                  <FaEnvelope style={{ marginRight: "8px" }} />
+                  Send Email
+                </Button>
+              }
+            />
+          </Can>
+          <Button as={Link} to="/responses" variant="outline">
+            Back
+          </Button>
+        </HStack>
       </HStack>
 
       {/* Summary cards */}
@@ -633,7 +731,9 @@ const ResponseDetail = () => {
                     </HStack>
                   </VStack>
 
-                  <Box flex="1">{renderFieldValue({ field, filesById })}</Box>
+                  <Box flex="1">
+                    {renderFieldValue({ field, filesById, responseId: payload.response_id })}
+                  </Box>
                 </HStack>
               );
             })}

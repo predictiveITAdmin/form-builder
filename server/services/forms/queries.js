@@ -683,11 +683,29 @@ async function upsertDraftWithValues({ response, response_values }) {
         value_bool = EXCLUDED.value_bool
     `;
 
+    const fieldIds = response_values.map(v => v.form_field_id);
+    let fieldTypes = {};
+    if (fieldIds.length > 0) {
+      const fieldsSql = `SELECT field_id, field_type FROM public.formfields WHERE field_id = ANY($1::int[])`;
+      const fieldsRes = await client.query(fieldsSql, [fieldIds]);
+      fieldsRes.rows.forEach(r => { fieldTypes[r.field_id] = r.field_type; });
+    }
+
+    const { encrypt } = require("../../utils/encryption");
+
     for (const v of response_values) {
+      let finalValueText = v.value_text;
+      if (fieldTypes[v.form_field_id] === 'password' && finalValueText) {
+         // Prevent re-encrypting if it somehow already looks like our encrypted hash (very unlikely edge case, but safe to check)
+         if (!finalValueText.includes(':') || finalValueText.split(':').length !== 3) {
+             finalValueText = encrypt(finalValueText);
+         }
+      }
+
       await client.query(valueSql, [
         response_id,
         v.form_field_id,
-        v.value_text,
+        finalValueText,
         v.value_number,
         v.value_date,
         v.value_datetime,
@@ -770,10 +788,11 @@ async function validateAccess(user_id, formKey) {
 }
 
 async function getSessionData(user_id, session_token) {
-  return query(
-    `WITH resolved AS (
+  const res = await query(
+    `
   SELECT
       ff.key_name,
+      ff.field_type,
       COALESCE(
           rv.value_text,
           rv.value_number::text,
@@ -789,14 +808,29 @@ async function getSessionData(user_id, session_token) {
   JOIN public.formsessions se
   	  ON se.session_id = r.session_id
   WHERE r.user_id = $1 AND se.session_token = $2
-)
-SELECT jsonb_object_agg(key_name, value) AS response_data
-FROM resolved
-WHERE value IS NOT NULL;
-
+  AND COALESCE(
+          rv.value_text,
+          rv.value_number::text,
+          rv.value_date::text,
+          rv.value_datetime::text,
+          rv.value_bool::text
+      ) IS NOT NULL;
 `,
     [user_id, session_token],
   );
+
+  const { decrypt } = require("../../utils/encryption");
+  const response_data = {};
+  
+  for (const row of res) {
+    if (row.field_type === 'password' && row.value) {
+      response_data[row.key_name] = decrypt(row.value) || "";
+    } else {
+      response_data[row.key_name] = row.value;
+    }
+  }
+
+  return [{ response_data }];
 }
 
 async function selectTotalSteps(formId) {

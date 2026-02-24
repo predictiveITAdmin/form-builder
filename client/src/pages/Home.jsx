@@ -28,6 +28,7 @@ import {
   getHomeData,
 } from "@/features/reports/reportSlice";
 import { selectUser } from "@/features/auth/authSlice";
+import { fetchSettings, selectSettings, selectSettingsStatus } from "@/features/settings/settingsSlice";
 
 /* -------------------------
    Helpers
@@ -89,6 +90,17 @@ export default function Home() {
     dispatch(getHomeData());
   }, [dispatch]);
 
+  const settingsStatus = useSelector(selectSettingsStatus);
+  const settingsData = useSelector(selectSettings);
+
+  useEffect(() => {
+    if (settingsStatus === 'idle') {
+      dispatch(fetchSettings());
+    }
+  }, [settingsStatus, dispatch]);
+
+  const announcement = settingsData?.dashboard_announcement;
+
   const sortedSessions = useMemo(() => {
     return [...sessions].sort(
       (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt),
@@ -147,6 +159,13 @@ export default function Home() {
               } available form${sortedForms.length !== 1 ? "s" : ""}.`}
         </Text>
       </VStack>
+
+      {/* Announcement Banner */}
+      {announcement && (
+        <Box mb={6} p={4} borderRadius="xl" bg="blue.50" borderWidth="1px" borderColor="blue.200" shadow="sm">
+          <Text color="blue.800" dangerouslySetInnerHTML={{ __html: announcement }} sx={{ a: { color: "blue.600", textDecoration: "underline" } }} />
+        </Box>
+      )}
 
       <Grid
         templateColumns={{ base: "1fr", lg: "2fr 1fr" }}
