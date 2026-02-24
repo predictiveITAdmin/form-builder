@@ -6,6 +6,10 @@ automation.predictiveit.com {
     reverse_proxy api:3000
   }
 
+  handle /api-docs* {
+    reverse_proxy api:3000
+  }
+
   handle {
     root * /srv
     try_files {path} /index.html
