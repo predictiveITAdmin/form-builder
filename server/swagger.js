@@ -6,9 +6,9 @@ const doc = {
     description: 'API documentation for the backend services, including forms, workflows, analytics, and responses.',
     version: '1.0.0'
   },
-  host: process.env.BASE_URL ? process.env.BASE_URL.replace(/^https?:\/\//, '') : 'localhost:5173',
+  host: process.env.APP_BASE_URL ? process.env.APP_BASE_URL.replace(/^https?:\/\//, '') : 'automation.predictiveit.com',
   basePath: '/',
-  schemes: ['http', 'https'],
+  schemes: ['https'],
   components: {
     securitySchemes: {
       bearerAuth: {
