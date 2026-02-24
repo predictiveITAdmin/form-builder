@@ -24,7 +24,7 @@ import {
 } from "@chakra-ui/react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams, Link as RouterLink } from "react-router-dom";
-import { FaSearch } from "react-icons/fa";
+import { FaSearch, FaTrash } from "react-icons/fa";
 import { FaEye, FaPlus } from "react-icons/fa6";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
 
@@ -51,6 +51,7 @@ import {
   selectWorkflowForms,
   fetchAssignableForms,
   selectAssignableForms,
+  deleteWorkflowRun,
 } from "@/features/workflows/workflowSlice";
 import AssignableForms from "./AssignableForms";
 
@@ -242,7 +243,7 @@ const WorkflowTemplateDetail = () => {
       label: "Status",
       sortable: true,
       render: (value) => (
-        <Badge bgColor={runStatusColor(value)} textTransform="capitalize">
+        <Badge bgColor={runStatusColor(value)} color={"whiteAlpha.950"} textTransform="capitalize">
           {String(value || "-").replaceAll("_", " ")}
         </Badge>
       ),
@@ -276,6 +277,48 @@ const WorkflowTemplateDetail = () => {
           >
             <FaEye size={16} />
           </IconButton>
+          <Can any={["workflows.run.create"]}>
+            <Dialog.Root>
+              <Dialog.Trigger asChild>
+                <IconButton
+                  size="sm"
+                  aria-label="Delete run"
+                  variant="ghost"
+                  color="red"
+                >
+                  <FaTrash size={16} />
+                </IconButton>
+              </Dialog.Trigger>
+
+              <Dialog.Backdrop />
+              <Dialog.Positioner>
+                <Dialog.Content>
+                  <Dialog.CloseTrigger />
+
+                  <Dialog.Header>
+                    <Dialog.Title>Delete Workflow Run</Dialog.Title>
+                  </Dialog.Header>
+
+                  <Dialog.Body>
+                    Are you sure you want to delete this workflow run?
+                  </Dialog.Body>
+
+                  <Dialog.Footer>
+                    <Dialog.CloseTrigger asChild>
+                    </Dialog.CloseTrigger>
+                    <Button
+                      size="sm"
+                      bgColor="red"
+                      color="white"
+                      onClick={() => onRemoveRun(row.workflow_run_id)}
+                    >
+                      Delete
+                    </Button>
+                  </Dialog.Footer>
+                </Dialog.Content>
+              </Dialog.Positioner>
+            </Dialog.Root>
+          </Can>
         </HStack>
       ),
     },
@@ -323,6 +366,16 @@ const WorkflowTemplateDetail = () => {
         title: "Create run failed",
         message: res?.payload?.message || "Unable to create workflow run.",
       });
+    }
+  };
+
+  const onRemoveRun = async (runId) => {
+    const res = await dispatch(deleteWorkflowRun({ runId }));
+    if (res?.meta?.requestStatus === "fulfilled") {
+      dispatch(fetchWorkflowRuns({ workflow_id: wid }));
+      notify({ type: "success", title: "Deleted", message: "Workflow run deleted successfully." });
+    } else {
+      notify({ type: "error", title: "Delete failed", message: res?.payload?.message || "Unable to delete workflow run." });
     }
   };
 
@@ -457,7 +510,7 @@ const WorkflowTemplateDetail = () => {
               {workflow.title || "Workflow"}
             </Text>
 
-            <Badge bgColor={statusColor(workflow.status)} variant="subtle">
+            <Badge bgColor={statusColor(workflow.status)} color={"whiteAlpha.900"} variant="subtle">
               {workflow.status || "-"}
             </Badge>
           </HStack>

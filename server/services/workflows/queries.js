@@ -215,6 +215,7 @@ async function listWorkflowRuns({
         wr.cancelled_reason,
         wr.created_by,
         cu.display_name AS created_by_name,
+        cu.email AS created_by_email,
         wr.created_at,
         wr.updated_at,
   
@@ -504,6 +505,7 @@ async function getWorkflowRunDashboard(runId) {
       lu.display_name AS locked_by_name,
       wr.created_by,
       cu.display_name AS created_by_name,
+      cu.email AS created_by_email,
       wr.created_at,
       wr.updated_at,
 
@@ -548,7 +550,7 @@ async function getWorkflowRunDashboard(runId) {
     GROUP BY
       wr.workflow_run_id, wr.workflow_id, w.title, wr.display_name, wr.status,
       wr.locked_at, wr.locked_by, lu.display_name,
-      wr.created_by, cu.display_name,
+      wr.created_by, cu.display_name, cu.email,
       wr.created_at, wr.updated_at;
   `;
 
@@ -1007,11 +1009,93 @@ async function changeItemDisplayName(display_name, item_id) {
   }
 }
 
+async function deleteWorkflow(workflowId) {
+  const pool = await getPool();
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Delete formsessions for all runs of this workflow
+    await client.query(`
+      DELETE FROM formsessions 
+      WHERE workflow_run_id IN (
+        SELECT workflow_run_id FROM workflow_runs WHERE workflow_id = $1
+      )
+    `, [workflowId]);
+
+    // Delete all workflow_items for all runs of this workflow
+    await client.query(`
+      DELETE FROM workflow_items 
+      WHERE workflow_run_id IN (
+        SELECT workflow_run_id FROM workflow_runs WHERE workflow_id = $1
+      )
+    `, [workflowId]);
+
+    // Delete all workflow_runs for this workflow
+    await client.query(`
+      DELETE FROM workflow_runs WHERE workflow_id = $1
+    `, [workflowId]);
+
+    // Delete workflow_forms
+    await client.query(`
+      DELETE FROM workflow_forms WHERE workflow_id = $1
+    `, [workflowId]);
+
+    // Delete the workflow
+    await client.query(`
+      DELETE FROM workflows WHERE workflow_id = $1
+    `, [workflowId]);
+
+    await client.query("COMMIT");
+    return true;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function deleteWorkflowRun(runId) {
+  const pool = await getPool();
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Delete formsessions for this run
+    await client.query(`
+      DELETE FROM formsessions WHERE workflow_run_id = $1
+    `, [runId]);
+
+    // Delete items
+    await client.query(`
+      DELETE FROM workflow_items WHERE workflow_run_id = $1
+    `, [runId]);
+
+    // Delete run
+    await client.query(`
+      DELETE FROM workflow_runs WHERE workflow_run_id = $1
+    `, [runId]);
+
+    await client.query("COMMIT");
+    return true;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   createWorkflow,
   getWorkflowById,
   listWorkflows,
   listWorkflowRuns,
+  deleteWorkflow,
+  deleteWorkflowRun,
 
   // workflow_forms
   createWorkflowForm,

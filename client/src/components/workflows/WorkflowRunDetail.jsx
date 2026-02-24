@@ -16,6 +16,9 @@ import {
   Tag,
   NativeSelect,
   Pagination,
+  Dialog,
+  Textarea,
+  Field,
 } from "@chakra-ui/react";
 import { useNavigate, useParams, Link as RouterLink } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -30,6 +33,7 @@ import AppError from "../ui/AppError";
 import { usePagination } from "@/utils/pagination";
 import { Can } from "@/auth/Can";
 import { selectUser } from "@/features/auth/authSlice";
+import ReactQuill from "react-quill-new";
 
 import {
   fetchWorkflowRunDashboard,
@@ -142,7 +146,8 @@ const WorkflowLifecycleChips = ({ run }) => {
 // Helpers
 // -------------------------
 
-const SendWorkflowEmailDialog = ({ runId, submitterName, senderName }) => {
+const SendWorkflowEmailDialog = ({ runId, submitterName, senderName, defaultToEmail }) => {
+  const [to, setTo] = useState(defaultToEmail || "");
   const [subject, setSubject] = useState("");
   const [salutation, setSalutation] = useState(
     submitterName ? `Dear ${submitterName},` : "Dear,"
@@ -154,15 +159,22 @@ const SendWorkflowEmailDialog = ({ runId, submitterName, senderName }) => {
   const [isSending, setIsSending] = useState(false);
   const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    if (defaultToEmail && !to) {
+      setTo(defaultToEmail);
+    }
+  }, [defaultToEmail]);
+
   const handleSend = async () => {
-    if (!subject.trim() || !message.trim()) {
-      notify({ type: "error", message: "Subject and message are required." });
+    if (!subject.trim() || !message.trim() || !to.trim()) {
+      notify({ type: "error", message: "To, Subject, and message are required." });
       return;
     }
 
     try {
       setIsSending(true);
       await http.post(`/api/workflows/workflow-runs/${runId}/email`, {
+        to,
         subject,
         salutation,
         message,
@@ -170,6 +182,7 @@ const SendWorkflowEmailDialog = ({ runId, submitterName, senderName }) => {
       });
       notify({ type: "success", message: "Email dispatched successfully" });
       setOpen(false);
+      setTo(defaultToEmail || "");
       setSubject("");
       setSalutation(submitterName ? `Dear ${submitterName},` : "Dear,");
       setMessage("");
@@ -201,43 +214,64 @@ const SendWorkflowEmailDialog = ({ runId, submitterName, senderName }) => {
           <Dialog.Body>
             <VStack spacing={4} align="stretch" mt={2}>
               <Text fontSize="sm" color="gray.600">
-                Send an email directly to the submitter of this workflow run.
+                Send an email regarding this workflow run.
               </Text>
-              <Input
-                placeholder="Subject line..."
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-              />
-              <Input
-                placeholder="Salutation (e.g. Dear John,)"
-                value={salutation}
-                onChange={(e) => setSalutation(e.target.value)}
-              />
-              <ReactQuill
-                theme="snow"
-                value={message}
-                onChange={setMessage}
-                placeholder="Type your message here..."
-                style={{ height: "150px", marginBottom: "40px" }}
-              />
-              <Input
-                as="textarea"
-                rows={3}
-                placeholder="Regards (e.g. Best regards, Admin)"
-                value={regards}
-                onChange={(e) => setRegards(e.target.value)}
-                p={2}
-              />
+              
+              <Field.Root>
+                <Field.Label>To</Field.Label>
+                <Input
+                  placeholder="To (e.g. submitter@example.com)"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                />
+              </Field.Root>
+
+              <Field.Root>
+                <Field.Label>Subject</Field.Label>
+                <Input
+                  placeholder="Subject line..."
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                />
+              </Field.Root>
+
+              <Field.Root>
+                <Field.Label>Salutation</Field.Label>
+                <Input
+                  placeholder="Salutation (e.g. Dear John,)"
+                  value={salutation}
+                  onChange={(e) => setSalutation(e.target.value)}
+                />
+              </Field.Root>
+
+              <Field.Root>
+                <Field.Label>Message</Field.Label>
+                <ReactQuill
+                  theme="snow"
+                  value={message}
+                  onChange={setMessage}
+                  placeholder="Type your message here..."
+                  style={{ height: "150px", marginBottom: "40px", width: "100%" }}
+                />
+              </Field.Root>
+
+              <Field.Root>
+                <Field.Label>Regards</Field.Label>
+                <Textarea
+                  rows={3}
+                  placeholder="Regards (e.g. Best regards, Admin)"
+                  value={regards}
+                  onChange={(e) => setRegards(e.target.value)}
+                  p={2}
+                />
+              </Field.Root>
             </VStack>
           </Dialog.Body>
           <Dialog.Footer>
             <Dialog.CloseTrigger asChild>
-              <Button variant="ghost" mr={3}>
-                Cancel
-              </Button>
             </Dialog.CloseTrigger>
             <Button
-              colorScheme="blue"
+              bgColor={"#2596be"}
               onClick={handleSend}
               loading={isSending}
             >
@@ -871,7 +905,8 @@ const WorkflowRunDetail = () => {
             <SendWorkflowEmailDialog 
               runId={rid} 
               submitterName={run?.created_by_name}
-              senderName={user?.display_name} 
+              senderName={user?.display_name}
+              defaultToEmail={run.created_by_email}
             />
           </Can>
           <Button as={RouterLink} to="/workflows" variant="outline" size="sm">

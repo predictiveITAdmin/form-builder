@@ -64,6 +64,18 @@ export const getWorkflow = createAsyncThunk(
   },
 );
 
+export const deleteWorkflow = createAsyncThunk(
+  "workflows/deleteWorkflow",
+  async ({ workflowId }, { rejectWithValue }) => {
+    try {
+      await http.delete(`/api/workflows/workflows/${workflowId}`);
+      return { workflowId };
+    } catch (err) {
+      return rejectWithValue(toErrorPayload(err));
+    }
+  },
+);
+
 export const fetchAssignableForms = createAsyncThunk(
   "workflows/fetchAssignable",
   async (_, { rejectWithValue }) => {
@@ -279,6 +291,18 @@ export const cancelWorkflowRun = createAsyncThunk(
   },
 );
 
+export const deleteWorkflowRun = createAsyncThunk(
+  "workflows/deleteRun",
+  async ({ runId }, { rejectWithValue }) => {
+    try {
+      await http.delete(`/api/workflows/workflow-runs/${runId}`);
+      return { runId };
+    } catch (err) {
+      return rejectWithValue(toErrorPayload(err));
+    }
+  },
+);
+
 // -------------------------
 // Items
 // -------------------------
@@ -450,6 +474,7 @@ const initialState = {
     fetchWorkflows: false,
     createWorkflow: false,
     getWorkflow: false,
+    deleteWorkflow: false,
 
     fetchWorkflowForms: false,
     getWorkflowForm: false,
@@ -465,6 +490,7 @@ const initialState = {
     fetchRunDashboard: false,
     lockRun: false,
     cancelRun: false,
+    deleteRun: false,
 
     assignItem: false,
     startItem: false,
@@ -479,6 +505,7 @@ const initialState = {
     fetchWorkflows: null,
     createWorkflow: null,
     getWorkflow: null,
+    deleteWorkflow: null,
 
     fetchWorkflowForms: null,
     getWorkflowForm: null,
@@ -494,6 +521,7 @@ const initialState = {
     fetchRunDashboard: null,
     lockRun: null,
     cancelRun: null,
+    deleteRun: null,
 
     assignItem: null,
     startItem: null,
@@ -583,6 +611,26 @@ export const workflowSlice = createSlice({
       .addCase(getWorkflow.rejected, (state, action) => {
         setOpLoading(state, "getWorkflow", false);
         setOpError(state, "getWorkflow", action.payload || action.error);
+      });
+
+    builder
+      .addCase(deleteWorkflow.pending, (state) => {
+        setOpLoading(state, "deleteWorkflow", true);
+        clearOpError(state, "deleteWorkflow");
+      })
+      .addCase(deleteWorkflow.fulfilled, (state, action) => {
+        setOpLoading(state, "deleteWorkflow", false);
+        const { workflowId } = action.payload || {};
+        if (workflowId) {
+          state.workflows = (state.workflows || []).filter(
+            (w) => w.workflow_id !== workflowId,
+          );
+          delete state.workflowById[workflowId];
+        }
+      })
+      .addCase(deleteWorkflow.rejected, (state, action) => {
+        setOpLoading(state, "deleteWorkflow", false);
+        setOpError(state, "deleteWorkflow", action.payload || action.error);
       });
 
     // -------------------------
@@ -807,6 +855,26 @@ export const workflowSlice = createSlice({
       .addCase(cancelWorkflowRun.rejected, (state, action) => {
         setOpLoading(state, "cancelRun", false);
         setOpError(state, "cancelRun", action.payload);
+      });
+
+    builder
+      .addCase(deleteWorkflowRun.pending, (state) => {
+        setOpLoading(state, "deleteRun", true);
+        clearOpError(state, "deleteRun");
+      })
+      .addCase(deleteWorkflowRun.fulfilled, (state, action) => {
+        setOpLoading(state, "deleteRun", false);
+        const { runId } = action.payload || {};
+        if (runId) {
+          state.runs = (state.runs || []).filter(
+            (r) => r.workflow_run_id !== runId,
+          );
+          delete state.dashboardsByRunId[runId];
+        }
+      })
+      .addCase(deleteWorkflowRun.rejected, (state, action) => {
+        setOpLoading(state, "deleteRun", false);
+        setOpError(state, "deleteRun", action.payload || action.error);
       });
 
     builder

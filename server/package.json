@@ -5,7 +5,9 @@
   "type": "commonjs",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "prestart": "node swagger.js",
     "start": "node index.js",
+    "predev": "node swagger.js",
     "dev": "nodemon index.js"
   },
   "author": "",
@@ -34,6 +36,9 @@
     "nodemailer": "^7.0.11",
     "nodemon": "^3.1.10",
     "pg": "^8.16.3",
+    "swagger-autogen": "^2.23.7",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "uuid": "^13.0.0"
   }
 }

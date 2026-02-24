@@ -120,11 +120,25 @@ router.post(
   controller.cancelWorkflowRun,
 );
 
+router.delete(
+  "/workflow-runs/:runId",
+  authMiddleware,
+  hasAnyPermission(["workflows.run.create"]),
+  controller.deleteWorkflowRun,
+);
+
 router.post(
   "/workflow-runs/:runId/email",
   authMiddleware,
   hasAnyPermission(["forms.create", "forms.update"]),
   controller.sendWorkflowRunEmail,
+);
+
+router.delete(
+  "/workflows/:workflowId",
+  authMiddleware,
+  hasAnyPermission(["workflows.create"]),
+  controller.deleteWorkflow,
 );
 
 router.post(

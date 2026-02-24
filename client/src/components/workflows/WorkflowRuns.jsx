@@ -16,7 +16,7 @@ import {
   Select,
   createListCollection,
 } from "@chakra-ui/react";
-import { FaSearch } from "react-icons/fa";
+import { FaSearch, FaTrash } from "react-icons/fa";
 import { FaEye, FaPlus } from "react-icons/fa6";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
 import { useDispatch, useSelector } from "react-redux";
@@ -39,6 +39,7 @@ import {
   selectWorkflowTemplates,
   selectWorkflowLoading,
   selectWorkflowError,
+  deleteWorkflowRun,
 } from "@/features/workflows/workflowSlice";
 
 const statusColor = (status) => {
@@ -94,6 +95,7 @@ const WorkflowRuns = () => {
       Boolean(user?.role_code === "SUPER_ADMIN");
 
     dispatch(fetchWorkflowRuns({ mine: !isAdmin }));
+    dispatch(fetchWorkflows());
   }, [dispatch, user]);
 
   const filtered = useMemo(() => {
@@ -140,15 +142,63 @@ const WorkflowRuns = () => {
       label: "Actions",
       sortable: false,
       render: (_, row) => (
-        <IconButton
-          size="sm"
-          aria-label="View run"
-          variant="ghost"
-          color="green"
-          onClick={() => navigate(`/workflows/runs/${row.workflow_run_id}`)}
-        >
-          <FaEye size={16} />
-        </IconButton>
+        <HStack spacing={0} width={28}>
+          <IconButton
+            size="sm"
+            aria-label="View run"
+            variant="ghost"
+            color="green"
+            onClick={() => navigate(`/workflows/runs/${row.workflow_run_id}`)}
+          >
+            <FaEye size={16} />
+          </IconButton>
+
+          <Can any={["workflows.run.create"]}>
+            <Dialog.Root>
+              <Dialog.Trigger asChild>
+                <IconButton
+                  size="sm"
+                  aria-label="Delete run"
+                  variant="ghost"
+                  color="red"
+                >
+                  <FaTrash size={16} />
+                </IconButton>
+              </Dialog.Trigger>
+
+              <Dialog.Backdrop />
+              <Dialog.Positioner>
+                <Dialog.Content>
+                  <Dialog.CloseTrigger />
+
+                  <Dialog.Header>
+                    <Dialog.Title>Delete Workflow Run</Dialog.Title>
+                  </Dialog.Header>
+
+                  <Dialog.Body>
+                    Are you sure you want to delete this workflow run?
+                  </Dialog.Body>
+
+                  <Dialog.Footer>
+                    <Dialog.CloseTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        Cancel
+                      </Button>
+                    </Dialog.CloseTrigger>
+                    <Button
+                      size="sm"
+                      bgColor="red"
+                      color="white"
+                      onClick={() => onDeleteRun(row.workflow_run_id)}
+                    >
+                      Delete
+                    </Button>
+                  </Dialog.Footer>
+                </Dialog.Content>
+              </Dialog.Positioner>
+            </Dialog.Root>
+          </Can>
+        </HStack>
       ),
     },
   ];
@@ -159,10 +209,6 @@ const WorkflowRuns = () => {
   );
 
   const onOpenCreate = async () => {
-    // load templates for the dropdown if not loaded yet
-    if (!workflows || workflows.length === 0) {
-      await dispatch(fetchWorkflows());
-    }
     setOpen(true);
   };
 
@@ -208,6 +254,24 @@ const WorkflowRuns = () => {
         type: "error",
         title: "Create run failed",
         message: res?.payload?.message || "Unable to create workflow run.",
+      });
+    }
+  };
+
+  const onDeleteRun = async (runId) => {
+    const res = await dispatch(deleteWorkflowRun({ runId }));
+
+    if (res?.meta?.requestStatus === "fulfilled") {
+      notify({
+        type: "success",
+        title: "Deleted",
+        message: "Workflow run deleted successfully.",
+      });
+    } else {
+      notify({
+        type: "error",
+        title: "Delete failed",
+        message: res?.payload?.message || "Unable to delete workflow run.",
       });
     }
   };

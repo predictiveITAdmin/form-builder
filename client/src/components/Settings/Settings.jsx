@@ -162,6 +162,25 @@ const Settings = () => {
           </Stack>
         </Box>
 
+        {/* API Documentation */}
+        <Box p={5} borderWidth="1px" borderRadius="xl" shadow="sm">
+          <Stack gap={4}>
+            <Heading size="md">API Documentation</Heading>
+            <Text fontSize="sm" color="gray.500">
+              View the dynamically generated OpenAPI (Swagger) documentation for all backend services.
+            </Text>
+            
+            <Box pt={2}>
+              <Button 
+                bgColor="#10b981" 
+                color="white" 
+                onClick={() => window.open(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api-docs/`, '_blank')}
+              >
+                Open Swagger UI
+              </Button>
+            </Box>
+          </Stack>
+        </Box>
 
         {/* Database Management / Raw SQL Executor */}
         <Box p={5} borderWidth="1px" borderRadius="xl" shadow="sm" borderColor="red.200" bg="red.50">

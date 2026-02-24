@@ -22,8 +22,6 @@ const graphClient = Client.initWithMiddleware({
   },
 });
 
-// utils.js
-
 const buildHTML = (link, mode = "invite") => {
   const isReset = mode === "reset";
 
@@ -101,7 +99,7 @@ const sendPortalEmail = async (toEmail, link, mode = "invite") => {
   await graphClient.api(`/users/${FROM_EMAIL}/sendMail`).post(message);
 };
 
-const sendCustomEmail = async (toEmail, subject, htmlBody) => {
+const sendCustomEmail = async (toEmail, subject, htmlBody, ccEmails = []) => {
   const message = {
     message: {
       subject,
@@ -111,6 +109,22 @@ const sendCustomEmail = async (toEmail, subject, htmlBody) => {
     },
     saveToSentItems: "true",
   };
+
+  // If ccEmails is provided (either a string or array of strings), add it to message payload
+  if (ccEmails) {
+    let ccArray = [];
+    if (typeof ccEmails === "string" && ccEmails.trim()) {
+      ccArray = ccEmails.split(",").map((e) => e.trim());
+    } else if (Array.isArray(ccEmails)) {
+      ccArray = ccEmails;
+    }
+
+    if (ccArray.length > 0) {
+      message.message.ccRecipients = ccArray.map((address) => ({
+        emailAddress: { address },
+      }));
+    }
+  }
 
   await graphClient.api(`/users/${FROM_EMAIL}/sendMail`).post(message);
 };

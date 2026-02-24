@@ -85,6 +85,18 @@ module.exports = {
   },
 
   login: async (req, res) => {
+    /*
+      #swagger.tags = ['Auth']
+      #swagger.summary = 'Login with email and password'
+      #swagger.parameters['body'] = {
+        in: 'body',
+        schema: { email: 'user@example.com', password: 'Password123!' }
+      }
+      #swagger.responses[200] = {
+        description: 'Successful login',
+        schema: { message: "Login successful", token: "eyJhbGc...", user: { id: 1, email: "user@example.com", displayName: "User" } }
+      }
+    */
     const { email, password } = req.body;
     if (!email || !password || email === "" || password === "") {
       return res.status(400).json({
@@ -152,6 +164,18 @@ module.exports = {
   },
 
   createUser: async (req, res) => {
+    /*
+      #swagger.tags = ['Auth']
+      #swagger.summary = 'Create a new external user and send an invite'
+      #swagger.parameters['body'] = {
+        in: 'body',
+        schema: { email: 'newuser@example.com', displayName: 'New User' }
+      }
+      #swagger.responses[201] = {
+        description: 'User created successfully',
+        schema: { message: "User created and invite email sent." }
+      }
+    */
     const { email, displayName } = req.body;
 
     if (!email) {
@@ -292,6 +316,14 @@ module.exports = {
   },
 
   getMe: async (req, res) => {
+    /*
+      #swagger.tags = ['Auth']
+      #swagger.summary = 'Get current authenticated user profile'
+      #swagger.responses[200] = {
+        description: 'Fetched user profile',
+        schema: { success: true, data: { id: 1, email: "user@example.com", displayName: "User", userType: "External", permissions: [] } }
+      }
+    */
     try {
       let user = null;
 
@@ -414,6 +446,18 @@ module.exports = {
   },
 
   createRole: async (req, res) => {
+    /*
+      #swagger.tags = ['Auth']
+      #swagger.summary = 'Create a new Role'
+      #swagger.parameters['body'] = {
+        in: 'body',
+        schema: { role_name: 'Manager', role_code: 'MANAGER', description: 'Manager role' }
+      }
+      #swagger.responses[201] = {
+        description: 'Role created',
+        schema: { role_id: 5, role_name: 'Manager', role_code: 'MANAGER' }
+      }
+    */
     try {
       const { role_name, role_code, description, is_system_role, is_active } =
         req.body;

@@ -16,6 +16,8 @@ const settingsRoutes = require("./services/settings/routes");
 const { query } = require("./db/pool");
 const { auditLogger } = require("./middlewares/auditLogger");
 const { initCronJobs } = require("./cron");
+const swaggerUi = require("swagger-ui-express");
+const swaggerDocument = require("./swagger_output.json");
 dotenv.config();
 
 const app = express();
@@ -162,6 +164,8 @@ app.use("/api/responses", submitLimiter, responseRoutes);
 app.use("/api/workflows", workflowRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/audit", require("./services/audit/routes"));
+
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Optional: central error handler (keep if your project uses it)
 app.use(errorHandler);

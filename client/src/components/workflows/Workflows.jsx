@@ -13,7 +13,7 @@ import {
   InputGroup,
   Dialog,
 } from "@chakra-ui/react";
-import { FaSearch } from "react-icons/fa";
+import { FaSearch, FaTrash } from "react-icons/fa";
 import { FaEye, FaPlus } from "react-icons/fa6";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
 import { useDispatch, useSelector } from "react-redux";
@@ -36,6 +36,7 @@ import {
   selectWorkflowTemplates,
   selectWorkflowLoading,
   selectWorkflowError,
+  deleteWorkflow,
 } from "@/features/workflows/workflowSlice";
 import slugify from "@/utils/slug";
 
@@ -170,6 +171,50 @@ const Workflows = () => {
               <FaPlus size={16} />
             </IconButton>
           </Can>
+
+          {/* Delete Workflow */}
+          <Can any={["workflows.create"]}>
+            <Dialog.Root>
+              <Dialog.Trigger asChild>
+                <IconButton
+                  size="sm"
+                  aria-label="Delete workflow"
+                  variant="ghost"
+                  color="red"
+                >
+                  <FaTrash size={16} />
+                </IconButton>
+              </Dialog.Trigger>
+
+              <Dialog.Backdrop />
+              <Dialog.Positioner>
+                <Dialog.Content>
+                  <Dialog.CloseTrigger />
+
+                  <Dialog.Header>
+                    <Dialog.Title>Delete Workflow Template</Dialog.Title>
+                  </Dialog.Header>
+
+                  <Dialog.Body>
+                    Are you sure you want to delete this workflow template? This will also delete all associated runs.
+                  </Dialog.Body>
+
+                  <Dialog.Footer>
+                    <Dialog.CloseTrigger asChild>
+                    </Dialog.CloseTrigger>
+                    <Button
+                      size="sm"
+                      bgColor="red"
+                      color="white"
+                      onClick={() => onDeleteWorkflow(row.workflow_id)}
+                    >
+                      Delete
+                    </Button>
+                  </Dialog.Footer>
+                </Dialog.Content>
+              </Dialog.Positioner>
+            </Dialog.Root>
+          </Can>
         </HStack>
       ),
     },
@@ -252,6 +297,24 @@ const Workflows = () => {
         type: "error",
         title: "Create run failed",
         message: res?.payload?.message || "Unable to create workflow run.",
+      });
+    }
+  };
+
+  const onDeleteWorkflow = async (workflowId) => {
+    const res = await dispatch(deleteWorkflow({ workflowId }));
+
+    if (res?.meta?.requestStatus === "fulfilled") {
+      notify({
+        type: "success",
+        title: "Deleted",
+        message: "Workflow template deleted successfully.",
+      });
+    } else {
+      notify({
+        type: "error",
+        title: "Delete failed",
+        message: res?.payload?.message || "Unable to delete workflow template.",
       });
     }
   };

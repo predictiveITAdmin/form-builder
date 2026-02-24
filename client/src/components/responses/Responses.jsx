@@ -13,6 +13,7 @@ import {
   Button,
   Dialog,
   Textarea,
+  Field,
 } from "@chakra-ui/react";
 import { FaSearch, FaTrashAlt, FaEnvelope } from "react-icons/fa";
 import { FaEye } from "react-icons/fa6";
@@ -39,7 +40,8 @@ import {
   deleteResponse,
 } from "@/features/responses/responseSlice";
 
-const SendEmailDialog = ({ responseId, submitterName, senderName }) => {
+const SendEmailDialog = ({ responseId, submitterName, senderName, defaultToEmail }) => {
+  const [to, setTo] = useState(defaultToEmail || "");
   const [subject, setSubject] = useState("");
   const [salutation, setSalutation] = useState(
     submitterName ? `Dear ${submitterName},` : "Dear,"
@@ -51,15 +53,23 @@ const SendEmailDialog = ({ responseId, submitterName, senderName }) => {
   const [isSending, setIsSending] = useState(false);
   const [open, setOpen] = useState(false);
 
+  // Sync state if defaultToEmail changes
+  useEffect(() => {
+    if (defaultToEmail && !to) {
+      setTo(defaultToEmail);
+    }
+  }, [defaultToEmail]);
+
   const handleSend = async () => {
-    if (!subject.trim() || !message.trim()) {
-      notify({ type: "error", message: "Subject and message are required." });
+    if (!subject.trim() || !message.trim() || !to.trim()) {
+      notify({ type: "error", message: "To, Subject, and message are required." });
       return;
     }
 
     try {
       setIsSending(true);
       await http.post(`/api/responses/${responseId}/email`, {
+        to,
         subject,
         salutation,
         message,
@@ -67,6 +77,7 @@ const SendEmailDialog = ({ responseId, submitterName, senderName }) => {
       });
       notify({ type: "success", message: "Email dispatched successfully" });
       setOpen(false);
+      setTo(defaultToEmail || "");
       setSubject("");
       setSalutation(submitterName ? `Dear ${submitterName},` : "Dear,");
       setMessage("");
@@ -100,51 +111,73 @@ const SendEmailDialog = ({ responseId, submitterName, senderName }) => {
           <Dialog.Header>
             <Dialog.Title>Send Custom Email</Dialog.Title>
           </Dialog.Header>
-          <Dialog.Body>
-            <VStack spacing={4} align="stretch" mt={2}>
-              <Text fontSize="sm" color="gray.600">
-                Send an email directly to the submitter of this response.
-              </Text>
-              <Input
-                placeholder="Subject line..."
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-              />
-              <Input
-                placeholder="Salutation (e.g. Dear John,)"
-                value={salutation}
-                onChange={(e) => setSalutation(e.target.value)}
-              />
-              <ReactQuill
-                theme="snow"
-                value={message}
-                onChange={setMessage}
-                placeholder="Type your message here..."
-                style={{ height: "150px", marginBottom: "40px" }}
-              />
-              <Textarea
-                rows={3}
-                placeholder="Regards (e.g. Best regards, Admin)"
-                value={regards}
-                onChange={(e) => setRegards(e.target.value)}
-                p={2}
-              />
-            </VStack>
-          </Dialog.Body>
-          <Dialog.Footer>
-            <Dialog.CloseTrigger asChild>
-              <Button variant="ghost" mr={3}>
-                Cancel
-              </Button>
-            </Dialog.CloseTrigger>
-            <Button
-              bgColor="#2596be"
-              onClick={handleSend}
-              loading={isSending}
-            >
-              Send Email
-            </Button>
-          </Dialog.Footer>
+           <Dialog.Body>
+                      <VStack spacing={4} align="stretch" mt={2}>
+                        <Text fontSize="sm" color="gray.600">
+                          Send an email regarding this response.
+                        </Text>
+                        
+                        <Field.Root>
+                          <Field.Label>To</Field.Label>
+                          <Input
+                            placeholder="To (e.g. submitter@example.com)"
+                            value={to}
+                            onChange={(e) => setTo(e.target.value)}
+                          />
+                        </Field.Root>
+
+                        <Field.Root>
+                          <Field.Label>Subject</Field.Label>
+                          <Input
+                            placeholder="Subject line..."
+                            value={subject}
+                            onChange={(e) => setSubject(e.target.value)}
+                          />
+                        </Field.Root>
+
+                        <Field.Root>
+                          <Field.Label>Salutation</Field.Label>
+                          <Input
+                            placeholder="Salutation (e.g. Dear John,)"
+                            value={salutation}
+                            onChange={(e) => setSalutation(e.target.value)}
+                          />
+                        </Field.Root>
+
+                        <Field.Root>
+                          <Field.Label>Message</Field.Label>
+                          <ReactQuill
+                            theme="snow"
+                            value={message}
+                            onChange={setMessage}
+                            placeholder="Type your message here..."
+                            style={{ height: "150px", marginBottom: "40px", width: "100%" }}
+                          />
+                        </Field.Root>
+
+                        <Field.Root>
+                          <Field.Label>Regards</Field.Label>
+                          <Textarea
+                            rows={3}
+                            placeholder="Regards (e.g. Best regards, Admin)"
+                            value={regards}
+                            onChange={(e) => setRegards(e.target.value)}
+                            p={2}
+                          />
+                        </Field.Root>
+                      </VStack>
+                    </Dialog.Body>
+                    <Dialog.Footer>
+                      <Dialog.CloseTrigger asChild>
+                      </Dialog.CloseTrigger>
+                      <Button
+                        bgColor={"#2596be"}
+                        onClick={handleSend}
+                        loading={isSending}
+                      >
+                        Send Email
+                      </Button>
+                    </Dialog.Footer>
         </Dialog.Content>
       </Dialog.Positioner>
     </Dialog.Root>
@@ -258,6 +291,7 @@ const Responses = () => {
               responseId={row.response_id}
               submitterName={row.display_name}
               senderName={user?.display_name}
+              defaultToEmail={row.email}
             />
           </Can>
           <Can any={["responses.delete"]}>

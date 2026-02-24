@@ -1,6 +1,14 @@
 const queries = require("./queries");
 
 async function getSettings(req, res) {
+  /*
+    #swagger.tags = ['Settings']
+    #swagger.summary = 'Fetch global application settings'
+    #swagger.responses[200] = {
+      description: 'Successfully fetched settings map',
+      schema: { success: true, settings: { "theme": "dark", "maintenance_mode": "false" } }
+    }
+  */
   try {
     const settings = await queries.getAllSettings();
     // Transform array of rows into a key-value map for easier consumption
@@ -17,6 +25,18 @@ async function getSettings(req, res) {
 }
 
 async function updateSettings(req, res) {
+  /*
+    #swagger.tags = ['Settings']
+    #swagger.summary = 'Update global application settings'
+    #swagger.parameters['body'] = {
+      in: 'body',
+      schema: { settings: { "theme": "light" } }
+    }
+    #swagger.responses[200] = {
+      description: 'Settings updated successfully',
+      schema: { success: true, message: "Settings updated successfully" }
+    }
+  */
   try {
     const { settings } = req.body; // Expecting an array of { property, value, meta } or a key-value object
     if (!settings) {
@@ -51,6 +71,15 @@ const { getPool } = require("../../db/pool");
 const activeTransactions = new Map();
 
 async function runRawSql(req, res) {
+  /*
+    #swagger.tags = ['Settings']
+    #swagger.summary = 'Execute raw SQL queries against the DB (Admin Only)'
+    #swagger.description = 'Executes raw SQL with optional transaction actions: execute, commit, rollback'
+    #swagger.responses[200] = {
+      description: 'SQL command executed',
+      schema: { success: true, command: 'SELECT', rowCount: 1, rows: [{ 'ok': 1 }] }
+    }
+  */
   try {
     const { query, action, txId } = req.body;
     // action: 'execute', 'commit', 'rollback'

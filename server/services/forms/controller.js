@@ -10,6 +10,14 @@ const { randomUUID } = require("crypto");
  * Admin/Manager/FormBuilder
  */
 async function listAll(req, res) {
+  /*
+    #swagger.tags = ['Forms']
+    #swagger.summary = 'List all forms in the system (Admin)'
+    #swagger.responses[200] = {
+      description: 'Fetched all forms',
+      schema: { forms: [{ form_id: 1, form_key: 'it-request', title: 'IT Request', status: 'Published' }] }
+    }
+  */
   try {
     const forms = await svc.listForms();
     return res.json({ forms });
@@ -26,6 +34,14 @@ async function listAll(req, res) {
  * End users
  */
 async function listPublished(req, res) {
+  /*
+    #swagger.tags = ['Forms']
+    #swagger.summary = 'List all published forms available to the current user'
+    #swagger.responses[200] = {
+      description: 'Fetched published forms',
+      schema: { forms: [{ form_id: 1, form_key: 'it-request', title: 'IT Request', status: 'Published' }] }
+    }
+  */
   const user_id = req.user?.userId;
   if (!user_id) {
     res.status(401).json({ message: "User is not authenticated!" });
@@ -58,6 +74,19 @@ async function listWorkflowForms(req, res) {
 }
 
 async function create(req, res) {
+  /*
+    #swagger.tags = ['Forms']
+    #swagger.summary = 'Create a new form definition'
+    #swagger.parameters['body'] = {
+      in: 'body',
+      description: 'Form schema definition',
+      schema: { title: 'New Form', status: 'Draft', steps: [] }
+    }
+    #swagger.responses[201] = {
+      description: 'Successfully created form',
+      schema: { form_key: 'new-form', version: 1 }
+    }
+  */
   try {
     const payload = req.body;
 
@@ -558,6 +587,21 @@ async function setUsersForForm(req, res) {
 }
 
 async function handleFinalSubmit(req, res, next) {
+  /*
+    #swagger.tags = ['Forms']
+    #swagger.summary = 'Submit a completed form response'
+    #swagger.parameters['body'] = {
+      in: 'body',
+      schema: { 
+        response: { session_id: 'abc-123', total_steps: 2 },
+        response_values: [{ form_field_id: 1, value_text: 'Laptop' }]
+      }
+    }
+    #swagger.responses[200] = {
+      description: 'Form submitted successfully',
+      schema: { message: "Form submitted successfully", response_id: 10, session_completed: true }
+    }
+  */
   try {
     const { formKey } = req.params;
     const { response, response_values } = req.body || {};

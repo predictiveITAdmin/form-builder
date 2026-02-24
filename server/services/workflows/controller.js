@@ -16,6 +16,19 @@ function slugifyKey(str) {
 }
 
 async function createWorkflow(req, res, next) {
+  /*
+    #swagger.tags = ['Workflows']
+    #swagger.summary = 'Create a new workflow template'
+    #swagger.parameters['body'] = {
+      in: 'body',
+      description: 'Workflow details',
+      schema: { title: 'Employee Onboarding', description: 'Steps for new hires' }
+    }
+    #swagger.responses[201] = {
+      description: 'Workflow created',
+      schema: { workflow: { workflow_id: 1, title: 'Employee Onboarding', status: 'Active' } }
+    }
+  */
   try {
     const userId = getUserId(req);
     const { title, workflow_key, description, status } = req.body || {};
@@ -59,6 +72,14 @@ async function getWorkflow(req, res, next) {
 }
 
 async function listWorkflows(req, res, next) {
+  /*
+    #swagger.tags = ['Workflows']
+    #swagger.summary = 'List all workflow templates'
+    #swagger.responses[200] = {
+      description: 'Successfully fetched workflows',
+      schema: [{ workflow_id: 1, title: 'Employee Onboarding', status: 'Active', created_at: '2026-02-23T12:00:00Z' }]
+    }
+  */
   try {
     const { status } = req.query || {};
     const rows = await workflowQueries.listWorkflows({
@@ -155,6 +176,14 @@ async function listWorkflowForms(req, res, next) {
  * - status=in_progress
  */
 async function listWorkflowRuns(req, res, next) {
+  /*
+    #swagger.tags = ['Workflows']
+    #swagger.summary = 'List all instances (runs) of workflows'
+    #swagger.responses[200] = {
+      description: 'Fetched workflow runs',
+      schema: [{ run_id: 10, workflow_id: 1, display_name: 'John Doe Onboarding', status: 'in_progress', creator_name: 'Admin' }]
+    }
+  */
   try {
     const userId = getUserId(req);
     const { mine, workflow_id, status } = req.query || {};
@@ -177,6 +206,18 @@ async function listWorkflowRuns(req, res, next) {
 }
 
 async function createWorkflowRun(req, res, next) {
+  /*
+    #swagger.tags = ['Workflows']
+    #swagger.summary = 'Start a new workflow run from a template'
+    #swagger.parameters['body'] = {
+      in: 'body',
+      schema: { workflow_id: 1, display_name: 'Jane Doe Onboarding' }
+    }
+    #swagger.responses[201] = {
+      description: 'Workflow Run created',
+      schema: { run_id: 11, workflow_id: 1, display_name: 'Jane Doe Onboarding', status: 'in_progress' }
+    }
+  */
   try {
     const userId = getUserId(req);
     const { workflow_id, display_name } = req.body || {};
@@ -379,26 +420,31 @@ async function changeItemDefaultName(req, res, next) {
 async function sendWorkflowRunEmail(req, res, next) {
   try {
     const runId = req.params.runId;
-    const { subject, salutation, message, regards } = req.body;
+    const { subject, salutation, message, regards, to } = req.body;
 
     if (!subject || !message) {
       return res.status(400).json({ error: "Subject and message are required" });
     }
 
-    // Find the email of the person who created this workflow run
-    const result = await query(
-      `SELECT u.email 
-       FROM public.workflow_runs wr
-       JOIN public.users u ON wr.created_by = u.user_id
-       WHERE wr.workflow_run_id = $1`,
-      [runId]
-    );
+    let toEmail = to;
 
-    if (result.length === 0 || !result[0].email) {
-      return res.status(404).json({ error: "Submitter email not found for this workflow run." });
+    if (!toEmail) {
+      // Fallback: Find the email of the person who created this workflow run
+      const result = await query(
+        `SELECT u.email 
+         FROM public.workflow_runs wr
+         JOIN public.users u ON wr.created_by = u.user_id
+         WHERE wr.workflow_run_id = $1`,
+        [runId]
+      );
+
+      if (result.length === 0 || !result[0].email) {
+        return res.status(404).json({ error: "Submitter email not found for this workflow run." });
+      }
+      
+      toEmail = result[0].email;
     }
 
-    const toEmail = result[0].email;
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
         ${salutation ? `<p>${salutation}</p>` : ""}
@@ -416,10 +462,31 @@ async function sendWorkflowRunEmail(req, res, next) {
   }
 }
 
+async function deleteWorkflow(req, res, next) {
+  try {
+    const workflowId = Number(req.params.workflowId);
+    await workflowQueries.deleteWorkflow(workflowId);
+    return res.status(200).json({ message: "Workflow deleted successfully" });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+async function deleteWorkflowRun(req, res, next) {
+  try {
+    const runId = Number(req.params.runId);
+    await workflowQueries.deleteWorkflowRun(runId);
+    return res.status(200).json({ message: "Workflow run deleted successfully" });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 module.exports = {
   getWorkflow,
   createWorkflow,
   listWorkflows,
+  deleteWorkflow,
 
   assignFormToWorkflow,
   removeFormFromWorkflow,
@@ -432,6 +499,7 @@ module.exports = {
   getWorkflowRunDashboard,
   lockWorkflowRun,
   cancelWorkflowRun,
+  deleteWorkflowRun,
 
   assignWorkflowItem,
   startWorkflowItem,
