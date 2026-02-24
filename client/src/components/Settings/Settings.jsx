@@ -379,7 +379,7 @@ const Settings = () => {
                   <Button 
                     bgColor="#10b981" 
                     color="white" 
-                    onClick={() => navigate('/api-docs')}
+                    onClick={() => window.open('/api-docs', '_blank')}
                   >
                     Open Swagger UI
                   </Button>
