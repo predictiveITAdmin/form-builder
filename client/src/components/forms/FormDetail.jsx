@@ -1102,11 +1102,9 @@ const FormDetail = () => {
 
       case "html": {
         return (
-          <iframe
-            style={{ height: "fit-content" }}
-            title="HTML Preview"
-            sandbox=""
-            srcDoc={cfg?.value}
+          <div
+            className="html-rendered-content"
+            dangerouslySetInnerHTML={{ __html: cfg?.value }}
           />
         );
       }
