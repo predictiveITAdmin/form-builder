@@ -248,7 +248,6 @@ const PasswordReveal = ({ responseId, fieldId }) => {
 };
 
 const renderFieldValue = ({ field, filesById, responseId }) => {
-
   const type = String(field.field_type || "unknown").toLowerCase();
   const raw = getTypedValue(field);
 
@@ -443,6 +442,7 @@ const normalizeResponseValuesToList = (responseValues) => {
         const key = item?.key || item?.field_key || item?.id || `row_${idx}`;
         return { key, field: item };
       })
+      .filter(({ field }) => String(field?.field_type || "").toLowerCase() !== "html")
       .sort((a, b) => {
         const la = a.field?.label || "";
         const lb = b.field?.label || "";
@@ -460,6 +460,7 @@ const normalizeResponseValuesToList = (responseValues) => {
   if (typeof responseValues === "object") {
     return Object.entries(responseValues)
       .map(([key, field]) => ({ key, field }))
+      .filter(({ field }) => String(field?.field_type || "").toLowerCase() !== "html")
       .sort((a, b) => {
         const la = a.field?.label || "";
         const lb = b.field?.label || "";
