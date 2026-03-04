@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('../partials/head', { title: 'Getting Started' }) %>
+
+    <body>
+        <%- include('../partials/sidebar', { activePage: 'getting-started' }) %>
+
+            <main class="main-content">
+                <div class="content-container">
+
+                    <ul class="breadcrumbs">
+                        <li>Overview</li>
+                        <li class="current">Getting Started</li>
+                    </ul>
+
+                    <header>
+                        <span class="badge">User Guide</span>
+                        <h1>Getting Started</h1>
+                        <p>
+                            This guide walks you through logging in, understanding the portal layout, and completing
+                            your
+                            first tasks in the Automation Portal.
+                        </p>
+                    </header>
+
+
+                    <section class="doc-section">
+                        <h2>1. Accessing the Portal</h2>
+
+                        <p>
+                            Access to the Automation Portal is managed by your organization. New users cannot create
+                            their
+                            own accounts.
+                        </p>
+
+                        <p>
+                            An administrator must first invite you to the platform. Once invited, you will receive
+                            instructions to activate your account and set your password.
+                        </p>
+
+                        <div class="panel panel-info">
+                            <div class="panel-title">Account Provisioning</div>
+                            <p>
+                                User accounts are created by administrators and linked to organizational roles. These
+                                roles
+                                determine which forms, workflows, and administrative tools you can access.
+                            </p>
+                        </div>
+
+                    </section>
+
+
+                    <section class="doc-section">
+                        <h2>2. Logging In</h2>
+
+                        <p>
+                            The Automation Portal supports two authentication methods depending on whether you are an
+                            <strong>internal employee</strong> or an <strong>external user</strong>.
+                        </p>
+
+                        <h3>Internal Users (Microsoft Sign-In)</h3>
+
+                        <p>
+                            Employees within the organization authenticate using their Microsoft 365 account.
+                        </p>
+
+                        <ol>
+                            <li>Navigate to the portal login page.</li>
+                            <li>Click <strong>Sign in with Microsoft</strong>.</li>
+                            <li>Enter your organizational Microsoft credentials.</li>
+                            <li>Complete any required multi-factor authentication.</li>
+                        </ol>
+
+                        <p>
+                            Once authenticated, you will be redirected to the portal dashboard with access based on
+                            your assigned role.
+                        </p>
+
+                        <div class="panel panel-info">
+                            <div class="panel-title">Single Sign-On</div>
+                            <p>
+                                Microsoft authentication allows internal users to sign in using their existing
+                                organizational credentials without creating a separate password for the portal.
+                            </p>
+                        </div>
+
+                        <h3>External Users (Username and Password)</h3>
+
+                        <p>
+                            External users who do not belong to the organization's Microsoft tenant are provided with
+                            a local portal account.
+                        </p>
+
+                        <p>
+                            Your account will be created by an administrator and you will receive an invitation email
+                            to activate your account and set your password.
+                        </p>
+
+                        <p>
+                            To sign in:
+                        </p>
+
+                        <ol>
+                            <li>Navigate to the portal login page.</li>
+                            <li>Enter your <strong>email address</strong> and <strong>password</strong>.</li>
+                            <li>Click <strong>Sign In</strong>.</li>
+                        </ol>
+
+                        <p>
+                            If you forget your password, use the <strong>Forgot Password</strong> option on the login
+                            screen to reset it.
+                        </p>
+
+                    </section>
+
+
+                    <section class="doc-section">
+                        <h2>3. Understanding the Portal Layout</h2>
+
+                        <p>
+                            The portal is organized around a left-side navigation menu that provides access to the main
+                            functional areas of the platform.
+                        </p>
+
+                        <table class="doc-table">
+                            <thead>
+                                <tr>
+                                    <th>Section</th>
+                                    <th>Purpose</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+
+                                <tr>
+                                    <td>Dashboard</td>
+                                    <td>Your central activity overview including tasks and recent activity.</td>
+                                </tr>
+
+                                <tr>
+                                    <td>My Tasks</td>
+                                    <td>
+                                        Displays workflow items assigned specifically to you. This is where you complete
+                                        steps within larger processes.
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Self Service</td>
+                                    <td>
+                                        Standalone request forms that allow you to submit requests such as access
+                                        changes,
+                                        support requests, or operational tasks.
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Workflows</td>
+                                    <td>
+                                        Used primarily by administrators to launch and manage multi-step business
+                                        processes.
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Responses</td>
+                                    <td>
+                                        Administrative review of submitted or pending form responses.
+                                    </td>
+                                </tr>
+
+                            </tbody>
+
+                        </table>
+
+                    </section>
+
+
+                    <section class="doc-section">
+                        <h2>4. Submitting a Request</h2>
+
+                        <p>
+                            Many requests in the portal start from the <strong>Self Service</strong> section.
+                        </p>
+
+                        <p>
+                            To submit a request:
+                        </p>
+
+                        <ol>
+                            <li>Open the <strong>Self Service</strong> page.</li>
+                            <li>Select the appropriate request form.</li>
+                            <li>Complete all required fields.</li>
+                            <li>Submit the form.</li>
+                        </ol>
+
+                        <p>
+                            Once submitted, the request is recorded as a response and may trigger internal workflows
+                            or administrative review depending on the form configuration.
+                        </p>
+
+                    </section>
+
+
+                    <section class="doc-section">
+                        <h2>5. Completing Assigned Tasks</h2>
+
+                        <p>
+                            Some work in the portal is part of a larger automated workflow. When you are assigned
+                            a step in a workflow, it will appear in the <strong>My Tasks</strong> section.
+                        </p>
+
+                        <p>
+                            Each task represents a specific form or action required to move a process forward.
+                        </p>
+
+                        <p>
+                            To complete a task:
+                        </p>
+
+                        <ol>
+                            <li>Open <strong>My Tasks</strong>.</li>
+                            <li>Select the assigned item.</li>
+                            <li>Fill out the required form or perform the requested action.</li>
+                            <li>Submit the task.</li>
+                        </ol>
+
+                        <p>
+                            Once completed, the workflow continues to the next assigned user until all steps are
+                            finished.
+                        </p>
+
+                    </section>
+
+
+                    <section class="doc-section">
+                        <h2>6. Tracking Your Activity</h2>
+
+                        <p>
+                            The <strong>Dashboard</strong> provides a quick overview of your activity within the portal.
+                        </p>
+
+                        <ul>
+                            <li><strong>Pending Tasks</strong> – Items that currently require your action.</li>
+                            <li><strong>Recent Submissions</strong> – Forms you have submitted recently.</li>
+                            <li><strong>Workflow Participation</strong> – Processes you are involved in.</li>
+                        </ul>
+
+                        <p>
+                            Checking the dashboard regularly ensures you do not miss assigned tasks or important
+                            requests.
+                        </p>
+
+                    </section>
+
+
+                    <section class="doc-section">
+                        <h2>Next Steps</h2>
+
+                        <p>
+                            Now that you understand the basics, continue with the following guides:
+                        </p>
+
+                        <ul>
+                            <li><a href="/docs/workflows">Understanding Workflows</a></li>
+                            <li><a href="/docs/forms">Working with Forms</a></li>
+                        </ul>
+
+                    </section>
+
+
+                </div>
+            </main>
+
+    </body>
+
+</html>

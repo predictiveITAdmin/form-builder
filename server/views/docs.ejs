@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('./partials/head', { title: 'Introduction' }) %>
+
+    <body>
+        <%- include('./partials/sidebar', { activePage: 'intro' }) %>
+
+            <main class="main-content">
+                <div class="content-container">
+
+                    <ul class="breadcrumbs">
+                        <li>Overview</li>
+                        <li class="current">Introduction</li>
+                    </ul>
+
+                    <header>
+                        <span class="badge">Version <%= version %></span>
+                        <h1>
+                            <%= title %>
+                        </h1>
+                        <p>
+                            This guide explains how to use the Automation Portal without guessing, improvising,
+                            or sending “quick questions” to whoever looks busiest.
+                        </p>
+                    </header>
+
+                    <section class="doc-section">
+                        <h2>What this portal is</h2>
+                        <p>
+                            The Automation Portal centralizes internal requests, workflow-driven approvals, and
+                            operational task routing.
+                            Instead of requests living in inboxes, chats, or someone’s memory, the portal captures
+                            requests as structured
+                            submissions and drives them through assigned tasks until work is complete.
+                        </p>
+                        <p>
+                            The platform is built around three simple ideas:
+                        </p>
+                        <ul>
+                            <li><strong>Forms</strong> capture information in a consistent way.</li>
+                            <li><strong>Workflows</strong> coordinate multi-step processes across multiple people.</li>
+                            <li><strong>Tasks</strong> make accountability unavoidable (in a healthy, professional way).
+                            </li>
+                        </ul>
+                    </section>
+
+                    <section class="doc-section">
+                        <h2>Who this guide is for</h2>
+                        <p>
+                            This documentation is split so each audience can find what they need without reading
+                            everything:
+                        </p>
+                        <ul>
+                            <li><strong>End Users:</strong> Submit requests, complete assigned tasks, and track
+                                progress.</li>
+                            <li><strong>Administrators:</strong> Configure forms, manage workflows, monitor runs, and
+                                review responses.</li>
+                            <li><strong>Developers:</strong> Integrate with the platform APIs and use Swagger
+                                documentation.</li>
+                        </ul>
+                    </section>
+
+                    <section class="doc-section">
+                        <h2>Main navigation</h2>
+                        <p>
+                            The sidebar is the primary way to move through the portal. Below is a direct map of the core
+                            areas and their
+                            endpoints.
+                        </p>
+
+                        <table class="doc-table">
+                            <thead>
+                                <tr>
+                                    <th>Menu</th>
+                                    <th>Purpose</th>
+                                    <th>Endpoint</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Home</td>
+                                    <td>Entry point and high-level overview.</td>
+                                    <td><code>/</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Workflows</td>
+                                    <td>Browse workflow templates and monitor workflow execution (admin-managed runs).
+                                    </td>
+                                    <td><code>/workflows</code></td>
+                                </tr>
+                                <tr>
+                                    <td>My Tasks</td>
+                                    <td>Your assigned workflow items. This is where you do actual work when assigned.
+                                    </td>
+                                    <td><code>/my-tasks</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Self Service</td>
+                                    <td>Standalone forms for one-off requests (not tied to a workflow run).</td>
+                                    <td><code>/self-service</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Responses</td>
+                                    <td>Admin-only review of submitted and pending form responses.</td>
+                                    <td><code>/responses</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Dashboard</td>
+                                    <td>Operational visibility and summary reporting.</td>
+                                    <td><code>/dashboard</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Configuration</td>
+                                    <td>Admin configuration area for system setup and management.</td>
+                                    <td><code>/configuration</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Docs</td>
+                                    <td>This documentation site.</td>
+                                    <td><code>/docs</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="panel panel-info">
+                            <div class="panel-title">Access differences</div>
+                            <p>
+                                Some pages (like <strong>Responses</strong> and <strong>Configuration</strong>) are
+                                restricted to admins.
+                                If you don’t see an item in the sidebar, it usually means your role does not have
+                                access.
+                            </p>
+                        </div>
+                    </section>
+
+                    <section class="doc-section">
+                        <h2>How work flows through the portal</h2>
+                        <p>
+                            Most activity in the portal falls into one of two paths:
+                        </p>
+
+                        <h3>1) Self Service requests</h3>
+                        <ul>
+                            <li>You open <code>/self-service</code> and submit a standalone form.</li>
+                            <li>Your submission becomes a response record that admins can review in
+                                <code>/responses</code>.
+                            </li>
+                            <li>If follow-up is needed, admins can email you directly from the response record.</li>
+                        </ul>
+
+                        <h3>2) Workflow-driven work</h3>
+                        <ul>
+                            <li>An admin launches a workflow (template → run).</li>
+                            <li>The run generates assignable items (tasks) for specific users.</li>
+                            <li>Assigned items show up for users under <code>/my-tasks</code>.</li>
+                            <li>Admins monitor and manage the run from <code>/workflows</code>.</li>
+                        </ul>
+                    </section>
+
+                    <section class="doc-section">
+                        <h2>Where to start</h2>
+                        <p>
+                            If you are new, start here: <a href="/docs/getting-started">Getting Started</a> for login
+                            and first-time navigation.
+                        </p>
+
+                    </section>
+
+                    <section class="doc-section">
+                        <h2>Developer</h2>
+                        <p>
+                            The Automation Portal exposes API endpoints for integration and automation. Interactive API
+                            documentation is
+                            available via Swagger.
+                        </p>
+
+                        <div class="panel panel-info">
+                            <div class="panel-title">Swagger API Docs</div>
+                            <p>
+                                Access Swagger documentation at: <code>/api-docs</code>
+                            </p>
+                        </div>
+
+                        <p>
+                            Swagger includes:
+                        </p>
+                        <ul>
+                            <li>Available endpoints and request parameters</li>
+                            <li>Authentication requirements</li>
+                            <li>Request/response models</li>
+                        </ul>
+                    </section>
+
+                    <footer style="margin-top: 3rem; text-align: center; font-size: 0.875rem; color: #6b7280;">
+                        <p>Generated at <%= new Date().toLocaleString() %>
+                        </p>
+                    </footer>
+
+                </div>
+            </main>
+    </body>
+
+</html>

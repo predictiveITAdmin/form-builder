@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('../partials/head', { title: 'Authentication & Security' }) %>
+
+    <body>
+        <%- include('../partials/sidebar', { activePage: 'configuration' }) %>
+
+            <main class="main-content">
+                <div class="content-container">
+
+                    <header class="hero-banner">
+                        <span class="badge">Security</span>
+                        <h1>Authentication & Access Control</h1>
+                        <p>Learn how users sign in, how invitations work, and how roles and permissions control access
+                            across the portal.</p>
+                    </header>
+
+                    <div class="panel panel-info">
+                        <div class="panel-title">Quick Summary</div>
+                        <ul>
+                            <li>Users access the portal by signing in with an email and password.</li>
+                            <li>Admins provision users by sending an invitation with a unique, one-time token link.</li>
+                            <li>Invited users must create a password before they can log in.</li>
+                            <li>Access is controlled by <strong>Roles</strong>, and each role has a set of
+                                <strong>Permissions</strong>.
+                            </li>
+                            <li>After inviting a user, an admin must explicitly assign roles for the user to have the
+                                correct access.</li>
+                        </ul>
+                    </div>
+
+                    <div class="doc-section">
+                        <h2>1. What Authentication Means in This Portal</h2>
+                        <p>Authentication confirms who you are before you can access the Automation Portal. This portal
+                            uses
+                            a simple account model:</p>
+                        <ul>
+                            <li><strong>Email</strong> identifies your user account.</li>
+                            <li><strong>Password</strong> is created during the invitation process.</li>
+                            <li>Once your account is active, you can sign in and access features based on your assigned
+                                roles.</li>
+                        </ul>
+
+                        <div class="panel panel-success">
+                            <div class="panel-title">What Users Need to Know</div>
+                            <ul>
+                                <li>You cannot log in until you complete the invitation and set your password.</li>
+                                <li>If you can sign in but cannot see a feature, it usually means your role does not
+                                    include
+                                    permission for it.</li>
+                                <li>If you believe you should have access, contact an admin to review your roles.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="doc-section">
+                        <h2>2. Roles & Permissions (How Access Works)</h2>
+                        <p>Access to features in the portal is controlled using <strong>roles</strong> and
+                            <strong>permissions</strong>.
+                        </p>
+
+                        <ul>
+                            <li><strong>Role</strong>: A named access profile assigned to a user (example: User, Admin,
+                                Super Admin).</li>
+                            <li><strong>Permission</strong>: A specific ability granted by a role (example: view
+                                responses,
+                                manage forms, access configuration).</li>
+                        </ul>
+
+                        <p>Users can have multiple roles. Their effective access is based on the combined permissions
+                            across
+                            their roles.</p>
+
+                        <div class="panel panel-warning">
+                            <div class="panel-title">Important</div>
+                            <p>Inviting a user does not automatically assign roles. An admin must explicitly edit the
+                                user
+                                and add roles after the invitation.</p>
+                        </div>
+                    </div>
+
+                    <div class="doc-section">
+                        <h2>3. End User: First-Time Login (Invitation Flow)</h2>
+                        <p>New users are created through an invitation email. The invite includes a unique token link
+                            that
+                            allows the user to set their password.</p>
+
+                        <h3>Step-by-Step: Accept Invitation and Create Password</h3>
+                        <ol>
+                            <li>Open the invitation email sent by the Automation Portal.</li>
+                            <li>Click the invite link (this link contains a unique token tied to your account).</li>
+                            <li>On the password setup screen, create your password.</li>
+                            <li>After setting your password successfully, return to the portal login page.</li>
+                            <li>Log in using your email and the password you created.</li>
+                        </ol>
+
+                        <div class="panel panel-info">
+                            <div class="panel-title">After Login</div>
+                            <p>Your access depends on the roles assigned to your account. If you can log in but do not
+                                see
+                                expected pages or actions,
+                                your roles may still need to be assigned or adjusted by an admin.</p>
+                        </div>
+                    </div>
+
+                    <div class="doc-section">
+                        <h2>4. Admin Guide: Provisioning Users</h2>
+                        <p>Admins and Super Admins can provision users through the <strong>Configuration</strong>
+                            section.
+                            Provisioning includes:</p>
+                        <ul>
+                            <li>Inviting the user (creates the account and sends the invite email)</li>
+                            <li>Assigning roles (grants access permissions)</li>
+                            <li>Confirming the user is active and able to sign in</li>
+                        </ul>
+
+                        <div class="panel panel-info">
+                            <div class="panel-title">Where to Manage Users</div>
+                            <p>Navigate to <strong>Configuration</strong> and open the <strong>Users</strong> tab.</p>
+                        </div>
+
+                        <h3>4.1 Step-by-Step: Invite a New User</h3>
+                        <ol>
+                            <li>Go to <strong>Configuration</strong>.</li>
+                            <li>Open the <strong>Users</strong> tab.</li>
+                            <li>Click <strong>Invite User</strong>.</li>
+                            <li>Enter the user’s <strong>Display Name</strong> and <strong>Email</strong>.</li>
+                            <li>Submit the invite.</li>
+                        </ol>
+
+                        <p>The system sends an invitation email to the user with a unique token link to create a
+                            password.
+                        </p>
+
+                        <div class="panel panel-warning">
+                            <div class="panel-title">Critical Admin Step</div>
+                            <p>After inviting a user, you must explicitly assign roles to the user. Without roles, the
+                                user
+                                may be able to log in
+                                but will not have the access they need.</p>
+                        </div>
+
+                        <h3>4.2 Step-by-Step: Assign Roles After Inviting</h3>
+                        <ol>
+                            <li>Stay in <strong>Configuration</strong> → <strong>Users</strong>.</li>
+                            <li>Find the user (use the search box if needed).</li>
+                            <li>Click the <strong>Edit</strong> action for that user.</li>
+                            <li>Add one or more <strong>Roles</strong> to the user.</li>
+                            <li>Save the changes.</li>
+                        </ol>
+
+                        <p>Once roles are assigned, the user’s permissions are applied immediately based on the role
+                            configuration.</p>
+
+                        <h3>4.3 Step-by-Step: Validate Access</h3>
+                        <ul>
+                            <li>Confirm the user status is <strong>Active</strong>.</li>
+                            <li>Confirm the expected <strong>Roles</strong> are visible on the user record.</li>
+                            <li>If the user reports missing access, review the role permissions in <strong>Roles &amp;
+                                    Permissions</strong>.</li>
+                        </ul>
+
+                        <div class="panel panel-success">
+                            <div class="panel-title">Recommended Provisioning Checklist</div>
+                            <ul>
+                                <li>Invite user (Display Name + Email)</li>
+                                <li>User sets password via token link</li>
+                                <li>Assign roles by editing the user</li>
+                                <li>Verify role permissions match responsibility</li>
+                                <li>Confirm user can access required sections</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="doc-section">
+                        <h2>5. Admin Guide: Managing Roles & Permissions</h2>
+                        <p>Roles define what users can see and do. Permissions are attached to roles, not directly to
+                            users.
+                        </p>
+
+                        <h3>Best Practices</h3>
+                        <ul>
+                            <li><strong>Keep roles purpose-driven:</strong> create roles based on job function, not
+                                individual users.</li>
+                            <li><strong>Use least privilege:</strong> grant only the permissions required for the role.
+                            </li>
+                            <li><strong>Avoid overusing Super Admin:</strong> reserve it for system owners and
+                                configuration
+                                administrators.</li>
+                            <li><strong>Review periodically:</strong> validate that roles still match responsibilities
+                                as
+                                the portal evolves.</li>
+                        </ul>
+
+                        <div class="panel panel-warning">
+                            <div class="panel-title">Common Mistake</div>
+                            <p>Inviting a user and assuming they can do their job immediately. If roles are not assigned
+                                after the invite, the user will be blocked or see an incomplete portal.</p>
+                        </div>
+                    </div>
+
+                    <div class="doc-section">
+                        <h2>6. Developer Guide (Integration Notes)</h2>
+                        <p>This section is for developers who extend the portal or integrate automations. It focuses on
+                            how
+                            to work safely with authentication and authorization behavior.</p>
+
+                        <div class="panel panel-info">
+                            <div class="panel-title">Core Rules</div>
+                            <ul>
+                                <li>Authentication verifies identity (email + password).</li>
+                                <li>Authorization is role-based (roles grant permissions).</li>
+                                <li>Do not assume “logged in” means “allowed.” Always enforce permission checks for
+                                    protected actions.</li>
+                            </ul>
+                        </div>
+
+                        <h3>Recommended Patterns</h3>
+                        <ul>
+                            <li><strong>Permission gating:</strong> hide UI actions when permission is missing, and
+                                enforce
+                                the same rule server-side.</li>
+                            <li><strong>Stable access logic:</strong> base access checks on permissions, not display
+                                text
+                                labels.</li>
+                            <li><strong>Auditability:</strong> log user actions for administrative operations (invites,
+                                role
+                                changes, status changes).</li>
+                            <li><strong>Idempotency:</strong> treat invite operations and role updates carefully to
+                                avoid
+                                duplicates.</li>
+                        </ul>
+
+                        <div class="panel panel-success">
+                            <div class="panel-title">Developer Checklist</div>
+                            <ul>
+                                <li>Every protected feature has a permission check</li>
+                                <li>Role updates are reflected immediately and safely</li>
+                                <li>Admin actions produce traceable logs</li>
+                                <li>Error messages do not leak sensitive details</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="doc-section">
+                        <h2>7. Troubleshooting & FAQs</h2>
+
+                        <details class="accordion">
+                            <summary>I invited a user but they cannot log in.</summary>
+                            <div class="accordion-content">
+                                <ul>
+                                    <li>Confirm the user clicked the invite link and completed password setup.</li>
+                                    <li>Confirm the user is <strong>Active</strong> in the Users list.</li>
+                                    <li>If the token link expired, send a new invite (or follow your internal reset
+                                        process
+                                        if supported).</li>
+                                </ul>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>A user can log in but cannot see anything important.</summary>
+                            <div class="accordion-content">
+                                <p>This is almost always a roles issue.</p>
+                                <ul>
+                                    <li>Edit the user and confirm they have the correct roles assigned.</li>
+                                    <li>Review <strong>Roles &amp; Permissions</strong> to confirm the role includes
+                                        required permissions.</li>
+                                </ul>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>What is the “unique token link” in the invite email?</summary>
+                            <div class="accordion-content">
+                                <p>The invite email contains a one-time link tied to the user. It allows the user to
+                                    securely create a password and activate login access.</p>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>Do roles attach directly to users or to permissions?</summary>
+                            <div class="accordion-content">
+                                <p>Roles are assigned to users. Permissions are attached to roles. Users receive
+                                    permissions
+                                    through their roles.</p>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>Who should have Super Admin?</summary>
+                            <div class="accordion-content">
+                                <p>Only system owners and administrators who must manage Configuration. For day-to-day
+                                    operations, use Admin or purpose-specific roles where possible.</p>
+                            </div>
+                        </details>
+                    </div>
+
+                </div>
+            </main>
+    </body>
+
+</html>

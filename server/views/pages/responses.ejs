@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('../partials/head', { title: 'Responses Module' }) %>
+
+    <body>
+        <%- include('../partials/sidebar', { activePage: 'responses' }) %>
+
+            <main class="main-content">
+                <div class="content-container">
+
+                    <!-- HERO -->
+                    <section class="hero-banner">
+                        <span class="badge">Admin Module</span>
+                        <h1>Responses</h1>
+                        <p>
+                            The <strong>Responses</strong> module allows administrators to review, monitor, and manage
+                            all form submissions across the platform. Every time a user submits or partially completes
+                            a form, a <strong>Response</strong> record is created.
+                        </p>
+
+                        <p>
+                            This module is designed for operational oversight, troubleshooting, and communication with
+                            users when additional information or clarification is required.
+                        </p>
+                    </section>
+
+                    <!-- BREADCRUMBS -->
+                    <nav class="breadcrumbs">
+                        <a href="/docs">Docs</a>
+                        <span>›</span>
+                        <span class="current">Responses</span>
+                    </nav>
+
+                    <!-- OVERVIEW -->
+                    <section class="doc-section">
+
+                        <h2>Overview</h2>
+
+                        <p>
+                            A <strong>Response</strong> represents a user's interaction with a form. It contains the
+                            captured values, session metadata, and submission status.
+                        </p>
+
+                        <p>
+                            Responses are generated from:
+                        </p>
+
+                        <ul>
+                            <li>Self Service form submissions</li>
+                            <li>Workflow item forms</li>
+                            <li>Partially completed form sessions</li>
+                        </ul>
+
+                        <div class="panel panel-info">
+                            <div class="panel-title">Admin Visibility</div>
+
+                            <p>
+                                The Responses module is <strong>visible to administrators only</strong>. Standard users
+                                never access this area of the platform.
+                            </p>
+
+                            <p>
+                                Users interact with forms through:
+                            </p>
+
+                            <ul>
+                                <li><strong>Self Service</strong> – standalone request forms</li>
+                                <li><strong>My Tasks</strong> – workflow assigned form items</li>
+                            </ul>
+
+                        </div>
+
+                    </section>
+
+                    <!-- RESPONSE LIST -->
+                    <section class="doc-section">
+
+                        <h2>Responses List</h2>
+
+                        <p>
+                            The main Responses page provides administrators with a searchable table of all
+                            form submissions.
+                        </p>
+
+                        <h3>Information Displayed</h3>
+
+                        <table class="doc-table">
+                            <thead>
+                                <tr>
+                                    <th>Column</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+
+                                <tr>
+                                    <td>Form</td>
+                                    <td>Name of the form that generated the response.</td>
+                                </tr>
+
+                                <tr>
+                                    <td>User</td>
+                                    <td>The user who created or submitted the response.</td>
+                                </tr>
+
+                                <tr>
+                                    <td>Submitted</td>
+                                    <td>Date and time the form was submitted.</td>
+                                </tr>
+
+                                <tr>
+                                    <td>IP</td>
+                                    <td>IP address of the request origin.</td>
+                                </tr>
+
+                                <tr>
+                                    <td>Status</td>
+                                    <td>Current state of the response.</td>
+                                </tr>
+
+                                <tr>
+                                    <td>Actions</td>
+                                    <td>Admin tools available for that response.</td>
+                                </tr>
+
+                            </tbody>
+                        </table>
+
+                        <h3>Status Types</h3>
+
+                        <ul>
+                            <li><strong>Pending</strong> — Form session exists but has not been fully submitted.</li>
+                            <li><strong>Submitted</strong> — Form submission completed successfully.</li>
+                        </ul>
+
+                    </section>
+
+                    <!-- ADMIN ACTIONS -->
+                    <section class="doc-section">
+
+                        <h2>Admin Actions</h2>
+
+                        <p>
+                            Administrators have operational tools available for each response.
+                        </p>
+
+                        <table class="doc-table">
+                            <thead>
+                                <tr>
+                                    <th>Action</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+
+                                <tr>
+                                    <td>View</td>
+                                    <td>Opens the Response Detail page where all submission information is visible.</td>
+                                </tr>
+
+                                <tr>
+                                    <td>Email</td>
+                                    <td>
+                                        Allows the administrator to send a customized email message to the user
+                                        who submitted the response.
+                                    </td>
+                                </tr>
+
+                            </tbody>
+                        </table>
+
+                        <h3>Email Assistance</h3>
+
+                        <p>
+                            Administrators can communicate directly with the response submitter.
+                            This is particularly useful when:
+                        </p>
+
+                        <ul>
+                            <li>A form was submitted with incomplete information</li>
+                            <li>A response is still pending and the user needs assistance</li>
+                            <li>Clarification or corrections are required</li>
+                            <li>Additional documentation must be requested</li>
+                        </ul>
+
+                        <p>
+                            Emails sent from this interface are contextual to the response,
+                            making it easier for administrators to assist users efficiently.
+                        </p>
+
+                    </section>
+
+                    <!-- RESPONSE DETAIL -->
+                    <section class="doc-section">
+
+                        <h2>Response Detail Page</h2>
+
+                        <p>
+                            The Response Detail page provides a complete breakdown of a form submission.
+                        </p>
+
+                        <h3>Sections Available</h3>
+
+                        <table class="doc-table">
+                            <thead>
+                                <tr>
+                                    <th>Section</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+
+                                <tr>
+                                    <td>Request</td>
+                                    <td>
+                                        Technical request details including IP address, user agent, and submission
+                                        status.
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Session</td>
+                                    <td>
+                                        Information about the form session including session ID, progress, start time,
+                                        and expiration.
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Meta</td>
+                                    <td>
+                                        Internal metadata stored with the response including form key, source, and
+                                        current form step.
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Response Values</td>
+                                    <td>
+                                        All field values captured from the form submission including text,
+                                        selections, checkboxes, and structured inputs.
+                                    </td>
+                                </tr>
+
+                            </tbody>
+                        </table>
+
+                    </section>
+
+                    <!-- SECURITY -->
+                    <section class="doc-section">
+
+                        <h2>Security Features</h2>
+
+                        <h3>Encrypted Password Fields</h3>
+
+                        <p>
+                            Fields configured as <strong>Password / Secret</strong> types are stored in an
+                            encrypted format within the database.
+                        </p>
+
+                        <p>
+                            These values cannot be viewed directly from the interface.
+                        </p>
+
+                        <h3>Decrypt Access</h3>
+
+                        <p>
+                            A <strong>Decrypt</strong> button is available only to users with the
+                            <strong>Superadmin</strong> role.
+                        </p>
+
+                        <p>
+                            When the decrypt button is clicked:
+                        </p>
+
+                        <ul>
+                            <li>The encrypted value is sent to a secure backend endpoint</li>
+                            <li>The backend performs controlled decryption using the platform encryption algorithm</li>
+                            <li>The decrypted value is returned and displayed temporarily</li>
+                        </ul>
+
+                        <div class="panel panel-warning">
+                            <div class="panel-title">Security Control</div>
+
+                            <p>
+                                Decrypt access is restricted to Superadmin users in order to protect
+                                sensitive credentials and secrets submitted through forms.
+                            </p>
+
+                        </div>
+
+                    </section>
+
+                    <!-- DEVELOPER NOTES -->
+                    <section class="doc-section">
+
+                        <h2>Developer Notes</h2>
+
+                        <h3>Data Structure</h3>
+
+                        <p>
+                            Responses are stored across multiple relational tables.
+                        </p>
+
+                        <table class="doc-table">
+                            <thead>
+                                <tr>
+                                    <th>Table</th>
+                                    <th>Purpose</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+
+                                <tr>
+                                    <td>responses</td>
+                                    <td>Main response record containing form reference, user reference, and metadata.
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>responsevalues</td>
+                                    <td>Typed storage of individual field values.</td>
+                                </tr>
+
+                                <tr>
+                                    <td>responsevalueoptions</td>
+                                    <td>Selected options for multi-select or dropdown fields.</td>
+                                </tr>
+
+                            </tbody>
+                        </table>
+
+                        <h3>Permissions</h3>
+
+                        <p>
+                            Access to the Responses module is controlled through the platform
+                            <strong>role and permission system</strong>.
+                        </p>
+
+                        <p>
+                            Decrypt operations must be restricted to the Superadmin role
+                            through backend authorization checks.
+                        </p>
+
+                    </section>
+
+                    <!-- FAQ -->
+                    <div class="doc-section">
+                        <h2>9. FAQs</h2>
+
+                        <details class="accordion">
+                            <summary>Why can't users access the Responses page?</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    The Responses module is restricted to administrators because it contains all form
+                                    submissions across the platform. Allowing users to access this page would expose
+                                    submissions made by other users.
+                                </p>
+                                <p>
+                                    Users interact with forms only through <strong>Self Service</strong> or
+                                    <strong>My Tasks</strong>.
+                                </p>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>What does a Pending response mean?</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    A Pending response indicates that the form session exists but has not been fully
+                                    submitted yet.
+                                </p>
+                                <p>
+                                    This usually happens when a user saves progress, abandons a form midway,
+                                    or is still completing steps in a multi-step form session.
+                                </p>
+                                <p>
+                                    Administrators can review the response and send guidance to the user using the
+                                    <strong>Email</strong> action.
+                                </p>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>What can administrators do from the Responses page?</summary>
+                            <div class="accordion-content">
+                                <ul>
+                                    <li>Review submitted form responses.</li>
+                                    <li>Inspect partially completed responses.</li>
+                                    <li>View detailed session and metadata information.</li>
+                                    <li>Send contextual email instructions to the user.</li>
+                                    <li>Audit request details such as IP address and browser agent.</li>
+                                </ul>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>Why are password fields hidden in the response details?</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    Fields configured as password or secret inputs are stored in an encrypted format
+                                    to protect sensitive information.
+                                </p>
+                                <p>
+                                    These values cannot be viewed directly in the interface to prevent accidental
+                                    exposure of credentials.
+                                </p>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>Who can decrypt password fields?</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    Only users with the <strong>Superadmin</strong> role can decrypt password fields.
+                                </p>
+                                <p>
+                                    When the decrypt action is used, the encrypted value is securely sent to a backend
+                                    endpoint that performs controlled decryption and returns the secret value for
+                                    display.
+                                </p>
+                            </div>
+                        </details>
+
+                    </div>
+                </div>
+            </main>
+
+    </body>
+
+</html>

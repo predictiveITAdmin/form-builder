@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('../partials/head', { title: 'Forms Management' }) %>
+
+    <body>
+        <%- include('../partials/sidebar', { activePage: 'self-service' }) %>
+
+            <main class="main-content">
+                <div class="content-container">
+                    <ul class="breadcrumbs">
+                        <li>Features</li>
+                        <li class="current">Forms</li>
+                    </ul>
+
+                    <header class="hero-banner">
+                        <span class="badge">Features</span>
+                        <h1>Forms</h1>
+                        <p>Submit standalone requests through Self Service, and complete assigned workflow steps through
+                            My
+                            Tasks.</p>
+                    </header>
+
+                    <div class="panel panel-info">
+                        <div class="panel-title">Quick Summary</div>
+                        <ul>
+                            <li><strong>Self Service</strong> is for one-off requests you start yourself (example: VPN
+                                access, SharePoint access, create a ticket).</li>
+                            <li><strong>My Tasks</strong> is for assigned items you must complete as part of a larger
+                                workflow run.</li>
+                            <li>Drafts can be saved for later, but tasks in My Tasks are not considered complete until
+                                you
+                                submit.</li>
+                        </ul>
+                    </div>
+
+                    <div class="doc-section">
+                        <h2>1. What Are Forms?</h2>
+                        <p>Forms are structured request pages used to collect information in a consistent format.
+                            Instead of
+                            sending emails or messages,
+                            you submit a form that includes the required details up front.</p>
+
+                        <p>Forms can be used in two ways:</p>
+                        <ul>
+                            <li><strong>Standalone requests</strong> (Self Service): A single submission that triggers a
+                                single outcome.</li>
+                            <li><strong>Workflow contributions</strong> (My Tasks): A submission that completes your
+                                assigned part of a larger run.</li>
+                        </ul>
+
+                        <div class="panel panel-success">
+                            <div class="panel-title">Common Examples</div>
+                            <ul>
+                                <li>Add user to SharePoint</li>
+                                <li>Add user to VPN</li>
+                                <li>Create a ticket for an issue</li>
+                                <li>Request access to a system or tool</li>
+                                <li>Provide provisioning details (as part of a workflow step)</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="doc-section">
+                        <h2>2. Self Service vs My Tasks</h2>
+                        <p>Forms appear in two places, and each has a different purpose:</p>
+
+                        <ul>
+                            <li><strong>Self Service</strong>: Standalone, one-off request forms you can start on your
+                                own.
+                            </li>
+                            <li><strong>My Tasks</strong>: Forms assigned to you as a step inside a workflow run (your
+                                submission completes one item).</li>
+                        </ul>
+
+                        <p><strong>Simple rule:</strong> If you are requesting something once, use <strong>Self
+                                Service</strong>. If you were assigned a step
+                            in a larger process, it will be in <strong>My Tasks</strong>.</p>
+
+                        <div class="panel panel-warning">
+                            <div class="panel-title">Why This Matters</div>
+                            <p>Self Service forms are independent requests. My Tasks forms are part of a run, and
+                                delaying
+                                submission can block completion of the entire workflow.</p>
+                        </div>
+                    </div>
+
+                    <div class="doc-section">
+                        <h2>3. Submitting a Standalone Request in Self Service</h2>
+                        <p>Self Service forms are used for requests that are handled independently. When you submit one
+                            of
+                            these forms, you are creating a request
+                            that can be processed without needing other people to complete steps first.</p>
+
+                        <ol>
+                            <li>Navigate to <strong>Self Service</strong>.</li>
+                            <li>Under <strong>Available forms</strong>, choose the request you want to submit.</li>
+                            <li>Fill in the fields (required fields are typically marked with an asterisk *).</li>
+                            <li>Upload any required attachments (if applicable).</li>
+                            <li>Click <strong>Submit</strong>.</li>
+                        </ol>
+
+                        <div class="panel panel-info">
+                            <div class="panel-title">What Happens After You Submit?</div>
+                            <p>Your submission is recorded as a request. The system processes it based on the form type
+                                (for example: provisioning access, creating a ticket, or routing it to the correct
+                                team).
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="doc-section">
+                        <h2>4. Completing Assigned Forms in My Tasks</h2>
+                        <p>My Tasks contains forms that are part of a workflow run. These are not standalone requests.
+                            They
+                            are steps in a larger process.</p>
+
+                        <p>When you complete one of these task forms:</p>
+                        <ul>
+                            <li>You complete an <strong>item</strong> within a run.</li>
+                            <li>Your submission updates the run item as completed.</li>
+                            <li>The workflow advances to the next step/person.</li>
+                            <li>When all required items are completed, the overall run is marked as completed.</li>
+                        </ul>
+
+                        <ol>
+                            <li>Navigate to <strong>My Tasks</strong>.</li>
+                            <li>Open the task assigned to you.</li>
+                            <li>Read the instructions and review any provided context.</li>
+                            <li>Complete the form fields and attachments.</li>
+                            <li>Click <strong>Submit</strong> to complete your step.</li>
+                        </ol>
+
+                        <div class="panel panel-warning">
+                            <div class="panel-title">Important</div>
+                            <p>Saving a draft does not complete the task. The workflow only moves forward once the form
+                                is
+                                submitted.</p>
+                        </div>
+                    </div>
+
+                    <div class="doc-section">
+                        <h2>5. Saving Drafts and Resuming Later</h2>
+                        <p>Some forms allow you to save progress and return later. This is useful when you are missing
+                            required information or
+                            waiting on details.</p>
+
+                        <ul>
+                            <li>Click <strong>Save Draft</strong> to store your progress.</li>
+                            <li>Your saved drafts appear under <strong>Your Pending Forms</strong>.</li>
+                            <li>Use <strong>Resume</strong> to continue where you left off.</li>
+                        </ul>
+
+                        <div class="panel panel-info">
+                            <div class="panel-title">Best Practices</div>
+                            <ul>
+                                <li>Save drafts if you are waiting on identifiers, names, approvals, or attachments.
+                                </li>
+                                <li>Submit as soon as possible for items in <strong>My Tasks</strong>, since they can
+                                    block
+                                    a run.</li>
+                                <li>Before submitting, scan for required fields and confirm uploads are complete.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="doc-section">
+                        <h2>6. Uploading Files</h2>
+                        <p>Some forms require file uploads, such as screenshots, approvals, exports, or supporting
+                            documents.</p>
+
+                        <ol>
+                            <li>Find the file upload field within the form.</li>
+                            <li>Select the file from your computer.</li>
+                            <li>Wait for the upload to complete.</li>
+                            <li>Continue completing the form and submit when ready.</li>
+                        </ol>
+
+                        <div class="panel panel-warning">
+                            <div class="panel-title">Avoid Submission Issues</div>
+                            <ul>
+                                <li>Do not submit the form until the upload finishes.</li>
+                                <li>If an upload fails, try again or save as draft and resume after refreshing.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="doc-section">
+                        <h2>7. Admin Guide</h2>
+
+                        <div class="panel panel-info">
+                            <div class="panel-title">Admin Responsibilities</div>
+                            <ul>
+                                <li>Maintain the Self Service catalog of standalone request forms.</li>
+                                <li>Edit forms that are used inside workflow templates (as permitted by governance).
+                                </li>
+                                <li>Ensure forms collect the minimum information required to fulfill a request.</li>
+                                <li>Review responses and take action (or route them to the correct team).</li>
+                            </ul>
+                        </div>
+
+                        <h3>7.1 Creating High-Quality Forms</h3>
+                        <ul>
+                            <li><strong>Use clear titles:</strong> “Add User to VPN” is better than “VPN Form”.</li>
+                            <li><strong>Write field labels like instructions:</strong> “Enter the user’s email address”
+                                instead of “Email”.</li>
+                            <li><strong>Keep required fields minimal:</strong> Mark fields required only when a
+                                submission
+                                is not actionable without them.</li>
+                            <li><strong>Group related questions:</strong> Put identity fields together, request details
+                                together, attachments together.</li>
+                            <li><strong>Include validation hints:</strong> If a field expects a format, communicate it
+                                in
+                                the label or helper text.</li>
+                        </ul>
+
+                        <h3>7.2 Managing the Self Service Catalog</h3>
+                        <p>Self Service forms should represent standalone requests. If a process requires multiple
+                            contributors, approvals, or sequencing,
+                            it should be modeled as a workflow and surfaced to users through <strong>My Tasks</strong>.
+                        </p>
+
+                        <div class="panel panel-success">
+                            <div class="panel-title">Catalog Hygiene</div>
+                            <ul>
+                                <li>Retire old forms rather than keeping duplicates.</li>
+                                <li>Standardize naming conventions across departments.</li>
+                                <li>Review popular forms periodically and simplify where possible.</li>
+                            </ul>
+                        </div>
+
+                        <h3>7.3 Editing Forms Used in Workflow Templates</h3>
+                        <p>Workflow templates can contain forms. These forms are editable from the Self Service section
+                            by
+                            admins.
+                            Changes typically affect how future users see and complete that step.</p>
+
+                        <div class="panel panel-warning">
+                            <div class="panel-title">Change Control</div>
+                            <ul>
+                                <li>Avoid major field changes to forms that are actively used in running processes.</li>
+                                <li>Prefer additive changes (new optional fields) over breaking changes
+                                    (renaming/removing
+                                    required fields).</li>
+                                <li>If your organization requires auditability, document the reason for changes and the
+                                    effective date.</li>
+                            </ul>
+                        </div>
+
+                        <h3>7.4 Reviewing Responses</h3>
+                        <p>Admins can review submitted data in the <strong>Responses</strong> section. Responses may
+                            come
+                            from standalone Self Service requests or
+                            from My Tasks (workflow step submissions). They may look similar, but their operational
+                            meaning
+                            differs.</p>
+
+                        <ul>
+                            <li><strong>Self Service responses</strong>: independent requests to fulfill.</li>
+                            <li><strong>My Tasks responses</strong>: completion of a run item within a workflow process.
+                            </li>
+                        </ul>
+
+                        <h3>7.5 Handling Incomplete or Incorrect Submissions</h3>
+                        <ul>
+                            <li>If critical information is missing, follow your internal process for requesting
+                                clarification.</li>
+                            <li>If a submission is invalid (wrong user, wrong system), document the reason and close or
+                                reroute.</li>
+                            <li>If the issue is a form design problem, update the form to prevent repeat mistakes.</li>
+                        </ul>
+                    </div>
+
+                    <div class="doc-section">
+                        <h2>8. Developer Guide</h2>
+                        <p>This section is for developers integrating with forms, extending behavior, or building
+                            automations around submissions.
+                            It focuses on how to design reliable integrations without exposing implementation details.
+                        </p>
+
+                        <div class="panel panel-info">
+                            <div class="panel-title">Integration Use Cases</div>
+                            <ul>
+                                <li>Create a form-driven request that triggers an external system action (ticket, user
+                                    provisioning, access grant).</li>
+                                <li>Sync responses into a reporting or audit system.</li>
+                                <li>Validate or enrich submitted fields using reference data (users, systems,
+                                    departments).
+                                </li>
+                                <li>Automate downstream processing based on the form type and response content.</li>
+                            </ul>
+                        </div>
+
+                        <h3>8.1 Recommended Data Contract</h3>
+                        <p>When integrating, treat a form submission as a structured payload that includes:</p>
+                        <ul>
+                            <li><strong>Form identifier</strong> (which form was submitted)</li>
+                            <li><strong>Submitter identity</strong> (who submitted it)</li>
+                            <li><strong>Timestamp</strong> (when it was submitted)</li>
+                            <li><strong>Response values</strong> (field-value pairs)</li>
+                            <li><strong>Attachments</strong> (if present)</li>
+                            <li><strong>Context</strong> (Self Service request vs My Tasks workflow item)</li>
+                        </ul>
+
+                        <div class="panel panel-warning">
+                            <div class="panel-title">Stability Guidelines</div>
+                            <ul>
+                                <li>Key integrations should rely on stable identifiers (form ID, field ID), not
+                                    human-facing
+                                    labels.</li>
+                                <li>Assume labels can change; identifiers should not.</li>
+                                <li>Be resilient to additive changes (new fields) and ignore unknown fields safely.</li>
+                            </ul>
+                        </div>
+
+                        <h3>8.2 Events and Automation Hooks (If Enabled)</h3>
+                        <p>Depending on your environment, forms may trigger events such as:</p>
+                        <ul>
+                            <li>Draft saved</li>
+                            <li>Form submitted (Self Service)</li>
+                            <li>Task form submitted (My Tasks)</li>
+                            <li>Attachment uploaded</li>
+                        </ul>
+
+                        <p>If your platform supports webhooks or event subscriptions, use them for near real-time
+                            processing. Otherwise, use scheduled polling
+                            against the response store (as permitted by your environment).</p>
+
+                        <h3>8.3 Security and Permissions</h3>
+                        <ul>
+                            <li>End users should only be able to submit responses for forms they are eligible to access.
+                            </li>
+                            <li>Admins can view responses for operational processing and audit needs.</li>
+                            <li>Superadmins may have additional configuration access; keep integration credentials
+                                restricted.</li>
+                        </ul>
+
+                        <div class="panel panel-success">
+                            <div class="panel-title">Developer Best Practices</div>
+                            <ul>
+                                <li>Log processing outcomes per submission (success, failure, retryable).</li>
+                                <li>Implement idempotency so a submission does not trigger duplicate external actions.
+                                </li>
+                                <li>Store a reference to the processed submission to support audit and troubleshooting.
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="doc-section">
+                        <h2>9. FAQs</h2>
+
+                        <details class="accordion">
+                            <summary>I don’t see any available forms in Self Service.</summary>
+                            <div class="accordion-content">
+                                <p>This usually means there are no standalone request forms available to your role right
+                                    now, or access is restricted.
+                                    Some forms may only appear when assigned as part of a workflow under <strong>My
+                                        Tasks</strong>.</p>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>I don’t see anything in My Tasks.</summary>
+                            <div class="accordion-content">
+                                <p>You may not currently be assigned any workflow items. My Tasks only shows forms when
+                                    you
+                                    are assigned a step
+                                    in a run.</p>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>I can’t submit a form.</summary>
+                            <div class="accordion-content">
+                                <ul>
+                                    <li>Confirm all required fields are completed.</li>
+                                    <li>Check that uploads (if any) finished successfully.</li>
+                                    <li>Save as draft, refresh the page, and resume if the issue persists.</li>
+                                </ul>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>What’s the difference between submitting in Self Service and My Tasks?</summary>
+                            <div class="accordion-content">
+                                <p>Self Service submissions are standalone requests. My Tasks submissions complete your
+                                    assigned step inside a workflow run.
+                                    A workflow run can only complete after all required tasks are submitted by the
+                                    assigned
+                                    users.</p>
+                            </div>
+                        </details>
+                    </div>
+
+                </div>
+            </main>
+    </body>
+
+</html>

@@ -23,9 +23,13 @@ const { initCronJobs } = require("./cron");
 const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./swagger_output.json");
 
+const path = require("path");
+
 const app = express();
 
 app.set("trust proxy", 1);
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -43,7 +47,23 @@ const submitLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many submissions, please slow down." },
 });
-app.use(helmet());
+
+// Use Helmet with relaxed frame-ancestors to allow embedding the docs
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        // Adjust this later if you want to restrict embedding to specific third-party domains
+        "frame-ancestors": ["'self'", "*"], 
+      },
+    },
+    crossOriginResourcePolicy: false,
+  })
+);
+// Make sure X-Frame-Options legacy header doesn't block CSP frame-ancestors
+app.use(helmet.xFrameOptions({ action: 'sameorigin' }));
+
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 app.use(express.json({ limit: "1mb" }));
 app.use(
@@ -140,6 +160,36 @@ app.get("/api/health", async (req, res) => {
       error: err.message,
     });
   }
+});
+
+// Serve Documentation Views
+app.get("/docs", (req, res) => {
+  const hostUrl = process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`;
+  res.render("docs", {
+    title: "Platform API & Component Documentation",
+    version: process.env.APP_VERSION || "1.0.0",
+    hostUrl,
+  });
+});
+
+app.get("/docs/getting-started", (req, res) => {
+  res.render("pages/getting-started");
+});
+
+app.get("/docs/authentication", (req, res) => {
+  res.render("pages/auth");
+});
+
+app.get("/docs/forms", (req, res) => {
+  res.render("pages/forms");
+});
+
+app.get("/docs/workflows", (req, res) => {
+  res.render("pages/workflows");
+});
+
+app.get("/docs/responses", (req, res) => {
+  res.render("pages/responses");
 });
 
 app.get("/api/verify", (req, res) => {

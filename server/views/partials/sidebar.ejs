@@ -1,0 +1,36 @@
+<nav class="sidebar">
+    <div class="sidebar-brand">
+        Automation Portal<br>
+        <div class="sub-header">Technical Documentation</div>
+    </div>
+
+    <div class="nav-section">
+        <div class="nav-section-title">Overview</div>
+        <ul class="nav-menu">
+            <li class="nav-item"><a href="/docs" class="<%= activePage === 'intro' ? 'active' : '' %>">Introduction</a>
+            </li>
+            <li class="nav-item"><a href="/docs/getting-started"
+                    class="<%= activePage === 'getting-started' ? 'active' : '' %>">Getting Started</a></li>
+        </ul>
+    </div>
+
+    <div class="nav-section">
+        <div class="nav-section-title">Features</div>
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <a href="/docs/authentication" class="<%= activePage === 'auth' ? 'active' : '' %>">Authentication</a>
+            </li>
+            <li class="nav-item">
+                <a href="/docs/forms"
+                    class="<%= activePage === 'self-service' || activePage === 'forms' ? 'active' : '' %>">Forms
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/docs/workflows" class="<%= activePage === 'workflows' ? 'active' : '' %>">Workflows</a>
+            </li>
+            <li class="nav-item">
+                <a href="/docs/responses" class="<%= activePage === 'responses' ? 'active' : '' %>">Responses</a>
+            </li>
+        </ul>
+    </div>
+</nav>

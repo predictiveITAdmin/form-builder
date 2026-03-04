@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('../partials/head', { title: 'Workflows & Action Routing' }) %>
+
+    <body>
+        <%- include('../partials/sidebar', { activePage: 'workflows' }) %>
+
+            <main class="main-content">
+                <div class="content-container">
+
+                    <!-- Hero -->
+                    <section class="hero-banner">
+                        <span class="badge">Module</span>
+                        <h1>Workflows</h1>
+                        <p>
+                            Workflows are <strong>Templates</strong> that define repeatable processes by attaching one
+                            or more
+                            <strong>Forms</strong>. Launching a template creates a <strong>Run</strong>. A Run generates
+                            assignable
+                            <strong>Items</strong> (task units) that appear in <strong>My Tasks</strong> for assigned
+                            users.
+                        </p>
+                    </section>
+
+                    <ul class="breadcrumbs">
+                        <li><a href="/docs">Docs</a></li>
+                        <li class="current">Workflows</li>
+                    </ul>
+
+                    <!-- Overview -->
+                    <section class="doc-section" id="workflows-overview">
+                        <h2>Overview</h2>
+
+                        <div class="panel panel-info">
+                            <div class="panel-title">What this module does</div>
+                            <p>
+                                The Workflows module provides controlled execution of multi-step operational processes
+                                inside the Automation Portal.
+                                Admins define <strong>Workflow Templates</strong>, attach <strong>Forms</strong>, and
+                                create <strong>Runs</strong>.
+                                Runs generate <strong>Items</strong> that are assigned to specific users and completed
+                                through form submissions.
+                            </p>
+                        </div>
+
+                        <div class="panel panel-warning">
+                            <div class="panel-title">Template changes do not affect existing runs</div>
+                            <p>
+                                When a run is created, it “locks in” the template’s structure at that moment.
+                                Template updates apply only to <strong>new runs</strong>. Existing runs remain unchanged
+                                for auditability and consistency.
+                                Yes, that means your past decisions are preserved forever.
+                            </p>
+                        </div>
+
+                        <h3>What it solves</h3>
+                        <ul>
+                            <li><strong>Standardization:</strong> run the same process the same way every time.</li>
+                            <li><strong>Accountability:</strong> work is assigned, tracked, and completed explicitly.
+                            </li>
+                            <li><strong>Admin visibility:</strong> admins can see progress across users without needing
+                                status pings.</li>
+                            <li><strong>Scalability:</strong> repeatable items allow the same step to be performed
+                                multiple times within a single run.</li>
+                        </ul>
+                    </section>
+
+
+
+                    <!-- Key Concepts -->
+                    <section class="doc-section" id="workflows-key-concepts">
+                        <h2>Key Concepts</h2>
+
+                        <details class="accordion" open>
+                            <summary>Core entities</summary>
+                            <div class="accordion-content">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Entity</th>
+                                            <th>What it is</th>
+                                            <th>Who manages it</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Workflow Template</strong></td>
+                                            <td>Reusable definition of a process (metadata + attached forms)</td>
+                                            <td>Admin</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Template Form Attachment</strong></td>
+                                            <td>Configuration tying a form to a template (required, repeatable,
+                                                ordering)</td>
+                                            <td>Admin</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Run</strong></td>
+                                            <td>One execution instance created from a template</td>
+                                            <td>Admin</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Item</strong></td>
+                                            <td>Assignable unit of work inside a run (what users complete)</td>
+                                            <td>Admin assigns, user completes</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>Repeatable forms</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    A repeatable form is a template attachment with <strong>Allow Multiple</strong>
+                                    enabled.
+                                    This allows multiple items of the same form to exist in a single run.
+                                </p>
+                                <ul>
+                                    <li>Each item can be assigned to a different user.</li>
+                                    <li>Admins can add more items later using <strong>Add Another</strong>.</li>
+                                    <li>If a run is <strong>locked</strong>, new repeat items cannot be created.</li>
+                                </ul>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>Completion rules</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    A run is considered complete when <strong>all required items</strong> are either:
+                                </p>
+                                <ul>
+                                    <li><strong>Submitted</strong> (form response completed), or</li>
+                                    <li><strong>Skipped</strong> (explicitly skipped by admin controls)</li>
+                                </ul>
+
+                                <div class="panel panel-warning">
+                                    <div class="panel-title">Important</div>
+                                    <p>
+                                        “Not assigned” and “not started” are not completion states.
+                                        If a required item exists, it must be completed or skipped.
+                                    </p>
+                                </div>
+                            </div>
+                        </details>
+                    </section>
+
+                    <!-- Architecture -->
+                    <section class="doc-section" id="workflows-architecture">
+                        <h2>Architecture</h2>
+                        <div class="panel panel-info">
+                            <div class="panel-title">Mental model</div>
+                            <p>
+                                <strong>Template</strong> = blueprint • <strong>Run</strong> = execution instance •
+                                <strong>Item</strong> = assigned task •
+                                <strong>My Tasks</strong> = user inbox
+                            </p>
+                        </div>
+
+
+
+                        <details class="accordion" open>
+                            <summary>High-level flow</summary>
+                            <div class="accordion-content">
+                                <ol>
+                                    <li><strong>Admin creates a template</strong> and attaches forms.</li>
+                                    <li><strong>Admin creates a run</strong> from the template.</li>
+                                    <li><strong>System generates initial items</strong> based on attached forms.</li>
+                                    <li><strong>Admin assigns items</strong> to users.</li>
+                                    <li><strong>Users complete items</strong> by submitting form responses.</li>
+                                    <li><strong>Admin monitors progress</strong> and manages lifecycle actions.</li>
+                                </ol>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>Visibility model</summary>
+                            <div class="accordion-content">
+                                <ul>
+                                    <li><strong>Users</strong> see only items assigned to them in <strong>My
+                                            Tasks</strong>.</li>
+                                    <li><strong>Admins</strong> see the full run: items, assignments, progress, status,
+                                        and controls.</li>
+                                </ul>
+                                <div class="panel panel-warning">
+                                    <div class="panel-title">Backend enforcement</div>
+                                    <p>
+                                        This must be enforced server-side. Hiding buttons is not security, it’s theater.
+                                    </p>
+                                </div>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>Status model (Run + Item)</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    Status values should be consistent across UI and API so reporting and lifecycle
+                                    logic stay predictable.
+                                </p>
+
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Object</th>
+                                            <th>Status</th>
+                                            <th>Meaning</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Run</strong></td>
+                                            <td>Active</td>
+                                            <td>Run is ongoing and items can be completed</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Run</strong></td>
+                                            <td>Locked</td>
+                                            <td>Run is active but cannot create new repeat items</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Run</strong></td>
+                                            <td>Completed</td>
+                                            <td>All required items are submitted or skipped</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Run</strong></td>
+                                            <td>Cancelled</td>
+                                            <td>Run terminated by admin</td>
+                                        </tr>
+
+                                        <tr>
+                                            <td><strong>Item</strong></td>
+                                            <td>Pending</td>
+                                            <td>Item exists but not started</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Item</strong></td>
+                                            <td>In Progress</td>
+                                            <td>Item started by admin/user action</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Item</strong></td>
+                                            <td>Submitted</td>
+                                            <td>Form response submitted successfully</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Item</strong></td>
+                                            <td>Skipped</td>
+                                            <td>Item skipped by admin action</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+                    </section>
+
+                    <!-- Admin Guide -->
+                    <section class="doc-section" id="workflows-admin-guide">
+                        <h2>Admin Guide</h2>
+
+                        <details class="accordion" open>
+                            <summary>Workflow Templates screen</summary>
+                            <div class="accordion-content">
+                                <ul>
+                                    <li>Navigate to <strong>Workflows</strong> to view templates.</li>
+                                    <li>Select <strong>Create Workflow</strong> to define a new template.</li>
+                                    <li>Templates should be set to <strong>Inactive</strong> instead of deleted when
+                                        history matters.</li>
+                                </ul>
+                            </div>
+                        </details>
+
+                        <details class="accordion" open>
+                            <summary>Template detail layout</summary>
+                            <div class="accordion-content">
+                                <ul>
+                                    <li><strong>Left panel:</strong> template form attachments (configuration).</li>
+                                    <li><strong>Right panel:</strong> list of runs created from this template (execution
+                                        history).</li>
+                                </ul>
+
+                                <div>
+                                    <div class="panel-title">Form attachment settings</div>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Setting</th>
+                                                <th>What it controls</th>
+                                                <th>Why it matters</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><strong>Select Form</strong></td>
+                                                <td>The form being attached</td>
+                                                <td>Defines what users will complete</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Default item name</strong></td>
+                                                <td>Label shown for items created from this attachment</td>
+                                                <td>Improves clarity in My Tasks and run tracking</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Required</strong></td>
+                                                <td>Whether the item must be completed or skipped</td>
+                                                <td>Drives run completion rules</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Allow Multiple</strong></td>
+                                                <td>Whether repeatable items can be created</td>
+                                                <td>Enables “Add Another” for scalable steps</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Sort Order</strong></td>
+                                                <td>Display order in run view</td>
+                                                <td>Makes run readable and consistent</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </details>
+
+                        <details class="accordion" open>
+                            <summary>Create and manage Runs</summary>
+                            <div class="accordion-content">
+                                <ol>
+                                    <li>Open a workflow template.</li>
+                                    <li>Select <strong>Create Run</strong>.</li>
+                                    <li>System generates initial items based on template attachments.</li>
+                                    <li>Assign items to users to make them appear in <strong>My Tasks</strong>.</li>
+                                </ol>
+
+                                <div class="panel panel-success">
+                                    <div class="panel-title">Run-level admin controls</div>
+                                    <ul>
+                                        <li><strong>Email Submitter:</strong> send status updates to run initiator.</li>
+                                        <li><strong>Lock Run:</strong> prevents creation of new repeat items.</li>
+                                        <li><strong>Cancel Run:</strong> terminates the run (recommended to capture a
+                                            reason).</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>Item actions within a Run</summary>
+                            <div class="accordion-content">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Action</th>
+                                            <th>Effect</th>
+                                            <th>Notes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Assign User</strong></td>
+                                            <td>Sets assignee</td>
+                                            <td>Assignment controls visibility in My Tasks</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Start</strong></td>
+                                            <td>Marks in progress</td>
+                                            <td>Optional but useful for tracking</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Skip</strong></td>
+                                            <td>Marks skipped</td>
+                                            <td>Counts toward completion for required items</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Add Another</strong></td>
+                                            <td>Creates additional item instance</td>
+                                            <td>Only allowed if repeatable and run not locked</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+                    </section>
+
+                    <!-- User Guide -->
+                    <section class="doc-section" id="workflows-user-guide">
+                        <h2>User Guide</h2>
+
+                        <details class="accordion" open>
+                            <summary>My Tasks: where users work</summary>
+                            <div class="accordion-content">
+                                <ol>
+                                    <li>Go to <strong>My Tasks</strong>.</li>
+                                    <li>Select an assigned item.</li>
+                                    <li>Complete the associated form.</li>
+                                    <li>Submit your response.</li>
+                                </ol>
+
+                                <div class="panel panel-info">
+                                    <div class="panel-title">What users can and can’t do</div>
+                                    <ul>
+                                        <li><strong>Users can:</strong> complete assigned items and submit forms.</li>
+                                        <li><strong>Users cannot:</strong> change templates, create runs, reassign
+                                            items, lock/cancel runs.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>Repeatable items (from a user perspective)</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    Repeatable forms may produce multiple similar items within the same run. You’ll only
+                                    see the items assigned to you.
+                                    If another repeat item is created and assigned to you later, it will appear as a new
+                                    task.
+                                </p>
+                            </div>
+                        </details>
+                    </section>
+
+                    <!-- Developer Documentation -->
+                    <section class="doc-section" id="workflows-developer-docs">
+                        <h2>Developer Documentation</h2>
+
+                        <details class="accordion" open>
+                            <summary>Responsibilities (what the system must enforce)</summary>
+                            <div class="accordion-content">
+                                <ul>
+                                    <li><strong>Template CRUD:</strong> create/edit templates with Active/Inactive
+                                        status</li>
+                                    <li><strong>Template attachments:</strong> attach forms with
+                                        required/repeatable/sort order/default name</li>
+                                    <li><strong>Run creation:</strong> snapshot template attachments into run + initial
+                                        items</li>
+                                    <li><strong>Item assignment:</strong> assigned_user_id drives My Tasks visibility
+                                    </li>
+                                    <li><strong>Item actions:</strong> assign/start/skip/add-repeat with rules enforced
+                                    </li>
+                                    <li><strong>Completion computation:</strong> required items submitted or skipped
+                                    </li>
+                                    <li><strong>Admin-only controls:</strong> lock/cancel/email tracking enforced by
+                                        RBAC</li>
+                                </ul>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>Data mapping (DB tables)</summary>
+                            <div class="accordion-content">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Table</th>
+                                            <th>Role</th>
+                                            <th>Key relationships</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>workflows</strong></td>
+                                            <td>Template metadata</td>
+                                            <td>Referenced by workflow_forms and workflow_runs</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>workflow_forms</strong></td>
+                                            <td>Template ↔ Form attachments</td>
+                                            <td>Referenced by workflow_items</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>workflow_runs</strong></td>
+                                            <td>Run instance</td>
+                                            <td>Parent of workflow_items</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>workflow_items</strong></td>
+                                            <td>Assignable work units</td>
+                                            <td>Assigned to users, tied to a run and attachment</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+
+                                <div class="panel panel-warning">
+                                    <div class="panel-title">Immutability rule</div>
+                                    <p>
+                                        Do not “rebuild” run items if a template changes. Runs are historical execution
+                                        snapshots.
+                                    </p>
+                                </div>
+                            </div>
+                        </details>
+                    </section>
+
+                    <!-- Security -->
+                    <section class="doc-section" id="workflows-security">
+                        <h2>Security & Permissions</h2>
+
+                        <div class="panel panel-warning">
+                            <div class="panel-title">Admin-only vs User operations</div>
+                            <p>
+                                Users complete assigned items. Admins control templates, runs, assignments, and
+                                lifecycle.
+                                Enforce permissions at the API layer. UI hiding is not permission enforcement.
+                            </p>
+                        </div>
+
+                        <details class="accordion" open>
+                            <summary>Admin permissions</summary>
+                            <div class="accordion-content">
+                                <ul>
+                                    <li>Create/edit templates</li>
+                                    <li>Attach/configure forms (required/repeatable/order/default naming)</li>
+                                    <li>Create runs</li>
+                                    <li>Assign items to users</li>
+                                    <li>Lock/cancel runs</li>
+                                    <li>Email submitter / initiator</li>
+                                    <li>View run-wide progress and item history</li>
+                                </ul>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>User permissions</summary>
+                            <div class="accordion-content">
+                                <ul>
+                                    <li>View assigned items in My Tasks</li>
+                                    <li>Open item and submit response</li>
+                                    <li>View their own submission history (if allowed)</li>
+                                </ul>
+                            </div>
+                        </details>
+                    </section>
+
+                    <!-- Troubleshooting -->
+                    <section class="doc-section" id="workflows-troubleshooting">
+                        <h2>Troubleshooting</h2>
+
+                        <details class="accordion" open>
+                            <summary>Common problems</summary>
+                            <div class="accordion-content">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Problem</th>
+                                            <th>Most likely cause</th>
+                                            <th>Fix</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Task missing in My Tasks</strong></td>
+                                            <td>Item is unassigned or assigned to someone else</td>
+                                            <td>Admin must assign the item to the correct user</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Add Another not available</strong></td>
+                                            <td>Form not repeatable OR run locked</td>
+                                            <td>Enable Allow Multiple, or unlock run if policy allows</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Run won’t complete</strong></td>
+                                            <td>Required item not submitted or skipped</td>
+                                            <td>Complete or skip the required item</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Template edit didn’t update current run</strong></td>
+                                            <td>By design</td>
+                                            <td>Create a new run to use the updated template</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+                    </section>
+
+                    <!-- FAQ -->
+                    <section class="doc-section" id="workflows-faq">
+                        <h2>FAQ</h2>
+
+                        <details class="accordion" open>
+                            <summary>Why didn’t my template edits update an existing run?</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    By design. Runs are snapshots of a template at the moment they were created.
+                                    If template changes retroactively altered active runs, you’d lose auditability and
+                                    consistency.
+                                </p>
+                                <div class="panel panel-info">
+                                    <div class="panel-title">What to do instead</div>
+                                    <p>
+                                        Create a <strong>new run</strong> after updating the template. Existing runs
+                                        remain unchanged.
+                                    </p>
+                                </div>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>Why can’t a user see a task in My Tasks?</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    My Tasks only shows items that are explicitly <strong>assigned</strong> to the
+                                    logged-in user.
+                                    If it’s missing, it’s almost always an assignment issue.
+                                </p>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Symptom</th>
+                                            <th>Likely cause</th>
+                                            <th>Fix</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Item not visible</td>
+                                            <td>Item not assigned</td>
+                                            <td>Admin must assign a user to the item</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Wrong user sees it</td>
+                                            <td>Assigned to someone else</td>
+                                            <td>Admin reassigns the item</td>
+                                        </tr>
+                                        <tr>
+                                            <td>User sees nothing</td>
+                                            <td>User has zero assigned items</td>
+                                            <td>Admin assigns at least one item in the run</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>What does “Allow Multiple” actually do?</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    <strong>Allow Multiple</strong> makes a form attachment repeatable within a run.
+                                    That means the run can contain <strong>multiple items</strong> based on the same
+                                    form.
+                                </p>
+                                <ul>
+                                    <li>Admins can create extra instances using <strong>Add Another</strong>.</li>
+                                    <li>Each item can be assigned to different users.</li>
+                                    <li>If a run is locked, new repeat items cannot be created.</li>
+                                </ul>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>Why is “Add Another” disabled?</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    “Add Another” is only allowed when the form attachment is repeatable and the run is
+                                    not locked.
+                                </p>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Reason</th>
+                                            <th>Meaning</th>
+                                            <th>Resolution</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Form not repeatable</td>
+                                            <td>Allow Multiple is off</td>
+                                            <td>Enable Allow Multiple on the template attachment</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Run is locked</td>
+                                            <td>Repeat creation disabled intentionally</td>
+                                            <td>Unlock run (if policy allows) or create a new run</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>When is a run considered “completed”?</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    A run is complete when <strong>all required items</strong> are either:
+                                </p>
+                                <ul>
+                                    <li><strong>Submitted</strong> (form response completed), or</li>
+                                    <li><strong>Skipped</strong> (explicitly skipped by admin)</li>
+                                </ul>
+
+                                <div class="panel panel-warning">
+                                    <div class="panel-title">Common reason runs don’t complete</div>
+                                    <p>
+                                        A required item exists but is still pending. “Not started” does not count as
+                                        completion.
+                                    </p>
+                                </div>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>Can users assign tasks to other users?</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    No. Assignment is an <strong>admin-controlled</strong> operation.
+                                    Users only complete what is assigned to them.
+                                </p>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>What happens if a run is cancelled?</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    Cancelling a run ends the workflow execution early. Items should be treated as
+                                    non-actionable after
+                                    cancellation.
+                                </p>
+                                <div class="panel panel-info">
+                                    <div class="panel-title">Recommendation</div>
+                                    <p>
+                                        Capture a cancellation reason to preserve operational context and prevent “why
+                                        did this stop?”
+                                        archaeology later.
+                                    </p>
+                                </div>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>Can a run have items assigned to multiple people at once?</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    A single item is assigned to one user at a time, but a run can contain many items,
+                                    and those items can be distributed across multiple users.
+                                </p>
+                            </div>
+                        </details>
+
+                        <details class="accordion">
+                            <summary>Can a user see the full run?</summary>
+                            <div class="accordion-content">
+                                <p>
+                                    No. Users only see the items assigned to them in <strong>My Tasks</strong>.
+                                    Admins have full visibility into the run lifecycle and all items.
+                                </p>
+                            </div>
+                        </details>
+                    </section>
+
+                </div>
+            </main>
+    </body>
+
+</html>
