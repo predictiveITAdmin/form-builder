@@ -3,7 +3,7 @@
 <%- include('../partials/head', { title: 'Authentication & Security' }) %>
 
     <body>
-        <%- include('../partials/sidebar', { activePage: 'configuration' }) %>
+        <%- include('../partials/sidebar', { activePage: 'authentication' }) %>
 
             <main class="main-content">
                 <div class="content-container">
@@ -14,6 +14,11 @@
                         <p>Learn how users sign in, how invitations work, and how roles and permissions control access
                             across the portal.</p>
                     </header>
+
+                    <ul class="breadcrumbs">
+                        <li><a href="/docs">Docs</a></li>
+                        <li class="current">Authentication</li>
+                    </ul>
 
                     <div class="panel panel-info">
                         <div class="panel-title">Quick Summary</div>
