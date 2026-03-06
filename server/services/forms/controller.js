@@ -423,6 +423,7 @@ async function triggerOptionsProcessing(req, res, next) {
       formKey,
       fieldId,
       jobId,
+      queryParams: req.query,
       callbackUrl: `${process.env.APP_BASE_URL}/api/forms/webhooks/options-callback`,
       callbackAuth: {
         jobId,

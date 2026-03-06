@@ -239,9 +239,12 @@ export const triggerOptionsProcessing = createAsyncThunk(
   async ({ formKey, fieldId, dep_field, dep_value }, { rejectWithValue }) => {
     try {
 
-      const response = await http.post(
-        `/api/forms/${formKey}/fields/${fieldId}/options?${dep_field}=${dep_value}`,
-      );
+      let url = `/api/forms/${formKey}/fields/${fieldId}/options`;
+      if (dep_field) {
+        url += `?${dep_field}=${encodeURIComponent(dep_value)}`;
+      }
+
+      const response = await http.post(url);
 
       return response.data;
     } catch (err) {
